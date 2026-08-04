@@ -35,11 +35,12 @@ function Assignments() {
     enabled: Boolean(user && role),
     queryFn: async () => {
       if (isTeacher) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("assignments")
-          .select("id, title, subject, due_date, published, class_id, classes(name)")
+          .select("id, title, subject, due_date, published, archived, class_id, classes(name)")
           .eq("teacher_id", user!.id)
           .order("due_date", { ascending: true });
+        if (error) throw error;
         return { list: data ?? [], byAssignment: new Map<string, { status: string }>() };
       }
       const { data: m } = await supabase
@@ -50,9 +51,10 @@ function Assignments() {
       const { data } = ids.length
         ? await supabase
             .from("assignments")
-            .select("id, title, subject, due_date, published, class_id, classes(name)")
+            .select("id, title, subject, due_date, published, archived, class_id, classes(name)")
             .in("class_id", ids)
             .eq("published", true)
+            .eq("archived", false)
             .order("due_date", { ascending: true })
         : { data: [] };
       const { data: subs } = await supabase
@@ -70,12 +72,13 @@ function Assignments() {
   const statusOf = (id: string) =>
     (q.data?.byAssignment.get(id)?.status ?? "not_started") as SubmissionStatus;
 
+  const live = list.filter((a) => !a.archived);
   const groups = {
-    upcoming: list.filter(
-      (a) => !DONE.includes(statusOf(a.id)) && daysLate(a.due_date) === 0,
-    ),
-    overdue: list.filter((a) => !DONE.includes(statusOf(a.id)) && daysLate(a.due_date) > 0),
-    done: list.filter((a) => DONE.includes(statusOf(a.id))),
+    upcoming: live.filter((a) => !DONE.includes(statusOf(a.id)) && daysLate(a.due_date) === 0),
+    overdue: live.filter((a) => !DONE.includes(statusOf(a.id)) && daysLate(a.due_date) > 0),
+    done: isTeacher
+      ? list.filter((a) => a.archived)
+      : live.filter((a) => DONE.includes(statusOf(a.id))),
   };
 
   function Grid({ items }: { items: typeof list }) {

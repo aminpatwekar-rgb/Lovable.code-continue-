@@ -11,10 +11,10 @@ export const Route = createFileRoute("/reset-password")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Reset password — Scriptio" },
-      { name: "description", content: "Choose a new password for your Scriptio account." },
-      { property: "og:title", content: "Reset password — Scriptio" },
-      { property: "og:description", content: "Set a new password for your Scriptio account." },
+      { title: "Reset password — ONYX" },
+      { name: "description", content: "Choose a new password for your ONYX account." },
+      { property: "og:title", content: "Reset password — ONYX" },
+      { property: "og:description", content: "Set a new password for your ONYX account." },
       { name: "robots", content: "noindex" },
     ],
   }),

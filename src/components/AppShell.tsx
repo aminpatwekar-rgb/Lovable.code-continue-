@@ -83,9 +83,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="space-y-6">
           <Link to="/dashboard" className="flex items-center gap-2 px-2 py-1">
             <span className="brand-gradient flex size-8 items-center justify-center rounded-lg text-sm font-bold text-primary-foreground">
-              S
+              O
             </span>
-            <span className="text-sm font-semibold tracking-tight">Scriptio</span>
+            <span className="text-sm font-semibold tracking-tight">ONYX</span>
           </Link>
           {nav}
         </div>
@@ -113,9 +113,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="glass sticky top-0 z-40 flex items-center justify-between px-4 py-3 lg:hidden">
         <Link to="/dashboard" className="flex items-center gap-2">
           <span className="brand-gradient flex size-7 items-center justify-center rounded-md text-xs font-bold text-primary-foreground">
-            S
+            O
           </span>
-          <span className="text-sm font-semibold">Scriptio</span>
+          <span className="text-sm font-semibold">ONYX</span>
         </Link>
         <div className="flex gap-2">
           <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">

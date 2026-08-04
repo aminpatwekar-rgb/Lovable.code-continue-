@@ -20,12 +20,12 @@ export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
   head: () => ({
     meta: [
-      { title: "Sign in — Scriptio" },
+      { title: "Sign in — ONYX" },
       {
         name: "description",
-        content: "Sign in or create a student or teacher account on Scriptio.",
+        content: "Sign in or create a student or teacher account on ONYX.",
       },
-      { property: "og:title", content: "Sign in — Scriptio" },
+      { property: "og:title", content: "Sign in — ONYX" },
       { property: "og:description", content: "Access your classes, assignments and submissions." },
     ],
   }),
@@ -81,7 +81,7 @@ function AuthPage() {
           toast.success("Check your email to confirm your account.");
           return;
         }
-        toast.success("Welcome to Scriptio");
+        toast.success("Welcome to ONYX");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email: parsed.data.email,
@@ -130,9 +130,9 @@ function AuthPage() {
       >
         <Link to="/" className="mb-6 flex items-center gap-2">
           <span className="brand-gradient flex size-8 items-center justify-center rounded-lg text-sm font-bold text-primary-foreground">
-            S
+            O
           </span>
-          <span className="font-semibold tracking-tight">Scriptio</span>
+          <span className="font-semibold tracking-tight">ONYX</span>
         </Link>
 
         {sent ? (
@@ -160,7 +160,7 @@ function AuthPage() {
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {mode === "signup"
-                ? "Choose how you'll use Scriptio."
+                ? "Choose how you'll use ONYX."
                 : "Sign in to your classes and assignments."}
             </p>
 
@@ -253,7 +253,7 @@ function AuthPage() {
             </Button>
 
             <p className="mt-6 text-center text-sm text-muted-foreground">
-              {mode === "signup" ? "Already have an account?" : "New to Scriptio?"}{" "}
+              {mode === "signup" ? "Already have an account?" : "New to ONYX?"}{" "}
               <button
                 type="button"
                 className="font-medium text-primary hover:underline"

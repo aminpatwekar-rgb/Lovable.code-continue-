@@ -21,12 +21,12 @@ import { daysLate, formatDue, type SubmissionStatus } from "@/lib/assignments";
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard — Scriptio" },
+      { title: "Dashboard — ONYX" },
       {
         name: "description",
         content: "Your assignments, deadlines, submissions and completion progress at a glance.",
       },
-      { property: "og:title", content: "Dashboard — Scriptio" },
+      { property: "og:title", content: "Dashboard — ONYX" },
       { property: "og:description", content: "Track upcoming, overdue and completed work." },
       { name: "robots", content: "noindex" },
     ],
@@ -74,6 +74,7 @@ function Dashboard() {
           .from("assignments")
           .select("id, title, due_date, class_id")
           .eq("teacher_id", user!.id)
+          .eq("archived", false)
           .order("due_date", { ascending: true }),
       ]);
       const aIds = (assignments ?? []).map((a) => a.id);
@@ -104,6 +105,7 @@ function Dashboard() {
             .select("id, title, subject, due_date, priority, max_marks, class_id, classes(name)")
             .in("class_id", classIds)
             .eq("published", true)
+            .eq("archived", false)
             .order("due_date", { ascending: true })
         : { data: [] };
       const { data: subs } = await supabase

@@ -16,13 +16,13 @@ import { useTheme } from "@/lib/theme";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Scriptio — Handwriting-First Assignment Submission & Tracking" },
+      { title: "ONYX — Handwriting-First Assignment Submission & Tracking" },
       {
         name: "description",
         content:
           "A handwriting-first assignment platform for schools and colleges. Create classes, set assignments, submit scanned or locked typed work, and review with marks and feedback.",
       },
-      { property: "og:title", content: "Scriptio — Handwriting-First Assignment Platform" },
+      { property: "og:title", content: "ONYX — Handwriting-First Assignment Platform" },
       {
         property: "og:description",
         content:
@@ -64,9 +64,9 @@ function Landing() {
       <header className="glass sticky top-0 z-40 mx-auto flex max-w-6xl items-center justify-between rounded-b-2xl px-5 py-3">
         <div className="flex items-center gap-2">
           <span className="brand-gradient flex size-8 items-center justify-center rounded-lg text-sm font-bold text-primary-foreground">
-            S
+            O
           </span>
-          <span className="font-semibold tracking-tight">Scriptio</span>
+          <span className="font-semibold tracking-tight">ONYX</span>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
@@ -95,7 +95,7 @@ function Landing() {
               <span className="text-display">modern</span> submission flow.
             </h1>
             <p className="mt-6 max-w-xl text-lg text-muted-foreground">
-              Scriptio gives teachers classes, assignments and review tools — and gives students a
+              ONYX gives teachers classes, assignments and review tools — and gives students a
               calm place to submit scanned pages or typed work that can't be pasted in.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -132,7 +132,7 @@ function Landing() {
       </main>
 
       <footer className="border-t border-border py-8 text-center text-sm text-muted-foreground">
-        Scriptio — assignment submission &amp; tracking.
+        ONYX — Online Network for Yielding Xcellence. Assignment submission &amp; tracking.
       </footer>
     </div>
   );

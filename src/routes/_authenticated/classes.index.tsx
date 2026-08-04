@@ -24,12 +24,12 @@ import {
 export const Route = createFileRoute("/_authenticated/classes/")({
   head: () => ({
     meta: [
-      { title: "Classes — Scriptio" },
+      { title: "Classes — ONYX" },
       {
         name: "description",
         content: "Create classes, share join codes, and manage your class rosters.",
       },
-      { property: "og:title", content: "Classes — Scriptio" },
+      { property: "og:title", content: "Classes — ONYX" },
       { property: "og:description", content: "Your classes and join codes in one place." },
       { name: "robots", content: "noindex" },
     ],

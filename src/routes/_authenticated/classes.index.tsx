@@ -21,7 +21,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-export const Route = createFileRoute("/_authenticated/classes")({
+export const Route = createFileRoute("/_authenticated/classes/")({
   head: () => ({
     meta: [
       { title: "Classes — Scriptio" },

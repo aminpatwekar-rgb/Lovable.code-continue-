@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { daysLate, formatDue, type SubmissionStatus } from "@/lib/assignments";
 import { StatusBadge } from "@/components/StatusBadge";
 import { TypedEditor, type ImageBlock } from "@/components/TypedEditor";
+import { AssignmentActions, type AssignmentRow } from "@/components/AssignmentActions";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,9 +18,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 export const Route = createFileRoute("/_authenticated/assignments/$assignmentId")({
   head: () => ({
     meta: [
-      { title: "Assignment — Scriptio" },
+      { title: "Assignment — ONYX" },
       { name: "description", content: "Assignment details, instructions and submission." },
-      { property: "og:title", content: "Assignment — Scriptio" },
+      { property: "og:title", content: "Assignment — ONYX" },
       { property: "og:description", content: "View instructions and submit your work." },
       { name: "robots", content: "noindex" },
     ],
@@ -34,6 +35,7 @@ function AssignmentPage() {
   const { user, role } = useAuth();
   const qc = useQueryClient();
   const isTeacher = role === "teacher" || role === "admin";
+  const submissionsRef = useRef<HTMLDivElement>(null);
 
   const assignment = useQuery({
     queryKey: ["assignment", assignmentId],
@@ -49,10 +51,32 @@ function AssignmentPage() {
   });
 
   if (assignment.isLoading) return <Skeleton className="h-72 w-full rounded-xl" />;
+  if (assignment.isError)
+    return (
+      <div className="panel p-6">
+        <p className="text-sm text-muted-foreground">We couldn't load this assignment.</p>
+        <Button className="mt-3" variant="outline" onClick={() => void assignment.refetch()}>
+          Try again
+        </Button>
+      </div>
+    );
   if (!assignment.data) return <p className="text-muted-foreground">Assignment not found.</p>;
 
   const a = assignment.data;
   const late = daysLate(a.due_date);
+
+  if (!isTeacher && (!a.published || a.archived))
+    return (
+      <div className="panel p-6">
+        <p className="text-sm text-muted-foreground">
+          This assignment isn't available right now. Your teacher may have unpublished or archived
+          it.
+        </p>
+        <Button asChild className="mt-3" variant="outline">
+          <Link to="/assignments">Back to assignments</Link>
+        </Button>
+      </div>
+    );
 
   return (
     <div className="space-y-8">
@@ -80,8 +104,22 @@ function AssignmentPage() {
               Draft
             </span>
           )}
+          {a.archived && (
+            <span className="rounded-full border border-border px-2 py-0.5">Archived</span>
+          )}
         </div>
-        <h1 className="text-3xl font-semibold">{a.title}</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-3xl font-semibold">{a.title}</h1>
+          {isTeacher && user && (
+            <AssignmentActions
+              assignment={a as unknown as AssignmentRow}
+              teacherId={user.id}
+              onViewSubmissions={() =>
+                submissionsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+            />
+          )}
+        </div>
         <p className="text-muted-foreground">
           Due {formatDue(a.due_date)} · {a.max_marks} marks
           {late > 0 && (
@@ -100,7 +138,9 @@ function AssignmentPage() {
       )}
 
       {isTeacher ? (
-        <TeacherView assignmentId={assignmentId} maxMarks={a.max_marks} />
+        <div ref={submissionsRef}>
+          <TeacherView assignmentId={assignmentId} maxMarks={a.max_marks} />
+        </div>
       ) : (
         <StudentSubmission
           assignment={{
@@ -119,17 +159,19 @@ function AssignmentPage() {
   );
 }
 
+
 function TeacherView({ assignmentId, maxMarks }: { assignmentId: string; maxMarks: number }) {
   const subs = useQuery({
     queryKey: ["assignment-subs", assignmentId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("submissions")
         .select(
-          "id, status, is_late, marks_awarded, submitted_at, paste_violation_count, student_id, profiles:student_id(full_name)",
+          "id, status, is_late, marks_awarded, submitted_at, paste_violation_count, student_id, profiles!submissions_student_profile_fkey(full_name)",
         )
         .eq("assignment_id", assignmentId)
         .order("submitted_at", { ascending: false });
+      if (error) throw error;
       return data ?? [];
     },
   });

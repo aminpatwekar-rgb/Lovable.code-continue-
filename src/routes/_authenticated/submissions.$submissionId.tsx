@@ -2,11 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Loader2, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { formatDue, type SubmissionStatus } from "@/lib/assignments";
 import { StatusBadge } from "@/components/StatusBadge";
+import { SubmissionComments } from "@/components/SubmissionComments";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,9 +17,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 export const Route = createFileRoute("/_authenticated/submissions/$submissionId")({
   head: () => ({
     meta: [
-      { title: "Review submission — Scriptio" },
+      { title: "Review submission — ONYX" },
       { name: "description", content: "Review a student submission, grade it and leave feedback." },
-      { property: "og:title", content: "Review submission — Scriptio" },
+      { property: "og:title", content: "Review submission — ONYX" },
       { property: "og:description", content: "Grade work and leave improvement notes." },
       { name: "robots", content: "noindex" },
     ],
@@ -42,7 +43,7 @@ function ReviewSubmission() {
       const { data: sub, error } = await supabase
         .from("submissions")
         .select(
-          "*, profiles:student_id(full_name, email), assignments(id, title, max_marks, class_id)",
+          "*, profiles!submissions_student_profile_fkey(full_name, email), assignments(id, title, max_marks, class_id)",
         )
         .eq("id", submissionId)
         .maybeSingle();
@@ -79,7 +80,7 @@ function ReviewSubmission() {
   }, [q.data, hydrated]);
 
   const grade = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (next?: "reviewed" | "returned") => {
       const max = q.data?.sub.assignments
         ? (q.data.sub.assignments as unknown as { max_marks: number }).max_marks
         : 100;
@@ -92,14 +93,15 @@ function ReviewSubmission() {
           marks_awarded: value,
           teacher_feedback: feedback.trim().slice(0, 4000) || null,
           improvement_notes: notes.trim().slice(0, 2000) || null,
-          status: "reviewed",
+          status: next ?? "reviewed",
           reviewed_at: new Date().toISOString(),
         })
         .eq("id", submissionId);
       if (error) throw error;
+      return next ?? "reviewed";
     },
-    onSuccess: () => {
-      toast.success("Feedback saved");
+    onSuccess: (status) => {
+      toast.success(status === "returned" ? "Returned to student" : "Feedback saved");
       void qc.invalidateQueries();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -233,9 +235,19 @@ function ReviewSubmission() {
               onChange={(e) => setNotes(e.target.value)}
             />
           </div>
-          <Button onClick={() => grade.mutate()} disabled={grade.isPending}>
-            Save review
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => grade.mutate()} disabled={grade.isPending}>
+              {grade.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
+              Save review
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => grade.mutate("returned")}
+              disabled={grade.isPending}
+            >
+              Return for changes
+            </Button>
+          </div>
         </section>
       ) : (
         sub.teacher_feedback && (
@@ -251,6 +263,8 @@ function ReviewSubmission() {
           </section>
         )
       )}
+
+      <SubmissionComments submissionId={submissionId} />
     </div>
   );
 }

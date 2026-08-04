@@ -41,6 +41,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "annotations_author_profile_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "annotations_submission_file_id_fkey"
             columns: ["submission_file_id"]
             isOneToOne: false
@@ -100,6 +107,7 @@ export type Database = {
           allow_images: boolean
           allow_links: boolean
           allow_voice_typing: boolean
+          archived: boolean
           class_id: string
           created_at: string
           description: string | null
@@ -123,6 +131,7 @@ export type Database = {
           allow_images?: boolean
           allow_links?: boolean
           allow_voice_typing?: boolean
+          archived?: boolean
           class_id: string
           created_at?: string
           description?: string | null
@@ -146,6 +155,7 @@ export type Database = {
           allow_images?: boolean
           allow_links?: boolean
           allow_voice_typing?: boolean
+          archived?: boolean
           class_id?: string
           created_at?: string
           description?: string | null
@@ -199,6 +209,13 @@ export type Database = {
             columns: ["class_id"]
             isOneToOne: false
             referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_members_student_profile_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -265,6 +282,13 @@ export type Database = {
           submission_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "comments_author_profile_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "comments_submission_id_fkey"
             columns: ["submission_id"]
@@ -477,6 +501,13 @@ export type Database = {
             columns: ["assignment_id"]
             isOneToOne: false
             referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submissions_student_profile_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

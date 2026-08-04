@@ -11,12 +11,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export const Route = createFileRoute("/_authenticated/assignments/")({
   head: () => ({
     meta: [
-      { title: "Assignments — Scriptio" },
+      { title: "Assignments — ONYX" },
       {
         name: "description",
         content: "Every assignment across your classes, grouped by upcoming, overdue and done.",
       },
-      { property: "og:title", content: "Assignments — Scriptio" },
+      { property: "og:title", content: "Assignments — ONYX" },
       { property: "og:description", content: "All your assignments in one list." },
       { name: "robots", content: "noindex" },
     ],

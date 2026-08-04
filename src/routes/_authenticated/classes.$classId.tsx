@@ -2,46 +2,47 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, Plus } from "lucide-react";
+import { ArrowLeft, Copy, Plus, UserMinus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { formatDue } from "@/lib/assignments";
+import { AssignmentDialog } from "@/components/AssignmentDialog";
+import { AssignmentActions, type AssignmentRow } from "@/components/AssignmentActions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/classes/$classId")({
   head: () => ({
     meta: [
-      { title: "Class — Scriptio" },
+      { title: "Class — ONYX" },
       { name: "description", content: "Class roster, assignments and join code." },
-      { property: "og:title", content: "Class — Scriptio" },
+      { property: "og:title", content: "Class — ONYX" },
       { property: "og:description", content: "Class roster and assignments." },
       { name: "robots", content: "noindex" },
     ],
   }),
   component: ClassDetail,
 });
+
+type Member = {
+  id: string;
+  joined_at: string;
+  student_id: string;
+  profiles: { full_name: string; email: string | null } | null;
+};
 
 function ClassDetail() {
   const { classId } = Route.useParams();
@@ -50,17 +51,6 @@ function ClassDetail() {
   const navigate = useNavigate();
   const isTeacher = role === "teacher" || role === "admin";
   const [open, setOpen] = useState(false);
-
-  const [title, setTitle] = useState("");
-  const [subject, setSubject] = useState("");
-  const [instructions, setInstructions] = useState("");
-  const [due, setDue] = useState("");
-  const [maxMarks, setMaxMarks] = useState("100");
-  const [priority, setPriority] = useState("normal");
-  const [type, setType] = useState<"handwritten" | "typed" | "either">("handwritten");
-  const [allowImages, setAllowImages] = useState(true);
-  const [allowAutocorrect, setAllowAutocorrect] = useState(false);
-  const [allowVoice, setAllowVoice] = useState(false);
 
   const klass = useQuery({
     queryKey: ["class", classId],
@@ -78,11 +68,15 @@ function ClassDetail() {
   const roster = useQuery({
     queryKey: ["roster", classId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("class_members")
-        .select("id, joined_at, student_id, profiles:student_id(full_name, email)")
-        .eq("class_id", classId);
-      return data ?? [];
+        .select(
+          "id, joined_at, student_id, profiles!class_members_student_profile_fkey(full_name, email)",
+        )
+        .eq("class_id", classId)
+        .order("joined_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as Member[];
     },
   });
 
@@ -91,57 +85,107 @@ function ClassDetail() {
     queryFn: async () => {
       let q = supabase
         .from("assignments")
-        .select("id, title, subject, due_date, published, priority, submission_type")
+        .select("*")
         .eq("class_id", classId)
         .order("due_date", { ascending: true });
-      if (!isTeacher) q = q.eq("published", true);
-      const { data } = await q;
-      return data ?? [];
+      if (!isTeacher) q = q.eq("published", true).eq("archived", false);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as unknown as AssignmentRow[];
     },
   });
 
-  const createAssignment = useMutation({
-    mutationFn: async (publish: boolean) => {
-      if (!title.trim()) throw new Error("Title is required");
-      const marks = Number(maxMarks);
-      if (!Number.isFinite(marks) || marks <= 0 || marks > 1000)
-        throw new Error("Max marks must be between 1 and 1000");
-      const { data, error } = await supabase
-        .from("assignments")
-        .insert({
-          class_id: classId,
-          teacher_id: user!.id,
-          title: title.trim().slice(0, 160),
-          subject: subject.trim() || null,
-          instructions: instructions.trim() || null,
-          due_date: due ? new Date(due).toISOString() : null,
-          max_marks: marks,
-          priority,
-          submission_type: type,
-          allow_images: allowImages,
-          allow_autocorrect: allowAutocorrect,
-          allow_voice_typing: allowVoice,
-          published: publish,
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      return data.id;
+  // Per-student submission progress, always derived from the database.
+  const progress = useQuery({
+    enabled: isTeacher && (assignments.data ?? []).length > 0,
+    queryKey: ["class-progress", classId, (assignments.data ?? []).length],
+    queryFn: async () => {
+      const ids = (assignments.data ?? []).filter((a) => !a.archived).map((a) => a.id);
+      if (!ids.length) return { total: 0, byStudent: new Map<string, number>() };
+      const { data } = await supabase
+        .from("submissions")
+        .select("student_id, status")
+        .in("assignment_id", ids);
+      const byStudent = new Map<string, number>();
+      for (const s of data ?? []) {
+        if (["submitted", "late", "reviewed", "completed"].includes(s.status))
+          byStudent.set(s.student_id, (byStudent.get(s.student_id) ?? 0) + 1);
+      }
+      return { total: ids.length, byStudent };
     },
-    onSuccess: (id) => {
-      toast.success("Assignment created");
-      setOpen(false);
-      setTitle("");
-      setInstructions("");
-      setDue("");
-      void qc.invalidateQueries({ queryKey: ["class-assignments"] });
-      void navigate({ to: "/assignments/$assignmentId", params: { assignmentId: id } });
+  });
+
+  const removeMember = useMutation({
+    mutationFn: async (memberId: string) => {
+      const { error } = await supabase.from("class_members").delete().eq("id", memberId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Student removed");
+      void qc.invalidateQueries({ queryKey: ["roster", classId] });
+      void qc.invalidateQueries({ queryKey: ["teacher-dash"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   if (klass.isLoading) return <Skeleton className="h-64 w-full rounded-xl" />;
+  if (klass.isError)
+    return (
+      <div className="panel p-6">
+        <p className="text-sm text-muted-foreground">We couldn't load this class.</p>
+        <Button className="mt-3" variant="outline" onClick={() => void klass.refetch()}>
+          Try again
+        </Button>
+      </div>
+    );
   if (!klass.data) return <p className="text-muted-foreground">Class not found.</p>;
+
+  const all = assignments.data ?? [];
+  const active = all.filter((a) => !a.archived && a.published);
+  const drafts = all.filter((a) => !a.archived && !a.published);
+  const archived = all.filter((a) => a.archived);
+
+  function AssignmentList({ items }: { items: AssignmentRow[] }) {
+    if (assignments.isLoading)
+      return (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[0, 1].map((i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
+      );
+    if (!items.length)
+      return <p className="panel p-6 text-sm text-muted-foreground">Nothing here yet.</p>;
+    return (
+      <ul className="grid gap-3 sm:grid-cols-2">
+        {items.map((a) => (
+          <li key={a.id} className="panel lift flex items-start gap-3 p-4 hover:lift-hover">
+            <Link
+              to="/assignments/$assignmentId"
+              params={{ assignmentId: a.id }}
+              className="min-w-0 flex-1"
+            >
+              <div className="flex items-center gap-2">
+                <p className="truncate font-medium">{a.title}</p>
+                {!a.published && (
+                  <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
+                    Draft
+                  </span>
+                )}
+                {a.archived && (
+                  <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
+                    Archived
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">Due {formatDue(a.due_date)}</p>
+            </Link>
+            {isTeacher && user && <AssignmentActions assignment={a} teacherId={user.id} />}
+          </li>
+        ))}
+      </ul>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -159,8 +203,8 @@ function ClassDetail() {
             {[klass.data.subject, klass.data.section].filter(Boolean).join(" · ") || "No subject"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {isTeacher && (
+        {isTeacher && (
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => {
@@ -172,186 +216,121 @@ function ClassDetail() {
               {klass.data.join_code}
               <Copy className="size-3.5" />
             </button>
-          )}
-          {isTeacher && (
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-1.5 size-4" /> New assignment
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-h-[85vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>New assignment</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="t">Title</Label>
-                    <Input
-                      id="t"
-                      maxLength={160}
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder="Chapter 4 problem set"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="s">Subject</Label>
-                      <Input
-                        id="s"
-                        maxLength={60}
-                        value={subject}
-                        onChange={(e) => setSubject(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="m">Max marks</Label>
-                      <Input
-                        id="m"
-                        type="number"
-                        min={1}
-                        max={1000}
-                        value={maxMarks}
-                        onChange={(e) => setMaxMarks(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="d">Due date</Label>
-                      <Input
-                        id="d"
-                        type="datetime-local"
-                        value={due}
-                        onChange={(e) => setDue(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Priority</Label>
-                      <Select value={priority} onValueChange={setPriority}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="low">Low</SelectItem>
-                          <SelectItem value="normal">Normal</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Submission type</Label>
-                    <Select value={type} onValueChange={(v) => setType(v as typeof type)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="handwritten">Handwritten (photo upload)</SelectItem>
-                        <SelectItem value="typed">Typed (paste protected)</SelectItem>
-                        <SelectItem value="either">Student's choice</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="i">Instructions</Label>
-                    <Textarea
-                      id="i"
-                      maxLength={4000}
-                      value={instructions}
-                      onChange={(e) => setInstructions(e.target.value)}
-                      className="min-h-28"
-                    />
-                  </div>
-                  <div className="space-y-3 rounded-lg border border-border p-3">
-                    {(
-                      [
-                        ["Allow images in typed answers", allowImages, setAllowImages],
-                        ["Allow autocorrect / spellcheck", allowAutocorrect, setAllowAutocorrect],
-                        ["Allow voice typing", allowVoice, setAllowVoice],
-                      ] as const
-                    ).map(([label, val, set]) => (
-                      <div key={label} className="flex items-center justify-between">
-                        <span className="text-sm">{label}</span>
-                        <Switch checked={val} onCheckedChange={set} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <DialogFooter className="gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => createAssignment.mutate(false)}
-                    disabled={createAssignment.isPending}
-                  >
-                    Save draft
-                  </Button>
-                  <Button
-                    onClick={() => createAssignment.mutate(true)}
-                    disabled={createAssignment.isPending}
-                  >
-                    Publish
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
-        </div>
+            <Button onClick={() => setOpen(true)}>
+              <Plus className="mr-1.5 size-4" /> New assignment
+            </Button>
+            {user && (
+              <AssignmentDialog
+                open={open}
+                onOpenChange={setOpen}
+                classId={classId}
+                teacherId={user.id}
+                onSaved={(id) =>
+                  void navigate({
+                    to: "/assignments/$assignmentId",
+                    params: { assignmentId: id },
+                  })
+                }
+              />
+            )}
+          </div>
+        )}
       </header>
 
       <Tabs defaultValue="assignments">
         <TabsList>
-          <TabsTrigger value="assignments">Assignments</TabsTrigger>
-          <TabsTrigger value="students">Students</TabsTrigger>
+          <TabsTrigger value="assignments">Assignments ({active.length})</TabsTrigger>
+          {isTeacher && <TabsTrigger value="drafts">Drafts ({drafts.length})</TabsTrigger>}
+          {isTeacher && <TabsTrigger value="archived">Archived ({archived.length})</TabsTrigger>}
+          <TabsTrigger value="students">Students ({roster.data?.length ?? 0})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="assignments" className="mt-5 space-y-3">
-          {(assignments.data ?? []).length === 0 ? (
-            <p className="panel p-6 text-sm text-muted-foreground">No assignments yet.</p>
-          ) : (
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {(assignments.data ?? []).map((a) => (
-                <li key={a.id}>
-                  <Link
-                    to="/assignments/$assignmentId"
-                    params={{ assignmentId: a.id }}
-                    className="panel lift block p-4 hover:lift-hover"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate font-medium">{a.title}</p>
-                      {!a.published && (
-                        <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-                          Draft
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">Due {formatDue(a.due_date)}</p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+          <AssignmentList items={active} />
         </TabsContent>
+        {isTeacher && (
+          <TabsContent value="drafts" className="mt-5 space-y-3">
+            <AssignmentList items={drafts} />
+          </TabsContent>
+        )}
+        {isTeacher && (
+          <TabsContent value="archived" className="mt-5 space-y-3">
+            <AssignmentList items={archived} />
+          </TabsContent>
+        )}
 
         <TabsContent value="students" className="mt-5">
-          {(roster.data ?? []).length === 0 ? (
+          {roster.isLoading ? (
+            <Skeleton className="h-40 w-full rounded-xl" />
+          ) : roster.isError ? (
+            <div className="panel p-6">
+              <p className="text-sm text-muted-foreground">We couldn't load the roster.</p>
+              <Button className="mt-3" variant="outline" onClick={() => void roster.refetch()}>
+                Try again
+              </Button>
+            </div>
+          ) : (roster.data ?? []).length === 0 ? (
             <p className="panel p-6 text-sm text-muted-foreground">
-              No students yet. Share the join code above.
+              {isTeacher
+                ? "No students yet. Share the join code above."
+                : "No classmates yet."}
             </p>
           ) : (
             <ul className="panel divide-y divide-border">
               {(roster.data ?? []).map((m) => {
-                const p = m.profiles as unknown as { full_name: string; email: string } | null;
+                const p = m.profiles;
+                const name = p?.full_name?.trim() || "Student";
+                const submitted = progress.data?.byStudent.get(m.student_id) ?? 0;
+                const total = progress.data?.total ?? 0;
                 return (
-                  <li key={m.id} className="flex items-center gap-3 p-4">
+                  <li key={m.id} className="flex flex-wrap items-center gap-3 p-4">
                     <Avatar className="size-9">
-                      <AvatarFallback>{(p?.full_name ?? "?").slice(0, 2)}</AvatarFallback>
+                      <AvatarFallback className="text-xs">
+                        {name.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
                     </Avatar>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{p?.full_name ?? "Student"}</p>
-                      <p className="truncate text-xs text-muted-foreground">{p?.email}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{name}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {p?.email ?? "No email"}
+                      </p>
                     </div>
+                    <div className="text-xs text-muted-foreground">
+                      Joined {new Date(m.joined_at).toLocaleDateString()}
+                    </div>
+                    <span className="rounded-full border border-success/40 bg-success/15 px-2 py-0.5 text-xs text-success">
+                      {total > 0 ? `Active · ${submitted}/${total} submitted` : "Active"}
+                    </span>
+                    {isTeacher && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" aria-label={`Remove ${name}`}>
+                            <UserMinus className="size-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remove {name} from this class?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              They will lose access to this class's assignments. They can rejoin
+                              with the join code.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={(e) => {
+                                e.preventDefault();
+                                removeMember.mutate(m.id);
+                              }}
+                              disabled={removeMember.isPending}
+                            >
+                              Remove student
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                   </li>
                 );
               })}

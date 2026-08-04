@@ -236,7 +236,7 @@ function ReviewSubmission() {
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => grade.mutate()} disabled={grade.isPending}>
+            <Button onClick={() => grade.mutate("reviewed")} disabled={grade.isPending}>
               {grade.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
               Save review
             </Button>

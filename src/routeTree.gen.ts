@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedAssignmentsAssignmentIdRouteImport } from './routes/_authenticated/assignments.$assignmentId'
 import { Route as AuthenticatedClassesIndexRouteImport } from './routes/_authenticated/classes.index'
 import { Route as AuthenticatedClassesClassIdRouteImport } from './routes/_authenticated/classes.$classId'
 
@@ -41,6 +42,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAssignmentsAssignmentIdRoute =
+  AuthenticatedAssignmentsAssignmentIdRouteImport.update({
+    id: '/assignments/$assignmentId',
+    path: '/assignments/$assignmentId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedClassesIndexRoute =
   AuthenticatedClassesIndexRouteImport.update({
     id: '/classes/',
@@ -59,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/assignments/$assignmentId': typeof AuthenticatedAssignmentsAssignmentIdRoute
   '/classes/$classId': typeof AuthenticatedClassesClassIdRoute
   '/classes/': typeof AuthenticatedClassesIndexRoute
 }
@@ -67,6 +75,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/assignments/$assignmentId': typeof AuthenticatedAssignmentsAssignmentIdRoute
   '/classes/$classId': typeof AuthenticatedClassesClassIdRoute
   '/classes': typeof AuthenticatedClassesIndexRoute
 }
@@ -77,6 +86,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/assignments/$assignmentId': typeof AuthenticatedAssignmentsAssignmentIdRoute
   '/_authenticated/classes/$classId': typeof AuthenticatedClassesClassIdRoute
   '/_authenticated/classes/': typeof AuthenticatedClassesIndexRoute
 }
@@ -87,6 +97,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/dashboard'
+    | '/assignments/$assignmentId'
     | '/classes/$classId'
     | '/classes/'
   fileRoutesByTo: FileRoutesByTo
@@ -95,6 +106,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/dashboard'
+    | '/assignments/$assignmentId'
     | '/classes/$classId'
     | '/classes'
   id:
@@ -104,6 +116,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/_authenticated/dashboard'
+    | '/_authenticated/assignments/$assignmentId'
     | '/_authenticated/classes/$classId'
     | '/_authenticated/classes/'
   fileRoutesById: FileRoutesById
@@ -152,6 +165,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/assignments/$assignmentId': {
+      id: '/_authenticated/assignments/$assignmentId'
+      path: '/assignments/$assignmentId'
+      fullPath: '/assignments/$assignmentId'
+      preLoaderRoute: typeof AuthenticatedAssignmentsAssignmentIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/classes/': {
       id: '/_authenticated/classes/'
       path: '/classes'
@@ -171,12 +191,15 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedAssignmentsAssignmentIdRoute: typeof AuthenticatedAssignmentsAssignmentIdRoute
   AuthenticatedClassesClassIdRoute: typeof AuthenticatedClassesClassIdRoute
   AuthenticatedClassesIndexRoute: typeof AuthenticatedClassesIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedAssignmentsAssignmentIdRoute:
+    AuthenticatedAssignmentsAssignmentIdRoute,
   AuthenticatedClassesClassIdRoute: AuthenticatedClassesClassIdRoute,
   AuthenticatedClassesIndexRoute: AuthenticatedClassesIndexRoute,
 }

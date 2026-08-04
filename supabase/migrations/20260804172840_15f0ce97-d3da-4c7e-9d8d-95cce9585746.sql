@@ -1,0 +1,21 @@
+
+REVOKE EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.is_class_teacher(uuid, uuid) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.is_class_member(uuid, uuid) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.can_view_assignment(uuid, uuid) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.is_assignment_owner(uuid, uuid) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.can_view_submission(uuid, uuid) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.owns_submission(uuid, uuid) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.reviews_submission(uuid, uuid) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.join_class_by_code(text) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM anon, public, authenticated;
+REVOKE EXECUTE ON FUNCTION public.set_updated_at() FROM anon, public, authenticated;
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_class_teacher(uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_class_member(uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_view_assignment(uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_assignment_owner(uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_view_submission(uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.owns_submission(uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reviews_submission(uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.join_class_by_code(text) TO authenticated;

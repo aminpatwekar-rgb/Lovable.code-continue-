@@ -75,19 +75,28 @@ export function AssignmentDialog({
   const [allowAutocorrect, setAllowAutocorrect] = useState(false);
   const [allowVoice, setAllowVoice] = useState(false);
 
+  // Callers pass a freshly built object literal on every render, so this effect
+  // must key off the dialog opening and the assignment id only — depending on the
+  // object itself re-ran it mid-edit and wiped fields such as the due date.
+  const latest = useRef(assignment);
+  latest.current = assignment;
+  const assignmentId = assignment?.id ?? null;
+
   useEffect(() => {
     if (!open) return;
-    setTitle(assignment?.title ?? "");
-    setSubject(assignment?.subject ?? "");
-    setInstructions(assignment?.instructions ?? "");
-    setDue(toLocalInput(assignment?.due_date ?? null));
-    setMaxMarks(String(assignment?.max_marks ?? 100));
-    setPriority(assignment?.priority ?? "normal");
-    setType((assignment?.submission_type as typeof type) ?? "handwritten");
-    setAllowImages(assignment?.allow_images ?? true);
-    setAllowAutocorrect(assignment?.allow_autocorrect ?? false);
-    setAllowVoice(assignment?.allow_voice_typing ?? false);
-  }, [open, assignment]);
+    const a = latest.current;
+    setTitle(a?.title ?? "");
+    setSubject(a?.subject ?? "");
+    setInstructions(a?.instructions ?? "");
+    setDue(toLocalInput(a?.due_date ?? null));
+    setMaxMarks(String(a?.max_marks ?? 100));
+    setPriority(a?.priority ?? "normal");
+    setType((a?.submission_type as typeof type) ?? "handwritten");
+    setAllowImages(a?.allow_images ?? true);
+    setAllowAutocorrect(a?.allow_autocorrect ?? false);
+    setAllowVoice(a?.allow_voice_typing ?? false);
+  }, [open, assignmentId]);
+
 
   const save = useMutation({
     mutationFn: async (publish: boolean) => {

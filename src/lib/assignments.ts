@@ -37,13 +37,31 @@ export function daysLate(due: string | null, at?: string | null) {
 
 export function formatDue(due: string | null) {
   if (!due) return "No due date";
-  return new Date(due).toLocaleString(undefined, {
+  const d = new Date(due);
+  if (Number.isNaN(d.getTime())) return "No due date";
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  // Rendered in the viewer's local time zone; stored values are UTC ISO strings.
+  return d.toLocaleString(undefined, {
     month: "short",
     day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
     hour: "numeric",
     minute: "2-digit",
   });
 }
+
+/** "Late by 3 days" / "Due in 2 days" style helper for badges. */
+export function dueStatusLabel(due: string | null, submittedAt?: string | null) {
+  if (!due) return null;
+  const late = daysLate(due, submittedAt ?? null);
+  if (late > 0) return `Late by ${late} day${late === 1 ? "" : "s"}`;
+  if (submittedAt) return "On time";
+  const ms = new Date(due).getTime() - Date.now();
+  const days = Math.ceil(ms / 86_400_000);
+  if (days <= 0) return "Due today";
+  return `Due in ${days} day${days === 1 ? "" : "s"}`;
+}
+
 
 export function makeJoinCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

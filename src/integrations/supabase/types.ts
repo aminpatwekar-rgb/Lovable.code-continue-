@@ -568,6 +568,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_set_user_active: {
+        Args: { _active: boolean; _user_id: string }
+        Returns: undefined
+      }
+      admin_set_user_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: undefined
+      }
       bootstrap_first_admin: { Args: never; Returns: boolean }
       can_view_assignment: {
         Args: { _assignment_id: string; _user_id: string }

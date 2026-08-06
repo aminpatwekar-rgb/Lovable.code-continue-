@@ -255,7 +255,10 @@ function ClassDetail() {
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">Due {formatDue(a.due_date)}</p>
+              <div className="mt-2">
+                <DueDateChip due={a.due_date} size="sm" />
+              </div>
+
             </Link>
             {isTeacher && user && <AssignmentActions assignment={a} teacherId={user.id} />}
           </li>

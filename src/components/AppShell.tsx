@@ -52,9 +52,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     .join("")
     .toUpperCase();
 
+  const items = role === "admin" ? [...NAV, ...ADMIN_NAV] : NAV;
+
   const nav = (
     <nav className="flex flex-col gap-1">
-      {NAV.map(({ to, label, icon: Icon }) => {
+      {items.map(({ to, label, icon: Icon }) => {
+
         const active = pathname === to || pathname.startsWith(to + "/");
         return (
           <Link

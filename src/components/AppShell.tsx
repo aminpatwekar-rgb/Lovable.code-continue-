@@ -8,7 +8,9 @@ import {
   Sun,
   LogOut,
   Menu,
+  Shield,
   X,
+
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";

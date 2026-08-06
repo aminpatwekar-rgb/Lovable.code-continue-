@@ -71,19 +71,76 @@ function ClassDetail() {
   const navigate = useNavigate();
   const isTeacher = role === "teacher" || role === "admin";
   const [open, setOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [newOwner, setNewOwner] = useState("");
+  const [banner, setBanner] = useState<string | null>(null);
 
   const klass = useQuery({
     queryKey: ["class", classId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("classes")
-        .select("id, name, subject, section, description, join_code, teacher_id")
+        .select(
+          "id, name, subject, section, description, join_code, teacher_id, archived, banner_url",
+        )
         .eq("id", classId)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      return data as ClassRecord | null;
     },
   });
+
+  const bannerPath = klass.data?.banner_url ?? null;
+  useEffect(() => {
+    let alive = true;
+    if (!bannerPath) {
+      setBanner(null);
+      return;
+    }
+    void supabase.storage
+      .from("class-banners")
+      .createSignedUrl(bannerPath, 3600)
+      .then(({ data }) => {
+        if (alive) setBanner(data?.signedUrl ?? null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [bannerPath]);
+
+  const teachers = useQuery({
+    enabled: role === "admin" && transferOpen,
+    queryKey: ["teacher-options"],
+    queryFn: async () => {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "teacher");
+      const ids = (roles ?? []).map((r) => r.user_id);
+      if (!ids.length) return [] as { id: string; full_name: string }[];
+      const { data } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+      return (data ?? []) as { id: string; full_name: string }[];
+    },
+  });
+
+  const transfer = useMutation({
+    mutationFn: async () => {
+      if (!newOwner) throw new Error("Pick a teacher first");
+      const { error } = await supabase.rpc("admin_transfer_class", {
+        _class_id: classId,
+        _new_teacher: newOwner,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Class ownership transferred");
+      setTransferOpen(false);
+      void qc.invalidateQueries();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const roster = useQuery({
     queryKey: ["roster", classId],

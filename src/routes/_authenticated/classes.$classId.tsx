@@ -217,7 +217,10 @@ function ClassDetail() {
     );
   if (!klass.data) return <p className="text-muted-foreground">Class not found.</p>;
 
+  // Only the class owner and platform admins may edit or delete a class.
+  const canManage = role === "admin" || klass.data.teacher_id === user?.id;
   const all = assignments.data ?? [];
+
   const active = all.filter((a) => !a.archived && a.published);
   const drafts = all.filter((a) => !a.archived && !a.published);
   const archived = all.filter((a) => a.archived);

@@ -1,17 +1,37 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, Plus, UserMinus } from "lucide-react";
+import { ArrowLeft, Copy, Link2, Plus, Settings, UserMinus, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { formatDue } from "@/lib/assignments";
 import { AssignmentDialog } from "@/components/AssignmentDialog";
 import { AssignmentActions, type AssignmentRow } from "@/components/AssignmentActions";
+import { DueDateChip } from "@/components/DueDateChip";
+import { Announcements } from "@/components/Announcements";
+import { ClassDiscussion } from "@/components/ClassDiscussion";
+import { ClassSettingsDialog, type ClassRecord } from "@/components/ClassSettingsDialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 import {
   AlertDialog,
   AlertDialogAction,

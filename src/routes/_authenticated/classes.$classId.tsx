@@ -276,6 +276,14 @@ function ClassDetail() {
         <ArrowLeft className="size-4" /> All classes
       </Link>
 
+      {banner && (
+        <img
+          src={banner}
+          alt={`${klass.data.name} banner`}
+          className="h-40 w-full rounded-xl object-cover"
+        />
+      )}
+
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold">{klass.data.name}</h1>
@@ -283,7 +291,7 @@ function ClassDetail() {
             {[klass.data.subject, klass.data.section].filter(Boolean).join(" · ") || "No subject"}
           </p>
         </div>
-        {isTeacher && (
+        {canManage && (
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -296,6 +304,25 @@ function ClassDetail() {
               {klass.data.join_code}
               <Copy className="size-3.5" />
             </button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                void navigator.clipboard.writeText(
+                  `${window.location.origin}/classes?join=${klass.data!.join_code}`,
+                );
+                toast.success("Invitation link copied");
+              }}
+            >
+              <Link2 className="mr-1.5 size-4" /> Invite link
+            </Button>
+            <Button variant="outline" onClick={() => setSettingsOpen(true)}>
+              <Settings className="mr-1.5 size-4" /> Settings
+            </Button>
+            {role === "admin" && (
+              <Button variant="outline" onClick={() => setTransferOpen(true)}>
+                <Users className="mr-1.5 size-4" /> Transfer
+              </Button>
+            )}
             <Button onClick={() => setOpen(true)}>
               <Plus className="mr-1.5 size-4" /> New assignment
             </Button>
@@ -313,17 +340,63 @@ function ClassDetail() {
                 }
               />
             )}
+            <ClassSettingsDialog
+              open={settingsOpen}
+              onOpenChange={setSettingsOpen}
+              klass={klass.data}
+            />
+            <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Transfer class ownership</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-1.5">
+                  <Label>New owner</Label>
+                  <Select value={newOwner} onValueChange={setNewOwner}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a teacher" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(teachers.data ?? []).map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.full_name || t.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <DialogFooter>
+                  <Button onClick={() => transfer.mutate()} disabled={transfer.isPending}>
+                    Transfer class
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         )}
       </header>
 
       <Tabs defaultValue="assignments">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="assignments">Assignments ({active.length})</TabsTrigger>
           {isTeacher && <TabsTrigger value="drafts">Drafts ({drafts.length})</TabsTrigger>}
           {isTeacher && <TabsTrigger value="archived">Archived ({archived.length})</TabsTrigger>}
           <TabsTrigger value="students">Students ({roster.data?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="announcements">Announcements</TabsTrigger>
+          <TabsTrigger value="discussion">Discussion</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="announcements" className="mt-5">
+          <Announcements
+            classId={classId}
+            canPost={canManage}
+            emptyText="No class announcements yet."
+          />
+        </TabsContent>
+        <TabsContent value="discussion" className="mt-5">
+          <ClassDiscussion classId={classId} canModerate={canManage} />
+        </TabsContent>
+
 
         <TabsContent value="assignments" className="mt-5 space-y-3">
           <AssignmentList items={active} />

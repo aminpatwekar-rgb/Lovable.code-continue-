@@ -30,33 +30,50 @@ const AuthContext = createContext<AuthState>({
   refresh: async () => {},
 });
 
+// The one-time admin bootstrap is attempted at most once per browser session;
+// the database function itself is the real guard and permanently disables
+// itself after the first administrator exists.
+let bootstrapAttempted = false;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
+  async function readRoles(userId: string): Promise<AppRole | null> {
+    const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+    const roles = (data ?? []).map((x) => x.role as AppRole);
+    return roles.includes("admin")
+      ? "admin"
+      : roles.includes("teacher")
+        ? "teacher"
+        : roles.includes("student")
+          ? "student"
+          : null;
+  }
+
   async function loadMeta(userId: string) {
-    const [{ data: p }, { data: r }] = await Promise.all([
+    const [{ data: p }, resolved] = await Promise.all([
       supabase
         .from("profiles")
         .select("id, full_name, email, avatar_url, institution")
         .eq("id", userId)
         .maybeSingle(),
-      supabase.from("user_roles").select("role").eq("user_id", userId),
+      readRoles(userId),
     ]);
     setProfile((p as Profile) ?? null);
-    const roles = (r ?? []).map((x) => x.role as AppRole);
-    setRole(
-      roles.includes("admin")
-        ? "admin"
-        : roles.includes("teacher")
-          ? "teacher"
-          : roles.includes("student")
-            ? "student"
-            : null,
-    );
+    let next = resolved;
+
+    if (next === "teacher" && !bootstrapAttempted) {
+      bootstrapAttempted = true;
+      const { data: promoted } = await supabase.rpc("bootstrap_first_admin");
+      if (promoted) next = await readRoles(userId);
+    }
+
+    setRole(next);
   }
+
 
   useEffect(() => {
     let active = true;

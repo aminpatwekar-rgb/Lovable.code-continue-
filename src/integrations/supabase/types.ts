@@ -63,6 +63,54 @@ export type Database = {
           },
         ]
       }
+      announcements: {
+        Row: {
+          audience: string
+          author_id: string
+          body: string | null
+          class_id: string | null
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          audience?: string
+          author_id: string
+          body?: string | null
+          class_id?: string | null
+          created_at?: string
+          id?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          audience?: string
+          author_id?: string
+          body?: string | null
+          class_id?: string | null
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcements_author_profile_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcements_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assignment_attachments: {
         Row: {
           assignment_id: string
@@ -184,6 +232,58 @@ export type Database = {
           },
         ]
       }
+      class_discussions: {
+        Row: {
+          author_id: string
+          body: string
+          class_id: string
+          created_at: string
+          id: string
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          class_id: string
+          created_at?: string
+          id?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          class_id?: string
+          created_at?: string
+          id?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_discussions_author_profile_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_discussions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_discussions_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "class_discussions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_members: {
         Row: {
           class_id: string
@@ -223,6 +323,7 @@ export type Database = {
       classes: {
         Row: {
           archived: boolean
+          banner_url: string | null
           created_at: string
           description: string | null
           id: string
@@ -235,6 +336,7 @@ export type Database = {
         }
         Insert: {
           archived?: boolean
+          banner_url?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -247,6 +349,7 @@ export type Database = {
         }
         Update: {
           archived?: boolean
+          banner_url?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -577,6 +680,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: undefined
+      }
+      admin_transfer_class: {
+        Args: { _class_id: string; _new_teacher: string }
         Returns: undefined
       }
       bootstrap_first_admin: { Args: never; Returns: boolean }

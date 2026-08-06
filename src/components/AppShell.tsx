@@ -8,7 +8,9 @@ import {
   Sun,
   LogOut,
   Menu,
+  Shield,
   X,
+
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -24,6 +26,9 @@ const NAV = [
   { to: "/classes", label: "Classes", icon: GraduationCap },
   { to: "/assignments", label: "Assignments", icon: BookOpen },
 ] as const;
+
+const ADMIN_NAV = [{ to: "/admin", label: "Admin", icon: Shield }] as const;
+
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { pathname } = useRouterState({ select: (s) => s.location });
@@ -47,9 +52,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     .join("")
     .toUpperCase();
 
+  const items = role === "admin" ? [...NAV, ...ADMIN_NAV] : NAV;
+
   const nav = (
     <nav className="flex flex-col gap-1">
-      {NAV.map(({ to, label, icon: Icon }) => {
+      {items.map(({ to, label, icon: Icon }) => {
+
         const active = pathname === to || pathname.startsWith(to + "/");
         return (
           <Link

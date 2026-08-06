@@ -1,17 +1,37 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, Plus, UserMinus } from "lucide-react";
+import { ArrowLeft, Copy, Link2, Plus, Settings, UserMinus, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { formatDue } from "@/lib/assignments";
 import { AssignmentDialog } from "@/components/AssignmentDialog";
 import { AssignmentActions, type AssignmentRow } from "@/components/AssignmentActions";
+import { DueDateChip } from "@/components/DueDateChip";
+import { Announcements } from "@/components/Announcements";
+import { ClassDiscussion } from "@/components/ClassDiscussion";
+import { ClassSettingsDialog, type ClassRecord } from "@/components/ClassSettingsDialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,19 +71,76 @@ function ClassDetail() {
   const navigate = useNavigate();
   const isTeacher = role === "teacher" || role === "admin";
   const [open, setOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [newOwner, setNewOwner] = useState("");
+  const [banner, setBanner] = useState<string | null>(null);
 
   const klass = useQuery({
     queryKey: ["class", classId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("classes")
-        .select("id, name, subject, section, description, join_code, teacher_id")
+        .select(
+          "id, name, subject, section, description, join_code, teacher_id, archived, banner_url",
+        )
         .eq("id", classId)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      return data as ClassRecord | null;
     },
   });
+
+  const bannerPath = klass.data?.banner_url ?? null;
+  useEffect(() => {
+    let alive = true;
+    if (!bannerPath) {
+      setBanner(null);
+      return;
+    }
+    void supabase.storage
+      .from("class-banners")
+      .createSignedUrl(bannerPath, 3600)
+      .then(({ data }) => {
+        if (alive) setBanner(data?.signedUrl ?? null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [bannerPath]);
+
+  const teachers = useQuery({
+    enabled: role === "admin" && transferOpen,
+    queryKey: ["teacher-options"],
+    queryFn: async () => {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "teacher");
+      const ids = (roles ?? []).map((r) => r.user_id);
+      if (!ids.length) return [] as { id: string; full_name: string }[];
+      const { data } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+      return (data ?? []) as { id: string; full_name: string }[];
+    },
+  });
+
+  const transfer = useMutation({
+    mutationFn: async () => {
+      if (!newOwner) throw new Error("Pick a teacher first");
+      const { error } = await supabase.rpc("admin_transfer_class", {
+        _class_id: classId,
+        _new_teacher: newOwner,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Class ownership transferred");
+      setTransferOpen(false);
+      void qc.invalidateQueries();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const roster = useQuery({
     queryKey: ["roster", classId],
@@ -140,7 +217,10 @@ function ClassDetail() {
     );
   if (!klass.data) return <p className="text-muted-foreground">Class not found.</p>;
 
+  // Only the class owner and platform admins may edit or delete a class.
+  const canManage = role === "admin" || klass.data.teacher_id === user?.id;
   const all = assignments.data ?? [];
+
   const active = all.filter((a) => !a.archived && a.published);
   const drafts = all.filter((a) => !a.archived && !a.published);
   const archived = all.filter((a) => a.archived);
@@ -178,7 +258,10 @@ function ClassDetail() {
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">Due {formatDue(a.due_date)}</p>
+              <div className="mt-2">
+                <DueDateChip due={a.due_date} size="sm" />
+              </div>
+
             </Link>
             {isTeacher && user && <AssignmentActions assignment={a} teacherId={user.id} />}
           </li>
@@ -196,6 +279,14 @@ function ClassDetail() {
         <ArrowLeft className="size-4" /> All classes
       </Link>
 
+      {banner && (
+        <img
+          src={banner}
+          alt={`${klass.data.name} banner`}
+          className="h-40 w-full rounded-xl object-cover"
+        />
+      )}
+
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold">{klass.data.name}</h1>
@@ -203,7 +294,7 @@ function ClassDetail() {
             {[klass.data.subject, klass.data.section].filter(Boolean).join(" · ") || "No subject"}
           </p>
         </div>
-        {isTeacher && (
+        {canManage && (
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -216,6 +307,25 @@ function ClassDetail() {
               {klass.data.join_code}
               <Copy className="size-3.5" />
             </button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                void navigator.clipboard.writeText(
+                  `${window.location.origin}/classes?join=${klass.data!.join_code}`,
+                );
+                toast.success("Invitation link copied");
+              }}
+            >
+              <Link2 className="mr-1.5 size-4" /> Invite link
+            </Button>
+            <Button variant="outline" onClick={() => setSettingsOpen(true)}>
+              <Settings className="mr-1.5 size-4" /> Settings
+            </Button>
+            {role === "admin" && (
+              <Button variant="outline" onClick={() => setTransferOpen(true)}>
+                <Users className="mr-1.5 size-4" /> Transfer
+              </Button>
+            )}
             <Button onClick={() => setOpen(true)}>
               <Plus className="mr-1.5 size-4" /> New assignment
             </Button>
@@ -233,17 +343,63 @@ function ClassDetail() {
                 }
               />
             )}
+            <ClassSettingsDialog
+              open={settingsOpen}
+              onOpenChange={setSettingsOpen}
+              klass={klass.data}
+            />
+            <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Transfer class ownership</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-1.5">
+                  <Label>New owner</Label>
+                  <Select value={newOwner} onValueChange={setNewOwner}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a teacher" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(teachers.data ?? []).map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.full_name || t.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <DialogFooter>
+                  <Button onClick={() => transfer.mutate()} disabled={transfer.isPending}>
+                    Transfer class
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         )}
       </header>
 
       <Tabs defaultValue="assignments">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="assignments">Assignments ({active.length})</TabsTrigger>
           {isTeacher && <TabsTrigger value="drafts">Drafts ({drafts.length})</TabsTrigger>}
           {isTeacher && <TabsTrigger value="archived">Archived ({archived.length})</TabsTrigger>}
           <TabsTrigger value="students">Students ({roster.data?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="announcements">Announcements</TabsTrigger>
+          <TabsTrigger value="discussion">Discussion</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="announcements" className="mt-5">
+          <Announcements
+            classId={classId}
+            canPost={canManage}
+            emptyText="No class announcements yet."
+          />
+        </TabsContent>
+        <TabsContent value="discussion" className="mt-5">
+          <ClassDiscussion classId={classId} canModerate={canManage} />
+        </TabsContent>
+
 
         <TabsContent value="assignments" className="mt-5 space-y-3">
           <AssignmentList items={active} />

@@ -25,6 +25,9 @@ const NAV = [
   { to: "/assignments", label: "Assignments", icon: BookOpen },
 ] as const;
 
+const ADMIN_NAV = [{ to: "/admin", label: "Admin", icon: Shield }] as const;
+
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { pathname } = useRouterState({ select: (s) => s.location });
   const { theme, toggle } = useTheme();

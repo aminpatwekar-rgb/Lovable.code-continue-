@@ -232,6 +232,53 @@ export type Database = {
           },
         ]
       }
+      badges: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          icon: string
+          id: string
+          is_custom: boolean
+          name: string
+          points: number
+          tone: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string
+          id?: string
+          is_custom?: boolean
+          name: string
+          points?: number
+          tone?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string
+          id?: string
+          is_custom?: boolean
+          name?: string
+          points?: number
+          tone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "badges_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_discussions: {
         Row: {
           author_id: string
@@ -526,6 +573,496 @@ export type Database = {
         }
         Relationships: []
       }
+      question_bank: {
+        Row: {
+          archived: boolean
+          class_id: string | null
+          correct: Json
+          created_at: string
+          difficulty: Database["public"]["Enums"]["quiz_difficulty"]
+          explanation: string | null
+          id: string
+          options: Json
+          owner_id: string
+          points: number
+          prompt: string
+          subject: string | null
+          topic: string | null
+          type: Database["public"]["Enums"]["quiz_question_type"]
+          updated_at: string
+        }
+        Insert: {
+          archived?: boolean
+          class_id?: string | null
+          correct?: Json
+          created_at?: string
+          difficulty?: Database["public"]["Enums"]["quiz_difficulty"]
+          explanation?: string | null
+          id?: string
+          options?: Json
+          owner_id: string
+          points?: number
+          prompt: string
+          subject?: string | null
+          topic?: string | null
+          type?: Database["public"]["Enums"]["quiz_question_type"]
+          updated_at?: string
+        }
+        Update: {
+          archived?: boolean
+          class_id?: string | null
+          correct?: Json
+          created_at?: string
+          difficulty?: Database["public"]["Enums"]["quiz_difficulty"]
+          explanation?: string | null
+          id?: string
+          options?: Json
+          owner_id?: string
+          points?: number
+          prompt?: string
+          subject?: string | null
+          topic?: string | null
+          type?: Database["public"]["Enums"]["quiz_question_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_bank_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_answers: {
+        Row: {
+          attempt_id: string
+          awarded_points: number | null
+          created_at: string
+          feedback: string | null
+          id: string
+          is_correct: boolean | null
+          question_id: string
+          response: Json
+          updated_at: string
+        }
+        Insert: {
+          attempt_id: string
+          awarded_points?: number | null
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          is_correct?: boolean | null
+          question_id: string
+          response?: Json
+          updated_at?: string
+        }
+        Update: {
+          attempt_id?: string
+          awarded_points?: number | null
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          is_correct?: boolean | null
+          question_id?: string
+          response?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_answers_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_attempts: {
+        Row: {
+          attempt_no: number
+          created_at: string
+          graded_at: string | null
+          id: string
+          lock_reason: string | null
+          locked_at: string | null
+          max_score: number | null
+          needs_manual_grading: boolean
+          question_order: Json
+          quiz_id: string
+          score: number | null
+          started_at: string
+          status: Database["public"]["Enums"]["quiz_attempt_status"]
+          student_id: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempt_no?: number
+          created_at?: string
+          graded_at?: string | null
+          id?: string
+          lock_reason?: string | null
+          locked_at?: string | null
+          max_score?: number | null
+          needs_manual_grading?: boolean
+          question_order?: Json
+          quiz_id: string
+          score?: number | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["quiz_attempt_status"]
+          student_id: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempt_no?: number
+          created_at?: string
+          graded_at?: string | null
+          id?: string
+          lock_reason?: string | null
+          locked_at?: string | null
+          max_score?: number | null
+          needs_manual_grading?: boolean
+          question_order?: Json
+          quiz_id?: string
+          score?: number | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["quiz_attempt_status"]
+          student_id?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_attempts_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_questions: {
+        Row: {
+          correct: Json
+          created_at: string
+          difficulty: Database["public"]["Enums"]["quiz_difficulty"]
+          explanation: string | null
+          id: string
+          options: Json
+          points: number
+          position: number
+          prompt: string
+          quiz_id: string
+          type: Database["public"]["Enums"]["quiz_question_type"]
+          updated_at: string
+        }
+        Insert: {
+          correct?: Json
+          created_at?: string
+          difficulty?: Database["public"]["Enums"]["quiz_difficulty"]
+          explanation?: string | null
+          id?: string
+          options?: Json
+          points?: number
+          position?: number
+          prompt: string
+          quiz_id: string
+          type?: Database["public"]["Enums"]["quiz_question_type"]
+          updated_at?: string
+        }
+        Update: {
+          correct?: Json
+          created_at?: string
+          difficulty?: Database["public"]["Enums"]["quiz_difficulty"]
+          explanation?: string | null
+          id?: string
+          options?: Json
+          points?: number
+          position?: number
+          prompt?: string
+          quiz_id?: string
+          type?: Database["public"]["Enums"]["quiz_question_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_violations: {
+        Row: {
+          attempt_id: string
+          away_ms: number
+          id: string
+          kind: string
+          locked: boolean
+          occurred_at: string
+          quiz_id: string
+          student_id: string
+        }
+        Insert: {
+          attempt_id: string
+          away_ms?: number
+          id?: string
+          kind: string
+          locked?: boolean
+          occurred_at?: string
+          quiz_id: string
+          student_id: string
+        }
+        Update: {
+          attempt_id?: string
+          away_ms?: number
+          id?: string
+          kind?: string
+          locked?: boolean
+          occurred_at?: string
+          quiz_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_violations_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_violations_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_violations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quizzes: {
+        Row: {
+          archived: boolean
+          assignment_id: string | null
+          auto_submit: boolean
+          class_id: string
+          created_at: string
+          description: string | null
+          end_at: string | null
+          id: string
+          kind: Database["public"]["Enums"]["quiz_kind"]
+          lockdown_enabled: boolean
+          max_attempts: number
+          passing_marks: number
+          published: boolean
+          randomize_choices: boolean
+          randomize_questions: boolean
+          show_results: boolean
+          start_at: string | null
+          subject: string | null
+          teacher_id: string
+          time_limit_minutes: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          archived?: boolean
+          assignment_id?: string | null
+          auto_submit?: boolean
+          class_id: string
+          created_at?: string
+          description?: string | null
+          end_at?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["quiz_kind"]
+          lockdown_enabled?: boolean
+          max_attempts?: number
+          passing_marks?: number
+          published?: boolean
+          randomize_choices?: boolean
+          randomize_questions?: boolean
+          show_results?: boolean
+          start_at?: string | null
+          subject?: string | null
+          teacher_id: string
+          time_limit_minutes?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          archived?: boolean
+          assignment_id?: string | null
+          auto_submit?: boolean
+          class_id?: string
+          created_at?: string
+          description?: string | null
+          end_at?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["quiz_kind"]
+          lockdown_enabled?: boolean
+          max_attempts?: number
+          passing_marks?: number
+          published?: boolean
+          randomize_choices?: boolean
+          randomize_questions?: boolean
+          show_results?: boolean
+          start_at?: string | null
+          subject?: string | null
+          teacher_id?: string
+          time_limit_minutes?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quizzes_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quizzes_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_badges: {
+        Row: {
+          awarded_at: string
+          awarded_by: string | null
+          badge_id: string
+          class_id: string | null
+          id: string
+          reason: string | null
+          student_id: string
+        }
+        Insert: {
+          awarded_at?: string
+          awarded_by?: string | null
+          badge_id: string
+          class_id?: string | null
+          id?: string
+          reason?: string | null
+          student_id: string
+        }
+        Update: {
+          awarded_at?: string
+          awarded_by?: string | null
+          badge_id?: string
+          class_id?: string | null
+          id?: string
+          reason?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_badges_awarded_by_fkey"
+            columns: ["awarded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "badges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_badges_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_badges_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_points: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          id: string
+          note: string | null
+          points: number
+          reference_id: string | null
+          source: string
+          student_id: string
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          points?: number
+          reference_id?: string | null
+          source: string
+          student_id: string
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          points?: number
+          reference_id?: string | null
+          source?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_points_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_points_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       submission_files: {
         Row: {
           caption: string | null
@@ -691,6 +1228,10 @@ export type Database = {
         Args: { _assignment_id: string; _user_id: string }
         Returns: boolean
       }
+      can_view_quiz: {
+        Args: { _quiz_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_view_submission: {
         Args: { _submission_id: string; _user_id: string }
         Returns: boolean
@@ -715,8 +1256,20 @@ export type Database = {
         Returns: boolean
       }
       join_class_by_code: { Args: { _code: string }; Returns: string }
+      owns_attempt: {
+        Args: { _attempt_id: string; _user_id: string }
+        Returns: boolean
+      }
+      owns_quiz: {
+        Args: { _quiz_id: string; _user_id: string }
+        Returns: boolean
+      }
       owns_submission: {
         Args: { _submission_id: string; _user_id: string }
+        Returns: boolean
+      }
+      reviews_attempt: {
+        Args: { _attempt_id: string; _user_id: string }
         Returns: boolean
       }
       reviews_submission: {
@@ -727,6 +1280,21 @@ export type Database = {
     }
     Enums: {
       app_role: "student" | "teacher" | "admin"
+      quiz_attempt_status:
+        | "in_progress"
+        | "submitted"
+        | "graded"
+        | "locked"
+        | "expired"
+      quiz_difficulty: "easy" | "medium" | "hard"
+      quiz_kind: "practice" | "timed" | "scheduled" | "exam"
+      quiz_question_type:
+        | "mcq"
+        | "multi_select"
+        | "true_false"
+        | "fill_blank"
+        | "short_answer"
+        | "essay"
       submission_status:
         | "not_started"
         | "in_progress"
@@ -864,6 +1432,23 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["student", "teacher", "admin"],
+      quiz_attempt_status: [
+        "in_progress",
+        "submitted",
+        "graded",
+        "locked",
+        "expired",
+      ],
+      quiz_difficulty: ["easy", "medium", "hard"],
+      quiz_kind: ["practice", "timed", "scheduled", "exam"],
+      quiz_question_type: [
+        "mcq",
+        "multi_select",
+        "true_false",
+        "fill_blank",
+        "short_answer",
+        "essay",
+      ],
       submission_status: [
         "not_started",
         "in_progress",

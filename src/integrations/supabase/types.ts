@@ -723,6 +723,7 @@ export type Database = {
         Args: { _submission_id: string; _user_id: string }
         Returns: boolean
       }
+      shares_class_with: { Args: { _a: string; _b: string }; Returns: boolean }
     }
     Enums: {
       app_role: "student" | "teacher" | "admin"

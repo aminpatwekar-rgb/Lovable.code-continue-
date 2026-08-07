@@ -9,6 +9,9 @@ import {
   LogOut,
   Menu,
   Shield,
+  ClipboardList,
+  Trophy,
+  Award,
   X,
 
 } from "lucide-react";
@@ -25,6 +28,9 @@ const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/classes", label: "Classes", icon: GraduationCap },
   { to: "/assignments", label: "Assignments", icon: BookOpen },
+  { to: "/quizzes", label: "Quizzes", icon: ClipboardList },
+  { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  { to: "/achievements", label: "Achievements", icon: Award },
 ] as const;
 
 const ADMIN_NAV = [{ to: "/admin", label: "Admin", icon: Shield }] as const;

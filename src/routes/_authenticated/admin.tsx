@@ -17,6 +17,8 @@ import {
   Users,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchProfileEmails } from "@/lib/profile-emails";
+
 import { useAuth, type AppRole } from "@/lib/auth";
 import { deletePlatformUser } from "@/lib/admin.functions";
 import { formatDue } from "@/lib/assignments";

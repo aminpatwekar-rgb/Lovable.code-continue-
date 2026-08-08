@@ -27,7 +27,7 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
 // from the one used at build time.
 type CsrfFactory = (opts: {
   filter?: (ctx: { handlerType?: string }) => boolean;
-}) => Parameters<typeof createStart>[0] extends never ? never : unknown;
+}) => unknown;
 
 const createCsrf = (startRuntime as Record<string, unknown>)["createCsrfMiddleware"] as
   | CsrfFactory

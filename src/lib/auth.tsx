@@ -53,16 +53,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           : null;
   }
 
-  async function loadMeta(userId: string) {
+  async function loadMeta(userId: string, userEmail?: string | null) {
     const [{ data: p }, resolved] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id, full_name, email, avatar_url, institution")
+        .select("id, full_name, avatar_url, institution")
         .eq("id", userId)
         .maybeSingle(),
       readRoles(userId),
     ]);
-    setProfile((p as Profile) ?? null);
+    setProfile(p ? ({ ...p, email: userEmail ?? null } as Profile) : null);
+
     let next = resolved;
 
     if (next === "teacher" && !bootstrapAttempted) {
@@ -81,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!active) return;
       setSession(s);
       if (s?.user) {
-        void loadMeta(s.user.id);
+        void loadMeta(s.user.id, s.user.email);
       } else {
         setProfile(null);
         setRole(null);
@@ -91,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(async ({ data }) => {
       if (!active) return;
       setSession(data.session);
-      if (data.session?.user) await loadMeta(data.session.user.id);
+      if (data.session?.user) await loadMeta(data.session.user.id, data.session.user.email);
       setLoading(false);
     });
 
@@ -103,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refresh = async () => {
     const { data } = await supabase.auth.getUser();
-    if (data.user) await loadMeta(data.user.id);
+    if (data.user) await loadMeta(data.user.id, data.user.email);
   };
 
   return (

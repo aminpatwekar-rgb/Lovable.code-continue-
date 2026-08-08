@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Copy, Link2, Plus, Settings, UserMinus, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchProfileEmails } from "@/lib/profile-emails";
+
 import { useAuth } from "@/lib/auth";
 import { AssignmentDialog } from "@/components/AssignmentDialog";
 import { AssignmentActions, type AssignmentRow } from "@/components/AssignmentActions";
@@ -148,14 +150,22 @@ function ClassDetail() {
       const { data, error } = await supabase
         .from("class_members")
         .select(
-          "id, joined_at, student_id, profiles!class_members_student_profile_fkey(full_name, email)",
+          "id, joined_at, student_id, profiles!class_members_student_profile_fkey(full_name)",
         )
         .eq("class_id", classId)
         .order("joined_at", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as unknown as Member[];
+      const rows = (data ?? []) as unknown as Member[];
+      const emails = await fetchProfileEmails(rows.map((r) => r.student_id));
+      return rows.map((r) => ({
+        ...r,
+        profiles: r.profiles
+          ? { ...r.profiles, email: emails.get(r.student_id) ?? null }
+          : null,
+      })) as Member[];
     },
   });
+
 
   const assignments = useQuery({
     queryKey: ["class-assignments", classId, isTeacher],

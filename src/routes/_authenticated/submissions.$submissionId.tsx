@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchProfileEmails } from "@/lib/profile-emails";
+
 import { useAuth } from "@/lib/auth";
 import { formatDue, type SubmissionStatus } from "@/lib/assignments";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -40,15 +42,23 @@ function ReviewSubmission() {
   const q = useQuery({
     queryKey: ["submission", submissionId],
     queryFn: async () => {
-      const { data: sub, error } = await supabase
+      const { data: subRow, error } = await supabase
         .from("submissions")
         .select(
-          "*, profiles!submissions_student_profile_fkey(full_name, email), assignments(id, title, max_marks, class_id)",
+          "*, profiles!submissions_student_profile_fkey(full_name), assignments(id, title, max_marks, class_id)",
         )
         .eq("id", submissionId)
         .maybeSingle();
       if (error) throw error;
-      if (!sub) return null;
+      if (!subRow) return null;
+      const emails = await fetchProfileEmails([subRow.student_id]);
+      const sub = {
+        ...subRow,
+        profiles: subRow.profiles
+          ? { ...subRow.profiles, email: emails.get(subRow.student_id) ?? null }
+          : null,
+      };
+
       const { data: files } = await supabase
         .from("submission_files")
         .select("id, storage_path, file_name, kind, caption, page_order")

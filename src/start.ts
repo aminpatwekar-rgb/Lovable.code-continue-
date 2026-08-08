@@ -19,14 +19,28 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
   }
 });
 
-// Start installs this automatically when src/start.ts is absent; defining the
-// file opts out, so re-add it explicitly to keep server functions protected
-// from cross-site requests.
-const csrfMiddleware = createCsrfMiddleware({
-  filter: (ctx) => ctx.handlerType === "serverFn",
-});
+// Start installs CSRF protection automatically when src/start.ts is absent;
+// defining this file opts out, so re-add it explicitly. The factory is resolved
+// at runtime because it is not present in every @tanstack/react-start release —
+// a bare named import crashes the deployed server with
+// "createCsrfMiddleware is not a function" when the installed version differs
+// from the one used at build time.
+type CsrfFactory = (opts: {
+  filter?: (ctx: { handlerType?: string }) => boolean;
+}) => Parameters<typeof createStart>[0] extends never ? never : unknown;
+
+const createCsrf = (startRuntime as Record<string, unknown>)["createCsrfMiddleware"] as
+  | CsrfFactory
+  | undefined;
+
+const csrfMiddleware =
+  typeof createCsrf === "function"
+    ? createCsrf({ filter: (ctx) => ctx.handlerType === "serverFn" })
+    : undefined;
+
+const requestMiddleware = [errorMiddleware, csrfMiddleware].filter(Boolean) as never[];
 
 export const startInstance = createStart(() => ({
   functionMiddleware: [attachSupabaseAuth],
-  requestMiddleware: [errorMiddleware, csrfMiddleware],
+  requestMiddleware,
 }));

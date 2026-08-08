@@ -1236,6 +1236,13 @@ export type Database = {
         Args: { _submission_id: string; _user_id: string }
         Returns: boolean
       }
+      get_profile_emails: {
+        Args: { _ids: string[] }
+        Returns: {
+          email: string
+          id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1266,6 +1273,10 @@ export type Database = {
       }
       owns_submission: {
         Args: { _submission_id: string; _user_id: string }
+        Returns: boolean
+      }
+      owns_submission_for_assignment: {
+        Args: { _assignment_id: string; _user_id: string }
         Returns: boolean
       }
       reviews_attempt: {

@@ -117,11 +117,12 @@ function AdminConsole() {
       const [{ data: profiles, error }, { data: roles }] = await Promise.all([
         supabase
           .from("profiles")
-          .select("id, full_name, email, is_active, created_at")
+          .select("id, full_name, is_active, created_at")
           .order("created_at", { ascending: false }),
         supabase.from("user_roles").select("user_id, role"),
       ]);
       if (error) throw error;
+      const emails = await fetchProfileEmails((profiles ?? []).map((p) => p.id));
       const byUser = new Map<string, AppRole[]>();
       for (const r of roles ?? []) {
         const list = byUser.get(r.user_id) ?? [];
@@ -137,8 +138,9 @@ function AdminConsole() {
             : rs.includes("student")
               ? "student"
               : null;
-        return { ...p, role: resolved } as UserRow;
+        return { ...p, email: emails.get(p.id) ?? null, role: resolved } as UserRow;
       });
+
     },
   });
 

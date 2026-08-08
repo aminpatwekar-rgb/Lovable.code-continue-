@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchProfileEmails } from "@/lib/profile-emails";
+
 import { useAuth } from "@/lib/auth";
 import { formatDue, type SubmissionStatus } from "@/lib/assignments";
 import { StatusBadge } from "@/components/StatusBadge";

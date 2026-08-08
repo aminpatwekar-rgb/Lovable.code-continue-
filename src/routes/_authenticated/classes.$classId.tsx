@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Copy, Link2, Plus, Settings, UserMinus, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchProfileEmails } from "@/lib/profile-emails";
+
 import { useAuth } from "@/lib/auth";
 import { AssignmentDialog } from "@/components/AssignmentDialog";
 import { AssignmentActions, type AssignmentRow } from "@/components/AssignmentActions";

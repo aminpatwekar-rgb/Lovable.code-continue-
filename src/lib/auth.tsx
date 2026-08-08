@@ -53,16 +53,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           : null;
   }
 
-  async function loadMeta(userId: string) {
+  async function loadMeta(userId: string, userEmail?: string | null) {
     const [{ data: p }, resolved] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id, full_name, email, avatar_url, institution")
+        .select("id, full_name, avatar_url, institution")
         .eq("id", userId)
         .maybeSingle(),
       readRoles(userId),
     ]);
-    setProfile((p as Profile) ?? null);
+    setProfile(p ? ({ ...p, email: userEmail ?? null } as Profile) : null);
+
     let next = resolved;
 
     if (next === "teacher" && !bootstrapAttempted) {

@@ -147,6 +147,8 @@ function AssignmentPage() {
             id: a.id,
             due_date: a.due_date,
             submission_type: a.submission_type,
+            max_marks: a.max_marks,
+
             allow_images: a.allow_images,
             allow_autocorrect: a.allow_autocorrect,
             allow_voice_typing: a.allow_voice_typing,

@@ -334,20 +334,32 @@ export type Database = {
       class_members: {
         Row: {
           class_id: string
+          er_no: string | null
+          full_name: string | null
           id: string
           joined_at: string
+          roll_no: string | null
+          sr_no: string | null
           student_id: string
         }
         Insert: {
           class_id: string
+          er_no?: string | null
+          full_name?: string | null
           id?: string
           joined_at?: string
+          roll_no?: string | null
+          sr_no?: string | null
           student_id: string
         }
         Update: {
           class_id?: string
+          er_no?: string | null
+          full_name?: string | null
           id?: string
           joined_at?: string
+          roll_no?: string | null
+          sr_no?: string | null
           student_id?: string
         }
         Relationships: [
@@ -1114,6 +1126,7 @@ export type Database = {
         Row: {
           assignment_id: string
           created_at: string
+          grade_released: boolean
           id: string
           improvement_notes: string | null
           is_late: boolean
@@ -1132,6 +1145,7 @@ export type Database = {
         Insert: {
           assignment_id: string
           created_at?: string
+          grade_released?: boolean
           id?: string
           improvement_notes?: string | null
           is_late?: boolean
@@ -1150,6 +1164,7 @@ export type Database = {
         Update: {
           assignment_id?: string
           created_at?: string
+          grade_released?: boolean
           id?: string
           improvement_notes?: string | null
           is_late?: boolean
@@ -1236,6 +1251,18 @@ export type Database = {
         Args: { _submission_id: string; _user_id: string }
         Returns: boolean
       }
+      get_class_roster: {
+        Args: { _class_id: string }
+        Returns: {
+          er_no: string
+          full_name: string
+          id: string
+          joined_at: string
+          roll_no: string
+          sr_no: string
+          student_id: string
+        }[]
+      }
       get_profile_emails: {
         Args: { _ids: string[] }
         Returns: {
@@ -1282,7 +1309,17 @@ export type Database = {
         Args: { _class_id: string; _user_id: string }
         Returns: boolean
       }
-      join_class_by_code: { Args: { _code: string }; Returns: string }
+      join_class_by_code: {
+        Args: {
+          _code: string
+          _er_no: string
+          _full_name: string
+          _roll_no: string
+          _sr_no: string
+        }
+        Returns: string
+      }
+      leave_class: { Args: { _class_id: string }; Returns: undefined }
       owns_attempt: {
         Args: { _attempt_id: string; _user_id: string }
         Returns: boolean

@@ -147,6 +147,8 @@ function AssignmentPage() {
             id: a.id,
             due_date: a.due_date,
             submission_type: a.submission_type,
+            max_marks: a.max_marks,
+
             allow_images: a.allow_images,
             allow_autocorrect: a.allow_autocorrect,
             allow_voice_typing: a.allow_voice_typing,
@@ -228,6 +230,8 @@ function StudentSubmission({
     id: string;
     due_date: string | null;
     submission_type: string;
+    max_marks: number;
+
     allow_images: boolean;
     allow_autocorrect: boolean;
     allow_voice_typing: boolean;
@@ -455,10 +459,21 @@ function StudentSubmission({
         <StatusBadge status={(sub?.is_late ? "late" : (sub?.status ?? "not_started")) as SubmissionStatus} />
       </div>
 
-      {sub?.teacher_feedback && (
+      {sub?.grade_released && (sub.marks_awarded !== null || sub.teacher_feedback) && (
         <div className="panel border-info/40 bg-info/5 p-5">
-          <h3 className="text-sm font-semibold">Teacher feedback</h3>
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{sub.teacher_feedback}</p>
+          <h3 className="text-sm font-semibold">Your grade</h3>
+          {sub.marks_awarded !== null && (
+            <p className="mt-1 text-3xl font-semibold">
+              {sub.marks_awarded}
+              <span className="text-base font-normal text-muted-foreground">
+                {" "}
+                / {assignment.max_marks}
+              </span>
+            </p>
+          )}
+          {sub.teacher_feedback && (
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{sub.teacher_feedback}</p>
+          )}
           {sub.improvement_notes && (
             <p className="mt-3 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">How to improve: </span>
@@ -467,6 +482,12 @@ function StudentSubmission({
           )}
         </div>
       )}
+      {sub?.reviewed_at && !sub.grade_released && (
+        <p className="panel p-4 text-sm text-muted-foreground">
+          Your teacher hasn&apos;t released your grade yet.
+        </p>
+      )}
+
 
       {locked ? (
         <div className="panel p-6">

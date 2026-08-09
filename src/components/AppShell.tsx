@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { clearSessionConfirmation } from "@/lib/session-confirm";
+
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useTheme } from "@/lib/theme";
@@ -47,9 +49,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   async function signOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
+    clearSessionConfirmation();
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   }
+
 
   const initials = (profile?.full_name || profile?.email || "U")
     .split(" ")

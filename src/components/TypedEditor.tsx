@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,8 @@ export function TypedEditor({
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [listening, setListening] = useState(false);
+
 
   function block(kind: string, label: string) {
     toast.warning(`${label} is disabled on this assignment`, {
@@ -75,7 +77,28 @@ export function TypedEditor({
     onBlocksChange(next);
   }
 
-  function voiceType() {
+  // Voice typing stays on until the student turns it off. Browsers end a
+  // recognition session after every pause, so the `stopped` flag decides
+  // whether `onend` restarts it or lets it die.
+  const recRef = useRef<any>(null);
+  const stoppedRef = useRef(true);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  useEffect(() => {
+    return () => {
+      stoppedRef.current = true;
+      try {
+        recRef.current?.stop();
+      } catch {
+        /* recognition already ended */
+      }
+    };
+  }, []);
+
+  function startVoice() {
     const SR =
       (window as unknown as { webkitSpeechRecognition?: new () => any }).webkitSpeechRecognition ??
       (window as unknown as { SpeechRecognition?: new () => any }).SpeechRecognition;
@@ -84,16 +107,56 @@ export function TypedEditor({
       return;
     }
     const rec = new SR();
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = false;
+    rec.lang = navigator.language || "en-US";
     rec.onresult = (e: any) => {
-      const text = e.results[0][0].transcript as string;
-      onChange(value ? `${value} ${text}` : text);
+      let text = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) text += e.results[i][0].transcript;
+      }
+      text = text.trim();
+      if (!text) return;
+      const current = valueRef.current;
+      onChangeRef.current(current ? `${current} ${text}` : text);
     };
-    rec.onerror = () => toast.error("Could not capture audio");
-    rec.start();
-    toast.info("Listening…");
+    rec.onerror = (e: any) => {
+      if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {
+        stoppedRef.current = true;
+        setListening(false);
+        toast.error("Microphone access is blocked");
+      }
+      // "no-speech"/"aborted" are normal pauses — onend restarts them.
+    };
+    rec.onend = () => {
+      if (stoppedRef.current) return;
+      try {
+        rec.start();
+      } catch {
+        /* start() throws if it is already running */
+      }
+    };
+    recRef.current = rec;
+    stoppedRef.current = false;
+    try {
+      rec.start();
+      setListening(true);
+      toast.info("Voice typing on — it stays on until you turn it off");
+    } catch {
+      toast.error("Could not start voice typing");
+    }
   }
+
+  function stopVoice() {
+    stoppedRef.current = true;
+    setListening(false);
+    try {
+      recRef.current?.stop();
+    } catch {
+      /* already stopped */
+    }
+  }
+
 
   return (
     <div className="space-y-4">
@@ -108,10 +171,18 @@ export function TypedEditor({
         )}
         <div className="ml-auto flex gap-2">
           {allowVoice && (
-            <Button type="button" variant="outline" size="sm" onClick={voiceType}>
-              <Mic className="mr-1.5 size-3.5" /> Voice
+            <Button
+              type="button"
+              variant={listening ? "default" : "outline"}
+              size="sm"
+              aria-pressed={listening}
+              onClick={() => (listening ? stopVoice() : startVoice())}
+            >
+              <Mic className={`mr-1.5 size-3.5 ${listening ? "animate-pulse" : ""}`} />
+              {listening ? "Voice on" : "Voice"}
             </Button>
           )}
+
           {allowImages && (
             <Button
               type="button"

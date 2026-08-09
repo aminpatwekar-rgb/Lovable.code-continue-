@@ -11,10 +11,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import {
+  clearSessionConfirmation,
+  isSessionConfirmed,
+  markSessionConfirmed,
+} from "@/lib/session-confirm";
+
 
 const searchSchema = z.object({
   mode: z.enum(["signin", "signup"]).optional(),
+  confirm: z.boolean().optional(),
 });
+
 
 export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
@@ -40,7 +48,7 @@ const credentials = z.object({
 function AuthPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { session, loading } = useAuth();
+  const { session, profile, loading } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">(search.mode ?? "signup");
   const [role, setRole] = useState<"student" | "teacher">("student");
   const [fullName, setFullName] = useState("");
@@ -48,10 +56,24 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [switching, setSwitching] = useState(false);
+
+  const confirmed = isSessionConfirmed(session?.user.id);
+  // Only an explicitly confirmed account is allowed through to the app.
+  const needsConfirm = Boolean(session) && !confirmed && !switching;
 
   useEffect(() => {
-    if (!loading && session) navigate({ to: "/dashboard", replace: true });
-  }, [loading, session, navigate]);
+    if (!loading && session && confirmed && !switching)
+      navigate({ to: "/dashboard", replace: true });
+  }, [loading, session, confirmed, switching, navigate]);
+
+  async function useAnotherAccount() {
+    setSwitching(true);
+    clearSessionConfirmation();
+    await supabase.auth.signOut();
+    setMode("signin");
+  }
+
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -81,15 +103,20 @@ function AuthPage() {
           toast.success("Check your email to confirm your account.");
           return;
         }
+        markSessionConfirmed(data.session.user.id);
+        setSwitching(false);
         toast.success("Welcome to ONYX");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: parsed.data.email,
           password: parsed.data.password,
         });
         if (error) throw error;
+        markSessionConfirmed(data.user?.id);
+        setSwitching(false);
         toast.success("Signed in");
       }
+
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -135,7 +162,31 @@ function AuthPage() {
           <span className="font-semibold tracking-tight">ONYX</span>
         </Link>
 
-        {sent ? (
+        {needsConfirm ? (
+          <div className="space-y-4">
+            <h1 className="text-2xl font-semibold">
+              Continue as {profile?.full_name?.trim() || session?.user.email || "this account"}?
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              You're already signed in with{" "}
+              <span className="font-medium text-foreground">{session?.user.email}</span>. ONYX never
+              opens an account for you automatically.
+            </p>
+            <Button
+              className="w-full"
+              onClick={() => {
+                markSessionConfirmed(session!.user.id);
+                navigate({ to: "/dashboard", replace: true });
+              }}
+            >
+              Continue as {profile?.full_name?.trim().split(" ")[0] || session?.user.email}
+            </Button>
+            <Button variant="outline" className="w-full" onClick={() => void useAnotherAccount()}>
+              Use another account
+            </Button>
+          </div>
+        ) : sent ? (
+
           <div className="space-y-3">
             <h1 className="text-2xl font-semibold">Confirm your email</h1>
             <p className="text-sm text-muted-foreground">

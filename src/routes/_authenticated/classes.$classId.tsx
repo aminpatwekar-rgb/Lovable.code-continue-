@@ -2,9 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, Link2, Plus, Settings, UserMinus, Users } from "lucide-react";
+import { ArrowLeft, Copy, Link2, LogOut, Plus, Settings, UserMinus, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchProfileEmails } from "@/lib/profile-emails";
+
 
 import { useAuth } from "@/lib/auth";
 import { AssignmentDialog } from "@/components/AssignmentDialog";
@@ -59,12 +59,18 @@ export const Route = createFileRoute("/_authenticated/classes/$classId")({
   component: ClassDetail,
 });
 
+// The roster comes from a security-definer lookup that never returns email
+// addresses: classmates only ever receive names and join dates.
 type Member = {
   id: string;
   joined_at: string;
   student_id: string;
-  profiles: { full_name: string; email: string | null } | null;
+  full_name: string | null;
+  roll_no: string | null;
+  er_no: string | null;
+  sr_no: string | null;
 };
+
 
 function ClassDetail() {
   const { classId } = Route.useParams();
@@ -147,24 +153,25 @@ function ClassDetail() {
   const roster = useQuery({
     queryKey: ["roster", classId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("class_members")
-        .select(
-          "id, joined_at, student_id, profiles!class_members_student_profile_fkey(full_name)",
-        )
-        .eq("class_id", classId)
-        .order("joined_at", { ascending: true });
+      const { data, error } = await supabase.rpc("get_class_roster", { _class_id: classId });
       if (error) throw error;
-      const rows = (data ?? []) as unknown as Member[];
-      const emails = await fetchProfileEmails(rows.map((r) => r.student_id));
-      return rows.map((r) => ({
-        ...r,
-        profiles: r.profiles
-          ? { ...r.profiles, email: emails.get(r.student_id) ?? null }
-          : null,
-      })) as Member[];
+      return (data ?? []) as Member[];
     },
   });
+
+  const leave = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc("leave_class", { _class_id: classId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("You've left this class");
+      void qc.invalidateQueries();
+      void navigate({ to: "/classes", replace: true });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
 
   const assignments = useQuery({
@@ -304,7 +311,38 @@ function ClassDetail() {
             {[klass.data.subject, klass.data.section].filter(Boolean).join(" · ") || "No subject"}
           </p>
         </div>
+        {!isTeacher && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline">
+                <LogOut className="mr-1.5 size-4" /> Leave class
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Leave this class?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  You will no longer have access to this class and its assignments. Your teacher
+                  will be notified. Work you already submitted is kept.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={(e) => {
+                    e.preventDefault();
+                    leave.mutate();
+                  }}
+                  disabled={leave.isPending}
+                >
+                  Leave class
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
         {canManage && (
+
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -394,7 +432,10 @@ function ClassDetail() {
           <TabsTrigger value="assignments">Assignments ({active.length})</TabsTrigger>
           {isTeacher && <TabsTrigger value="drafts">Drafts ({drafts.length})</TabsTrigger>}
           {isTeacher && <TabsTrigger value="archived">Archived ({archived.length})</TabsTrigger>}
-          <TabsTrigger value="students">Students ({roster.data?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="students">
+            {isTeacher ? "Students" : "Classmates"} ({roster.data?.length ?? 0})
+          </TabsTrigger>
+
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
           <TabsTrigger value="discussion">Discussion</TabsTrigger>
         </TabsList>
@@ -444,8 +485,14 @@ function ClassDetail() {
           ) : (
             <ul className="panel divide-y divide-border">
               {(roster.data ?? []).map((m) => {
-                const p = m.profiles;
-                const name = p?.full_name?.trim() || "Student";
+                const name = m.full_name?.trim() || "Student";
+                const identifiers = [
+                  m.roll_no && `Roll ${m.roll_no}`,
+                  m.er_no && `ER ${m.er_no}`,
+                  m.sr_no && `Sr ${m.sr_no}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
                 const submitted = progress.data?.byStudent.get(m.student_id) ?? 0;
                 const total = progress.data?.total ?? 0;
                 return (
@@ -457,10 +504,11 @@ function ClassDetail() {
                     </Avatar>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {p?.email ?? "No email"}
-                      </p>
+                      {identifiers && (
+                        <p className="truncate text-xs text-muted-foreground">{identifiers}</p>
+                      )}
                     </div>
+
                     <div className="text-xs text-muted-foreground">
                       Joined {new Date(m.joined_at).toLocaleDateString()}
                     </div>

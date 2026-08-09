@@ -56,11 +56,16 @@ function Page() {
       if (error) throw error;
       if (!quiz) throw new Error("Quiz not found.");
 
-      const { data: questions } = await supabase
-        .from("quiz_questions")
-        .select("id, type, prompt, points, position")
-        .eq("quiz_id", quizId)
-        .order("position");
+      // Teachers own the rows; students read a key-free projection via RPC so
+      // the `correct`/`explanation` columns never reach the browser.
+      const { data: questions } = isTeacher
+        ? await supabase
+            .from("quiz_questions")
+            .select("id, type, prompt, points, position")
+            .eq("quiz_id", quizId)
+            .order("position")
+        : await supabase.rpc("get_quiz_questions_for_student", { _quiz_id: quizId });
+
 
       const attemptQuery = supabase
         .from("quiz_attempts")

@@ -1243,6 +1243,26 @@ export type Database = {
           id: string
         }[]
       }
+      get_quiz_explanations: {
+        Args: { _attempt_id: string }
+        Returns: {
+          correct: Json
+          explanation: string
+          question_id: string
+        }[]
+      }
+      get_quiz_questions_for_student: {
+        Args: { _quiz_id: string }
+        Returns: {
+          difficulty: Database["public"]["Enums"]["quiz_difficulty"]
+          id: string
+          options: Json
+          points: number
+          prompt: string
+          q_position: number
+          type: Database["public"]["Enums"]["quiz_question_type"]
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

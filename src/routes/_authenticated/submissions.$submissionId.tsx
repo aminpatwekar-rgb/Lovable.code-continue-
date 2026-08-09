@@ -250,6 +250,20 @@ function ReviewSubmission() {
               onChange={(e) => setNotes(e.target.value)}
             />
           </div>
+          <label className="flex items-start gap-3 rounded-md border border-border p-3 text-sm">
+            <input
+              type="checkbox"
+              checked={released}
+              onChange={(e) => setReleased(e.target.checked)}
+              className="mt-0.5 size-4 accent-[var(--primary)]"
+            />
+            <span>
+              Release the grade to the student
+              <span className="block text-xs text-muted-foreground">
+                When off, marks and feedback stay hidden until you release them.
+              </span>
+            </span>
+          </label>
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => grade.mutate("reviewed")} disabled={grade.isPending}>
               {grade.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
@@ -264,11 +278,22 @@ function ReviewSubmission() {
             </Button>
           </div>
         </section>
-      ) : (
-        sub.teacher_feedback && (
+      ) : sub.grade_released ? (
+        (sub.marks_awarded !== null || sub.teacher_feedback) && (
           <section className="panel border-info/40 bg-info/5 p-6">
-            <h2 className="text-lg font-semibold">Teacher feedback</h2>
-            <p className="mt-2 whitespace-pre-wrap leading-7">{sub.teacher_feedback}</p>
+            <h2 className="text-lg font-semibold">Your grade</h2>
+            {sub.marks_awarded !== null && (
+              <p className="mt-2 text-3xl font-semibold">
+                {sub.marks_awarded}
+                <span className="text-base font-normal text-muted-foreground">
+                  {" "}
+                  / {assignment?.max_marks ?? 100}
+                </span>
+              </p>
+            )}
+            {sub.teacher_feedback && (
+              <p className="mt-3 whitespace-pre-wrap leading-7">{sub.teacher_feedback}</p>
+            )}
             {sub.improvement_notes && (
               <p className="mt-3 text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">How to improve: </span>
@@ -277,7 +302,12 @@ function ReviewSubmission() {
             )}
           </section>
         )
+      ) : (
+        <section className="panel p-6 text-sm text-muted-foreground">
+          Your teacher hasn&apos;t released the grade for this submission yet.
+        </section>
       )}
+
 
       <SubmissionComments submissionId={submissionId} />
     </div>

@@ -103,15 +103,20 @@ function AuthPage() {
           toast.success("Check your email to confirm your account.");
           return;
         }
+        markSessionConfirmed(data.session.user.id);
+        setSwitching(false);
         toast.success("Welcome to ONYX");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: parsed.data.email,
           password: parsed.data.password,
         });
         if (error) throw error;
+        markSessionConfirmed(data.user?.id);
+        setSwitching(false);
         toast.success("Signed in");
       }
+
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {

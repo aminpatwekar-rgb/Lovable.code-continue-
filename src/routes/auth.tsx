@@ -14,7 +14,9 @@ import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({
   mode: z.enum(["signin", "signup"]).optional(),
+  confirm: z.boolean().optional(),
 });
+
 
 export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,

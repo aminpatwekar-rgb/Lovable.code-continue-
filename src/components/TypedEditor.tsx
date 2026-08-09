@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,8 @@ export function TypedEditor({
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [listening, setListening] = useState(false);
+
 
   function block(kind: string, label: string) {
     toast.warning(`${label} is disabled on this assignment`, {

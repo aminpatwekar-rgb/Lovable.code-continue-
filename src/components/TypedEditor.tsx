@@ -171,10 +171,18 @@ export function TypedEditor({
         )}
         <div className="ml-auto flex gap-2">
           {allowVoice && (
-            <Button type="button" variant="outline" size="sm" onClick={voiceType}>
-              <Mic className="mr-1.5 size-3.5" /> Voice
+            <Button
+              type="button"
+              variant={listening ? "default" : "outline"}
+              size="sm"
+              aria-pressed={listening}
+              onClick={() => (listening ? stopVoice() : startVoice())}
+            >
+              <Mic className={`mr-1.5 size-3.5 ${listening ? "animate-pulse" : ""}`} />
+              {listening ? "Voice on" : "Voice"}
             </Button>
           )}
+
           {allowImages && (
             <Button
               type="button"

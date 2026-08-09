@@ -59,12 +59,18 @@ export const Route = createFileRoute("/_authenticated/classes/$classId")({
   component: ClassDetail,
 });
 
+// The roster comes from a security-definer lookup that never returns email
+// addresses: classmates only ever receive names and join dates.
 type Member = {
   id: string;
   joined_at: string;
   student_id: string;
-  profiles: { full_name: string; email: string | null } | null;
+  full_name: string | null;
+  roll_no: string | null;
+  er_no: string | null;
+  sr_no: string | null;
 };
+
 
 function ClassDetail() {
   const { classId } = Route.useParams();

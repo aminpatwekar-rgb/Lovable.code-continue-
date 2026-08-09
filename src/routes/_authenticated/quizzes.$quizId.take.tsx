@@ -106,13 +106,15 @@ function Page() {
           throw new Error("This quiz has not opened yet.");
         if (q.end_at && new Date(q.end_at) < new Date()) throw new Error("This quiz has closed.");
 
-        const { data: rows, error: rErr } = await supabase
-          .from("quiz_questions")
-          .select("id, type, prompt, options, points, position")
-          .eq("quiz_id", quizId)
-          .order("position");
+        // Answer keys are never sent to the browser: this RPC returns the
+        // student-safe columns only (no `correct`, no `explanation`).
+        const { data: rows, error: rErr } = await supabase.rpc(
+          "get_quiz_questions_for_student",
+          { _quiz_id: quizId },
+        );
         if (rErr) throw rErr;
         if (!rows?.length) throw new Error("This quiz has no questions yet.");
+
 
         let live: Attempt | null = null;
         const { data: open } = await supabase

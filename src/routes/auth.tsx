@@ -151,7 +151,31 @@ function AuthPage() {
           <span className="font-semibold tracking-tight">ONYX</span>
         </Link>
 
-        {sent ? (
+        {needsConfirm ? (
+          <div className="space-y-4">
+            <h1 className="text-2xl font-semibold">
+              Continue as {profile?.full_name?.trim() || session?.user.email || "this account"}?
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              You're already signed in with{" "}
+              <span className="font-medium text-foreground">{session?.user.email}</span>. ONYX never
+              opens an account for you automatically.
+            </p>
+            <Button
+              className="w-full"
+              onClick={() => {
+                markSessionConfirmed(session!.user.id);
+                navigate({ to: "/dashboard", replace: true });
+              }}
+            >
+              Continue as {profile?.full_name?.trim().split(" ")[0] || session?.user.email}
+            </Button>
+            <Button variant="outline" className="w-full" onClick={() => void useAnotherAccount()}>
+              Use another account
+            </Button>
+          </div>
+        ) : sent ? (
+
           <div className="space-y-3">
             <h1 className="text-2xl font-semibold">Confirm your email</h1>
             <p className="text-sm text-muted-foreground">

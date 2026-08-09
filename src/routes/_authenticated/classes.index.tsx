@@ -110,8 +110,22 @@ function Classes() {
 
   const join = useMutation({
     mutationFn: async () => {
+      const identity = {
+        _full_name: studentName.trim() || profile?.full_name?.trim() || "",
+        _roll_no: rollNo.trim(),
+        _er_no: erNo.trim(),
+        _sr_no: srNo.trim(),
+      };
+      if (!code.trim()) throw new Error("Enter the join code");
+      if (!identity._full_name) throw new Error("Full name is required");
+      if (!identity._roll_no) throw new Error("Roll No. is required");
+      if (!identity._er_no) throw new Error("ER No. is required");
+      if (!identity._sr_no) throw new Error("Sr No. is required");
+      // The database owns the duplicate check, so two simultaneous joins with
+      // the same Roll/ER/Sr No. still cannot both succeed.
       const { data, error } = await supabase.rpc("join_class_by_code", {
         _code: code.trim().toUpperCase(),
+        ...identity,
       });
       if (error) throw error;
       if (!data) throw new Error("No class found with that code");
@@ -121,10 +135,14 @@ function Classes() {
       toast.success("You've joined the class");
       setJoinOpen(false);
       setCode("");
+      setRollNo("");
+      setErNo("");
+      setSrNo("");
       void qc.invalidateQueries();
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   return (
     <div className="space-y-8">

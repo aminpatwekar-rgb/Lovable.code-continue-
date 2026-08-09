@@ -38,7 +38,7 @@ export const Route = createFileRoute("/_authenticated/classes/")({
 });
 
 function Classes() {
-  const { role, user } = useAuth();
+  const { role, user, profile } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -47,8 +47,13 @@ function Classes() {
   const [section, setSection] = useState("");
   const [description, setDescription] = useState("");
   const [code, setCode] = useState("");
+  const [studentName, setStudentName] = useState("");
+  const [rollNo, setRollNo] = useState("");
+  const [erNo, setErNo] = useState("");
+  const [srNo, setSrNo] = useState("");
 
   const isTeacher = role === "teacher" || role === "admin";
+
 
   const classes = useQuery({
     queryKey: ["classes", user?.id, role],

@@ -11,6 +11,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import {
+  clearSessionConfirmation,
+  isSessionConfirmed,
+  markSessionConfirmed,
+} from "@/lib/session-confirm";
+
 
 const searchSchema = z.object({
   mode: z.enum(["signin", "signup"]).optional(),

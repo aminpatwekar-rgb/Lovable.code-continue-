@@ -37,7 +37,9 @@ function ReviewSubmission() {
   const [marks, setMarks] = useState("");
   const [feedback, setFeedback] = useState("");
   const [notes, setNotes] = useState("");
+  const [released, setReleased] = useState(true);
   const [hydrated, setHydrated] = useState(false);
+
 
   const q = useQuery({
     queryKey: ["submission", submissionId],

@@ -451,8 +451,14 @@ function ClassDetail() {
           ) : (
             <ul className="panel divide-y divide-border">
               {(roster.data ?? []).map((m) => {
-                const p = m.profiles;
-                const name = p?.full_name?.trim() || "Student";
+                const name = m.full_name?.trim() || "Student";
+                const identifiers = [
+                  m.roll_no && `Roll ${m.roll_no}`,
+                  m.er_no && `ER ${m.er_no}`,
+                  m.sr_no && `Sr ${m.sr_no}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
                 const submitted = progress.data?.byStudent.get(m.student_id) ?? 0;
                 const total = progress.data?.total ?? 0;
                 return (
@@ -464,10 +470,11 @@ function ClassDetail() {
                     </Avatar>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {p?.email ?? "No email"}
-                      </p>
+                      {identifiers && (
+                        <p className="truncate text-xs text-muted-foreground">{identifiers}</p>
+                      )}
                     </div>
+
                     <div className="text-xs text-muted-foreground">
                       Joined {new Date(m.joined_at).toLocaleDateString()}
                     </div>

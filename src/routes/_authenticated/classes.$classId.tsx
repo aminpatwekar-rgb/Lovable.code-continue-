@@ -2,9 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, Link2, Plus, Settings, UserMinus, Users } from "lucide-react";
+import { ArrowLeft, Copy, Link2, LogOut, Plus, Settings, UserMinus, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchProfileEmails } from "@/lib/profile-emails";
+
 
 import { useAuth } from "@/lib/auth";
 import { AssignmentDialog } from "@/components/AssignmentDialog";
@@ -311,7 +311,38 @@ function ClassDetail() {
             {[klass.data.subject, klass.data.section].filter(Boolean).join(" · ") || "No subject"}
           </p>
         </div>
+        {!isTeacher && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline">
+                <LogOut className="mr-1.5 size-4" /> Leave class
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Leave this class?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  You will no longer have access to this class and its assignments. Your teacher
+                  will be notified. Work you already submitted is kept.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={(e) => {
+                    e.preventDefault();
+                    leave.mutate();
+                  }}
+                  disabled={leave.isPending}
+                >
+                  Leave class
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
         {canManage && (
+
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -401,7 +432,10 @@ function ClassDetail() {
           <TabsTrigger value="assignments">Assignments ({active.length})</TabsTrigger>
           {isTeacher && <TabsTrigger value="drafts">Drafts ({drafts.length})</TabsTrigger>}
           {isTeacher && <TabsTrigger value="archived">Archived ({archived.length})</TabsTrigger>}
-          <TabsTrigger value="students">Students ({roster.data?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="students">
+            {isTeacher ? "Students" : "Classmates"} ({roster.data?.length ?? 0})
+          </TabsTrigger>
+
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
           <TabsTrigger value="discussion">Discussion</TabsTrigger>
         </TabsList>

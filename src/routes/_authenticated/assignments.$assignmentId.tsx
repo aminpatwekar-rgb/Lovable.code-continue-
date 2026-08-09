@@ -228,6 +228,8 @@ function StudentSubmission({
     id: string;
     due_date: string | null;
     submission_type: string;
+    max_marks: number;
+
     allow_images: boolean;
     allow_autocorrect: boolean;
     allow_voice_typing: boolean;

@@ -47,9 +47,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   async function signOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
+    clearSessionConfirmation();
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   }
+
 
   const initials = (profile?.full_name || profile?.email || "U")
     .split(" ")

@@ -78,9 +78,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       if (!active) return;
       setSession(s);
+      // An explicit sign-in (password form or an OAuth callback landing back on
+      // the app) counts as the user confirming the account. A merely restored
+      // session never does — that path shows the "Continue as …" screen.
+      if (event === "SIGNED_IN" && s?.user) {
+        const url = new URL(window.location.href);
+        const fromExplicitSignIn =
+          url.pathname === "/auth" ||
+          url.searchParams.has("code") ||
+          url.hash.includes("access_token");
+        if (fromExplicitSignIn) markSessionConfirmed(s.user.id);
+      }
+      if (event === "SIGNED_OUT") clearSessionConfirmation();
       if (s?.user) {
         void loadMeta(s.user.id, s.user.email);
       } else {
@@ -88,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRole(null);
       }
     });
+
 
     supabase.auth.getSession().then(async ({ data }) => {
       if (!active) return;

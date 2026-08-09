@@ -42,7 +42,7 @@ const credentials = z.object({
 function AuthPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { session, loading } = useAuth();
+  const { session, profile, loading } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">(search.mode ?? "signup");
   const [role, setRole] = useState<"student" | "teacher">("student");
   const [fullName, setFullName] = useState("");
@@ -50,10 +50,24 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [switching, setSwitching] = useState(false);
+
+  const confirmed = isSessionConfirmed(session?.user.id);
+  // Only an explicitly confirmed account is allowed through to the app.
+  const needsConfirm = Boolean(session) && !confirmed && !switching;
 
   useEffect(() => {
-    if (!loading && session) navigate({ to: "/dashboard", replace: true });
-  }, [loading, session, navigate]);
+    if (!loading && session && confirmed && !switching)
+      navigate({ to: "/dashboard", replace: true });
+  }, [loading, session, confirmed, switching, navigate]);
+
+  async function useAnotherAccount() {
+    setSwitching(true);
+    clearSessionConfirmation();
+    await supabase.auth.signOut();
+    setMode("signin");
+  }
+
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

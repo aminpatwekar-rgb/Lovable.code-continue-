@@ -153,24 +153,25 @@ function ClassDetail() {
   const roster = useQuery({
     queryKey: ["roster", classId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("class_members")
-        .select(
-          "id, joined_at, student_id, profiles!class_members_student_profile_fkey(full_name)",
-        )
-        .eq("class_id", classId)
-        .order("joined_at", { ascending: true });
+      const { data, error } = await supabase.rpc("get_class_roster", { _class_id: classId });
       if (error) throw error;
-      const rows = (data ?? []) as unknown as Member[];
-      const emails = await fetchProfileEmails(rows.map((r) => r.student_id));
-      return rows.map((r) => ({
-        ...r,
-        profiles: r.profiles
-          ? { ...r.profiles, email: emails.get(r.student_id) ?? null }
-          : null,
-      })) as Member[];
+      return (data ?? []) as Member[];
     },
   });
+
+  const leave = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc("leave_class", { _class_id: classId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("You've left this class");
+      void qc.invalidateQueries();
+      void navigate({ to: "/classes", replace: true });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
 
   const assignments = useQuery({

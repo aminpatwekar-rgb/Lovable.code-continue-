@@ -88,6 +88,7 @@ function ReviewSubmission() {
     setMarks(q.data.sub.marks_awarded?.toString() ?? "");
     setFeedback(q.data.sub.teacher_feedback ?? "");
     setNotes(q.data.sub.improvement_notes ?? "");
+    setReleased(q.data.sub.grade_released ?? true);
     setHydrated(true);
   }, [q.data, hydrated]);
 
@@ -105,6 +106,7 @@ function ReviewSubmission() {
           marks_awarded: value,
           teacher_feedback: feedback.trim().slice(0, 4000) || null,
           improvement_notes: notes.trim().slice(0, 2000) || null,
+          grade_released: released,
           status: next ?? "reviewed",
           reviewed_at: new Date().toISOString(),
         })
@@ -112,6 +114,7 @@ function ReviewSubmission() {
       if (error) throw error;
       return next ?? "reviewed";
     },
+
     onSuccess: (status) => {
       toast.success(status === "returned" ? "Returned to student" : "Feedback saved");
       void qc.invalidateQueries();

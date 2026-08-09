@@ -75,7 +75,28 @@ export function TypedEditor({
     onBlocksChange(next);
   }
 
-  function voiceType() {
+  // Voice typing stays on until the student turns it off. Browsers end a
+  // recognition session after every pause, so the `stopped` flag decides
+  // whether `onend` restarts it or lets it die.
+  const recRef = useRef<any>(null);
+  const stoppedRef = useRef(true);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  useEffect(() => {
+    return () => {
+      stoppedRef.current = true;
+      try {
+        recRef.current?.stop();
+      } catch {
+        /* recognition already ended */
+      }
+    };
+  }, []);
+
+  function startVoice() {
     const SR =
       (window as unknown as { webkitSpeechRecognition?: new () => any }).webkitSpeechRecognition ??
       (window as unknown as { SpeechRecognition?: new () => any }).SpeechRecognition;
@@ -84,16 +105,56 @@ export function TypedEditor({
       return;
     }
     const rec = new SR();
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = false;
+    rec.lang = navigator.language || "en-US";
     rec.onresult = (e: any) => {
-      const text = e.results[0][0].transcript as string;
-      onChange(value ? `${value} ${text}` : text);
+      let text = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) text += e.results[i][0].transcript;
+      }
+      text = text.trim();
+      if (!text) return;
+      const current = valueRef.current;
+      onChangeRef.current(current ? `${current} ${text}` : text);
     };
-    rec.onerror = () => toast.error("Could not capture audio");
-    rec.start();
-    toast.info("Listening…");
+    rec.onerror = (e: any) => {
+      if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {
+        stoppedRef.current = true;
+        setListening(false);
+        toast.error("Microphone access is blocked");
+      }
+      // "no-speech"/"aborted" are normal pauses — onend restarts them.
+    };
+    rec.onend = () => {
+      if (stoppedRef.current) return;
+      try {
+        rec.start();
+      } catch {
+        /* start() throws if it is already running */
+      }
+    };
+    recRef.current = rec;
+    stoppedRef.current = false;
+    try {
+      rec.start();
+      setListening(true);
+      toast.info("Voice typing on — it stays on until you turn it off");
+    } catch {
+      toast.error("Could not start voice typing");
+    }
   }
+
+  function stopVoice() {
+    stoppedRef.current = true;
+    setListening(false);
+    try {
+      recRef.current?.stop();
+    } catch {
+      /* already stopped */
+    }
+  }
+
 
   return (
     <div className="space-y-4">

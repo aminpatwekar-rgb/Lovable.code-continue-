@@ -225,22 +225,68 @@ function Classes() {
               <DialogHeader>
                 <DialogTitle>Join a class</DialogTitle>
               </DialogHeader>
-              <div className="space-y-1.5">
-                <Label htmlFor="code">Join code</Label>
-                <Input
-                  id="code"
-                  maxLength={6}
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  placeholder="AB12CD"
-                  className="font-mono tracking-[0.3em] uppercase"
-                />
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="code">Join code</Label>
+                  <Input
+                    id="code"
+                    maxLength={6}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    placeholder="AB12CD"
+                    className="font-mono tracking-[0.3em] uppercase"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="sname">Full name</Label>
+                  <Input
+                    id="sname"
+                    maxLength={100}
+                    value={studentName || profile?.full_name || ""}
+                    onChange={(e) => setStudentName(e.target.value)}
+                    placeholder="Mohammed Amin"
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="roll">Roll No.</Label>
+                    <Input
+                      id="roll"
+                      maxLength={40}
+                      value={rollNo}
+                      onChange={(e) => setRollNo(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="er">ER No.</Label>
+                    <Input
+                      id="er"
+                      maxLength={40}
+                      value={erNo}
+                      onChange={(e) => setErNo(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="sr">Sr No.</Label>
+                    <Input
+                      id="sr"
+                      maxLength={40}
+                      value={srNo}
+                      onChange={(e) => setSrNo(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  These identifiers must be unique inside the class. Your teacher uses them to
+                  match your work.
+                </p>
               </div>
               <DialogFooter>
                 <Button onClick={() => join.mutate()} disabled={join.isPending}>
-                  Join
+                  {join.isPending ? "Joining…" : "Join"}
                 </Button>
               </DialogFooter>
+
             </DialogContent>
           </Dialog>
         )}

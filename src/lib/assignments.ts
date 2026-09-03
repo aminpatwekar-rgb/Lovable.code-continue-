@@ -63,6 +63,20 @@ export function dueStatusLabel(due: string | null, submittedAt?: string | null) 
 }
 
 
+/**
+ * Statuses that count as "the student is done with it". Shared by the
+ * dashboard and the assignments list so both always agree on the numbers.
+ */
+export const DONE_STATUSES: SubmissionStatus[] = ["submitted", "reviewed", "completed", "late"];
+
+export type AssignmentBucket = "upcoming" | "overdue" | "done";
+
+/** Single source of truth for which tab an assignment belongs to. */
+export function bucketOf(due: string | null, status: SubmissionStatus): AssignmentBucket {
+  if (DONE_STATUSES.includes(status)) return "done";
+  return daysLate(due) > 0 ? "overdue" : "upcoming";
+}
+
 export function makeJoinCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");

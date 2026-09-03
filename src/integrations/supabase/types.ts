@@ -338,6 +338,7 @@ export type Database = {
           full_name: string | null
           id: string
           joined_at: string
+          member_role: string
           roll_no: string | null
           sr_no: string | null
           student_id: string
@@ -348,6 +349,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           joined_at?: string
+          member_role?: string
           roll_no?: string | null
           sr_no?: string | null
           student_id: string
@@ -358,6 +360,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           joined_at?: string
+          member_role?: string
           roll_no?: string | null
           sr_no?: string | null
           student_id?: string
@@ -1258,6 +1261,7 @@ export type Database = {
           full_name: string
           id: string
           joined_at: string
+          member_role: string
           roll_no: string
           sr_no: string
           student_id: string

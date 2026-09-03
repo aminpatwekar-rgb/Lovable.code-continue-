@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.protect_submission_grading() FROM PUBLIC, anon, authenticated;

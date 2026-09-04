@@ -13,7 +13,7 @@ type AssignmentTab = "all" | "upcoming" | "overdue" | "done" | "review";
 export const Route = createFileRoute("/_authenticated/assignments/")({
   // The tab lives in the URL so dashboard cards can deep-link into a filter.
   validateSearch: (search: Record<string, unknown>) => ({
-    tab: typeof search.tab === "string" ? (search.tab as AssignmentTab) : ("upcoming" as const),
+    tab: typeof search['tab'] === "string" ? (search['tab'] as AssignmentTab) : ("upcoming" as const),
   }),
   head: () => ({
     meta: [
@@ -34,7 +34,7 @@ const VALID: AssignmentTab[] = ["all", "upcoming", "overdue", "done", "review"];
 
 function Assignments() {
   const { user, role } = useAuth();
-  const navigate = useNavigate({ from: "/assignments" });
+  const navigate = useNavigate({ from: "/assignments/" });
   const { tab } = Route.useSearch();
   const isTeacher = role === "teacher" || role === "admin";
 
@@ -168,7 +168,7 @@ function Assignments() {
         <Tabs
           value={current}
           onValueChange={(v) =>
-            void navigate({ search: { tab: v as AssignmentTab }, replace: true })
+            void navigate({ to: ".", search: { tab: v as AssignmentTab }, replace: true })
           }
         >
           <TabsList className="flex-wrap">

@@ -73,7 +73,9 @@ function AssignmentPage() {
           it.
         </p>
         <Button asChild className="mt-3" variant="outline">
-          <Link to="/assignments">Back to assignments</Link>
+          <Link to="/assignments" search={{ tab: "upcoming" }}>
+            Back to assignments
+          </Link>
         </Button>
       </div>
     );

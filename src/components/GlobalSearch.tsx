@@ -5,8 +5,9 @@ import { BookOpen, ClipboardList, GraduationCap, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
-  CommandDialog,
+  Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
@@ -107,7 +108,10 @@ export function GlobalSearch() {
         <kbd className="hidden rounded border border-border px-1 text-[10px] sm:inline">⌘K</kbd>
       </Button>
 
-      <CommandDialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="overflow-hidden p-0">
+          <DialogTitle className="sr-only">Search ONYX</DialogTitle>
+          <Command shouldFilter={false}>
         <CommandInput
           placeholder="Search classes, assignments and quizzes…"
           value={term}
@@ -156,7 +160,9 @@ export function GlobalSearch() {
             </CommandGroup>
           )}
         </CommandList>
-      </CommandDialog>
+          </Command>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

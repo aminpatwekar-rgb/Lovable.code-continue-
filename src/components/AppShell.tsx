@@ -105,6 +105,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
             <span className="text-sm font-semibold tracking-tight">ONYX</span>
           </Link>
+          <GlobalSearch />
           {nav}
         </div>
         <div className="space-y-3">

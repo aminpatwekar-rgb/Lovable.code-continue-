@@ -1282,6 +1282,14 @@ export type Database = {
           question_id: string
         }[]
       }
+      get_quiz_question_counts: {
+        Args: { _quiz_ids: string[] }
+        Returns: {
+          question_count: number
+          quiz_id: string
+          total_points: number
+        }[]
+      }
       get_quiz_questions_for_student: {
         Args: { _quiz_id: string }
         Returns: {

@@ -207,11 +207,13 @@ function TeacherQuizzes() {
       const { data, error } = await supabase
         .from("quizzes")
         .select(
-          "id, title, kind, published, archived, lockdown_enabled, time_limit_minutes, class_id, classes(name), quiz_questions(count), quiz_attempts(count)",
+          "id, title, kind, published, archived, lockdown_enabled, time_limit_minutes, class_id, classes(name), quiz_attempts(count)",
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data ?? [];
+      const rows = data ?? [];
+      const counts = await fetchQuestionCounts(rows.map((r) => r.id));
+      return { rows, counts };
     },
   });
 
@@ -227,6 +229,18 @@ function TeacherQuizzes() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const removeQuiz = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("quizzes").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Quiz deleted");
+      void qc.invalidateQueries({ queryKey: ["teacher-quizzes"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   if (q.isLoading) return <ListSkeleton />;
   if (q.isError)
     return (
@@ -235,12 +249,14 @@ function TeacherQuizzes() {
       </div>
     );
 
-  const live = (q.data ?? []).filter((x) => !x.archived);
-  const archived = (q.data ?? []).filter((x) => x.archived);
+  const counts = q.data?.counts ?? new Map<string, number>();
+  const live = (q.data?.rows ?? []).filter((x) => !x.archived);
+  const archived = (q.data?.rows ?? []).filter((x) => x.archived);
 
   const row = (x: (typeof live)[number]) => {
-    const questions = x.quiz_questions?.[0]?.count ?? 0;
+    const questions = counts.get(x.id) ?? 0;
     const attempts = x.quiz_attempts?.[0]?.count ?? 0;
+
     return (
       <div key={x.id} className="panel flex flex-wrap items-center gap-3 p-4">
         <div className="min-w-0 flex-1">

@@ -393,6 +393,7 @@ function StudentQuizzes() {
       </div>
     );
 
+  const counts = q.data?.counts ?? new Map<string, number>();
   const attempts = q.data?.attempts ?? [];
   const best = new Map<string, (typeof attempts)[number]>();
   for (const a of attempts) if (!best.has(a.quiz_id)) best.set(a.quiz_id, a);

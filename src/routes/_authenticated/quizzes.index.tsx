@@ -6,6 +6,8 @@ import { ClipboardList, Lock, Plus, Timer, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { KIND_LABEL, percent, type QuizKind } from "@/lib/quiz/types";
+import { fetchQuestionCounts } from "@/lib/quiz/counts";
+import { DeleteQuizButton } from "@/components/DeleteQuizButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -207,11 +209,13 @@ function TeacherQuizzes() {
       const { data, error } = await supabase
         .from("quizzes")
         .select(
-          "id, title, kind, published, archived, lockdown_enabled, time_limit_minutes, class_id, classes(name), quiz_questions(count), quiz_attempts(count)",
+          "id, title, kind, published, archived, lockdown_enabled, time_limit_minutes, class_id, classes(name), quiz_attempts(count)",
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data ?? [];
+      const rows = data ?? [];
+      const counts = await fetchQuestionCounts(rows.map((r) => r.id));
+      return { rows, counts };
     },
   });
 
@@ -227,6 +231,18 @@ function TeacherQuizzes() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const removeQuiz = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("quizzes").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Quiz deleted");
+      void qc.invalidateQueries({ queryKey: ["teacher-quizzes"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   if (q.isLoading) return <ListSkeleton />;
   if (q.isError)
     return (
@@ -235,12 +251,14 @@ function TeacherQuizzes() {
       </div>
     );
 
-  const live = (q.data ?? []).filter((x) => !x.archived);
-  const archived = (q.data ?? []).filter((x) => x.archived);
+  const counts = q.data?.counts ?? new Map<string, number>();
+  const live = (q.data?.rows ?? []).filter((x) => !x.archived);
+  const archived = (q.data?.rows ?? []).filter((x) => x.archived);
 
   const row = (x: (typeof live)[number]) => {
-    const questions = x.quiz_questions?.[0]?.count ?? 0;
+    const questions = counts.get(x.id) ?? 0;
     const attempts = x.quiz_attempts?.[0]?.count ?? 0;
+
     return (
       <div key={x.id} className="panel flex flex-wrap items-center gap-3 p-4">
         <div className="min-w-0 flex-1">
@@ -286,6 +304,11 @@ function TeacherQuizzes() {
           >
             {x.published ? "Unpublish" : "Publish"}
           </Button>
+          <DeleteQuizButton
+            title={x.title}
+            pending={removeQuiz.isPending}
+            onConfirm={() => removeQuiz.mutate(x.id)}
+          />
         </div>
       </div>
     );
@@ -347,7 +370,7 @@ function StudentQuizzes() {
       const { data: quizzes, error } = await supabase
         .from("quizzes")
         .select(
-          "id, title, kind, start_at, end_at, time_limit_minutes, max_attempts, lockdown_enabled, class_id, classes(name), quiz_questions(count)",
+          "id, title, kind, start_at, end_at, time_limit_minutes, max_attempts, lockdown_enabled, class_id, classes(name)",
         )
         .eq("published", true)
         .eq("archived", false)
@@ -358,7 +381,9 @@ function StudentQuizzes() {
         .select("id, quiz_id, status, score, max_score, attempt_no, submitted_at")
         .eq("student_id", user!.id)
         .order("attempt_no", { ascending: false });
-      return { quizzes: quizzes ?? [], attempts: attempts ?? [] };
+      const counts = await fetchQuestionCounts((quizzes ?? []).map((x) => x.id));
+      return { quizzes: quizzes ?? [], attempts: attempts ?? [], counts };
+
     },
   });
 
@@ -370,6 +395,7 @@ function StudentQuizzes() {
       </div>
     );
 
+  const counts = q.data?.counts ?? new Map<string, number>();
   const attempts = q.data?.attempts ?? [];
   const best = new Map<string, (typeof attempts)[number]>();
   for (const a of attempts) if (!best.has(a.quiz_id)) best.set(a.quiz_id, a);
@@ -383,7 +409,7 @@ function StudentQuizzes() {
 
   const card = (x: (typeof all)[number]) => {
     const a = best.get(x.id);
-    const count = x.quiz_questions?.[0]?.count ?? 0;
+    const count = counts.get(x.id) ?? 0;
     const used = attempts.filter((t) => t.quiz_id === x.id).length;
     const exhausted = used >= (x.max_attempts ?? 1);
     const notOpen = x.start_at ? new Date(x.start_at) > new Date() : false;

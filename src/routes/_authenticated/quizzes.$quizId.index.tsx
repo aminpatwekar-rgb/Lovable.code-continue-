@@ -45,6 +45,23 @@ function Page() {
   const { quizId } = Route.useParams();
   const { user, role } = useAuth();
   const isTeacher = role === "teacher" || role === "admin";
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+
+  const removeQuiz = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("quizzes").delete().eq("id", quizId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Quiz deleted");
+      void qc.invalidateQueries({ queryKey: ["teacher-quizzes"] });
+      void navigate({ to: "/quizzes" });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
 
   const q = useQuery({
     queryKey: ["quiz-detail", quizId, user?.id, role],
@@ -159,11 +176,20 @@ function Page() {
         </div>
         <div className="flex flex-wrap gap-2">
           {isTeacher ? (
-            <Button asChild>
-              <Link to="/quizzes/$quizId/edit" params={{ quizId }}>
-                <Pencil className="mr-2 size-4" /> Edit quiz
-              </Link>
-            </Button>
+            <>
+              <Button asChild>
+                <Link to="/quizzes/$quizId/edit" params={{ quizId }}>
+                  <Pencil className="mr-2 size-4" /> Edit quiz
+                </Link>
+              </Button>
+              <DeleteQuizButton
+                title={quiz.title}
+                label="Delete quiz"
+                variant="outline"
+                pending={removeQuiz.isPending}
+                onConfirm={() => removeQuiz.mutate()}
+              />
+            </>
           ) : canAttempt ? (
             <Button asChild>
               <Link to="/quizzes/$quizId/take" params={{ quizId }}>

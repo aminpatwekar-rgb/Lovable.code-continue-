@@ -302,6 +302,11 @@ function TeacherQuizzes() {
           >
             {x.published ? "Unpublish" : "Publish"}
           </Button>
+          <DeleteQuizButton
+            title={x.title}
+            pending={removeQuiz.isPending}
+            onConfirm={() => removeQuiz.mutate(x.id)}
+          />
         </div>
       </div>
     );
@@ -363,7 +368,7 @@ function StudentQuizzes() {
       const { data: quizzes, error } = await supabase
         .from("quizzes")
         .select(
-          "id, title, kind, start_at, end_at, time_limit_minutes, max_attempts, lockdown_enabled, class_id, classes(name), quiz_questions(count)",
+          "id, title, kind, start_at, end_at, time_limit_minutes, max_attempts, lockdown_enabled, class_id, classes(name)",
         )
         .eq("published", true)
         .eq("archived", false)
@@ -374,7 +379,9 @@ function StudentQuizzes() {
         .select("id, quiz_id, status, score, max_score, attempt_no, submitted_at")
         .eq("student_id", user!.id)
         .order("attempt_no", { ascending: false });
-      return { quizzes: quizzes ?? [], attempts: attempts ?? [] };
+      const counts = await fetchQuestionCounts((quizzes ?? []).map((x) => x.id));
+      return { quizzes: quizzes ?? [], attempts: attempts ?? [], counts };
+
     },
   });
 
@@ -399,7 +406,7 @@ function StudentQuizzes() {
 
   const card = (x: (typeof all)[number]) => {
     const a = best.get(x.id);
-    const count = x.quiz_questions?.[0]?.count ?? 0;
+    const count = counts.get(x.id) ?? 0;
     const used = attempts.filter((t) => t.quiz_id === x.id).length;
     const exhausted = used >= (x.max_attempts ?? 1);
     const notOpen = x.start_at ? new Date(x.start_at) > new Date() : false;

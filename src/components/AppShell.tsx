@@ -12,6 +12,7 @@ import {
   ClipboardList,
   Trophy,
   Award,
+  Settings,
   X,
 
 } from "lucide-react";
@@ -34,6 +35,7 @@ const NAV = [
   { to: "/quizzes", label: "Quizzes", icon: ClipboardList },
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { to: "/achievements", label: "Achievements", icon: Award },
+  { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
 const ADMIN_NAV = [{ to: "/admin", label: "Admin", icon: Shield }] as const;

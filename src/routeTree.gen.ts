@@ -18,6 +18,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenticated/leaderboard'
 import { Route as AuthenticatedQuestionBankRouteImport } from './routes/_authenticated/question-bank'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedAssignmentsIndexRouteImport } from './routes/_authenticated/assignments.index'
 import { Route as AuthenticatedAssignmentsAssignmentIdRouteImport } from './routes/_authenticated/assignments.$assignmentId'
 import { Route as AuthenticatedClassesIndexRouteImport } from './routes/_authenticated/classes.index'
@@ -75,6 +76,11 @@ const AuthenticatedQuestionBankRoute =
     path: '/question-bank',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAssignmentsIndexRoute =
   AuthenticatedAssignmentsIndexRouteImport.update({
     id: '/assignments/',
@@ -139,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/question-bank': typeof AuthenticatedQuestionBankRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/assignments/$assignmentId': typeof AuthenticatedAssignmentsAssignmentIdRoute
   '/classes/$classId': typeof AuthenticatedClassesClassIdRoute
   '/submissions/$submissionId': typeof AuthenticatedSubmissionsSubmissionIdRoute
@@ -158,6 +165,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/question-bank': typeof AuthenticatedQuestionBankRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/assignments/$assignmentId': typeof AuthenticatedAssignmentsAssignmentIdRoute
   '/classes/$classId': typeof AuthenticatedClassesClassIdRoute
   '/submissions/$submissionId': typeof AuthenticatedSubmissionsSubmissionIdRoute
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/_authenticated/question-bank': typeof AuthenticatedQuestionBankRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/assignments/$assignmentId': typeof AuthenticatedAssignmentsAssignmentIdRoute
   '/_authenticated/classes/$classId': typeof AuthenticatedClassesClassIdRoute
   '/_authenticated/submissions/$submissionId': typeof AuthenticatedSubmissionsSubmissionIdRoute
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/leaderboard'
     | '/question-bank'
+    | '/settings'
     | '/assignments/$assignmentId'
     | '/classes/$classId'
     | '/submissions/$submissionId'
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/leaderboard'
     | '/question-bank'
+    | '/settings'
     | '/assignments/$assignmentId'
     | '/classes/$classId'
     | '/submissions/$submissionId'
@@ -239,6 +250,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/leaderboard'
     | '/_authenticated/question-bank'
+    | '/_authenticated/settings'
     | '/_authenticated/assignments/$assignmentId'
     | '/_authenticated/classes/$classId'
     | '/_authenticated/submissions/$submissionId'
@@ -322,6 +334,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedQuestionBankRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/assignments/': {
       id: '/_authenticated/assignments/'
       path: '/assignments'
@@ -394,6 +413,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedLeaderboardRoute: typeof AuthenticatedLeaderboardRoute
   AuthenticatedQuestionBankRoute: typeof AuthenticatedQuestionBankRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedAssignmentsAssignmentIdRoute: typeof AuthenticatedAssignmentsAssignmentIdRoute
   AuthenticatedClassesClassIdRoute: typeof AuthenticatedClassesClassIdRoute
   AuthenticatedSubmissionsSubmissionIdRoute: typeof AuthenticatedSubmissionsSubmissionIdRoute
@@ -411,6 +431,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedLeaderboardRoute: AuthenticatedLeaderboardRoute,
   AuthenticatedQuestionBankRoute: AuthenticatedQuestionBankRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedAssignmentsAssignmentIdRoute:
     AuthenticatedAssignmentsAssignmentIdRoute,
   AuthenticatedClassesClassIdRoute: AuthenticatedClassesClassIdRoute,

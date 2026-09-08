@@ -12,6 +12,7 @@ import {
   ClipboardList,
   Trophy,
   Award,
+  Settings,
   X,
 
 } from "lucide-react";

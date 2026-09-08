@@ -21,6 +21,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { clearSessionConfirmation } from "@/lib/session-confirm";
 
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { Wordmark } from "@/components/Wordmark";
+
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useTheme } from "@/lib/theme";
@@ -78,10 +80,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             to={to}
             onClick={() => setOpen(false)}
             className={cn(
-              "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors duration-150",
               active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
+                ? "bg-secondary font-medium text-foreground"
+                : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
             )}
           >
             {active && (
@@ -90,7 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="absolute left-0 h-5 w-0.5 rounded-full bg-primary"
               />
             )}
-            <Icon className="size-4" />
+            <Icon className={cn("size-4", active ? "text-primary" : "text-current")} />
             {label}
           </Link>
         );
@@ -100,19 +102,25 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[16rem_1fr]">
-      <aside className="sticky top-0 z-30 hidden h-screen flex-col justify-between border-r border-sidebar-border bg-sidebar/80 p-4 backdrop-blur-xl lg:flex">
-        <div className="space-y-6">
-          <Link to="/dashboard" className="flex items-center gap-2 px-2 py-1">
-            <span className="brand-gradient flex size-8 items-center justify-center rounded-lg text-sm font-bold text-primary-foreground">
-              O
-            </span>
-            <span className="text-sm font-semibold tracking-tight">ONYX</span>
+      <aside className="sticky top-0 z-30 hidden h-screen flex-col justify-between border-r border-sidebar-border bg-sidebar/80 backdrop-blur-xl lg:flex">
+        <div>
+          <Link
+            to="/dashboard"
+            className="flex h-[68px] items-center border-b border-border px-4"
+          >
+            <Wordmark size="sm" />
           </Link>
-          <GlobalSearch />
-          {nav}
+          <div className="space-y-5 p-4">
+            <div className="inline-flex items-center gap-2 rounded-md border border-border bg-secondary px-2 py-1 text-xs font-semibold capitalize text-muted-foreground">
+              <span className="size-1.5 rounded-full bg-primary" />
+              {role}
+            </div>
+            <GlobalSearch />
+            {nav}
+          </div>
         </div>
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 rounded-lg border border-border/60 p-2">
+        <div className="space-y-3 p-4">
+          <div className="flex items-center gap-3 rounded-lg border border-border/60 p-2 transition-colors duration-200">
             <Avatar className="size-8">
               <AvatarFallback className="text-xs">{initials}</AvatarFallback>
             </Avatar>
@@ -133,12 +141,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <header className="glass sticky top-0 z-40 flex items-center justify-between px-4 py-3 lg:hidden">
-        <Link to="/dashboard" className="flex items-center gap-2">
-          <span className="brand-gradient flex size-7 items-center justify-center rounded-md text-xs font-bold text-primary-foreground">
-            O
-          </span>
-          <span className="text-sm font-semibold">ONYX</span>
+        <Link to="/dashboard">
+          <Wordmark size="sm" />
         </Link>
+
         <div className="flex gap-2">
           <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
             {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}

@@ -140,34 +140,45 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <header className="glass sticky top-0 z-40 flex items-center justify-between px-4 py-3 lg:hidden">
-        <Link to="/dashboard">
+      <header className="glass sticky top-0 z-40 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-4 py-3 lg:hidden">
+        <Link to="/dashboard" className="min-w-0">
           <Wordmark size="sm" />
         </Link>
 
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
             {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setOpen((v) => !v)}
-            aria-label="Toggle menu"
-          >
-            {open ? <X className="size-4" /> : <Menu className="size-4" />}
-          </Button>
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Open menu">
+                <Menu className="size-4" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent
+              side="right"
+              className="flex w-[min(20rem,85vw)] flex-col gap-4 overflow-y-auto bg-sidebar p-4"
+            >
+              <SheetHeader className="text-left">
+                <SheetTitle asChild>
+                  <span>
+                    <Wordmark size="sm" />
+                  </span>
+                </SheetTitle>
+              </SheetHeader>
+              <div className="inline-flex w-fit items-center gap-2 rounded-md border border-border bg-secondary px-2 py-1 text-xs font-semibold capitalize text-muted-foreground">
+                <span className="size-1.5 rounded-full bg-primary" />
+                {role}
+              </div>
+              <GlobalSearch />
+              {nav}
+              <Button variant="outline" size="sm" className="mt-auto w-full" onClick={signOut}>
+                <LogOut className="mr-2 size-4" /> Sign out
+              </Button>
+            </SheetContent>
+          </Sheet>
         </div>
       </header>
-
-      {open && (
-        <div className="border-b border-border bg-sidebar p-4 lg:hidden">
-          {nav}
-          <Button variant="outline" size="sm" className="mt-3 w-full" onClick={signOut}>
-            <LogOut className="mr-2 size-4" /> Sign out
-          </Button>
-        </div>
-      )}
 
       <main className="min-w-0 px-4 py-6 sm:px-8 lg:py-10">
         <motion.div

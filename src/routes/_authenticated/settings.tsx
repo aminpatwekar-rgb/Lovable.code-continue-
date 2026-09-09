@@ -40,6 +40,10 @@ const ACCENT_SWATCH: Record<Accent, { label: string; light: string; dark: string
   sapphire: { label: "Sapphire", light: "oklch(0.6 0.14 250)", dark: "oklch(0.68 0.14 250)" },
   emerald: { label: "Emerald", light: "oklch(0.6 0.14 155)", dark: "oklch(0.68 0.14 155)" },
   rose: { label: "Rose", light: "oklch(0.62 0.18 20)", dark: "oklch(0.68 0.18 20)" },
+  violet: { label: "Violet", light: "oklch(0.55 0.19 295)", dark: "oklch(0.72 0.16 297)" },
+  teal: { label: "Teal", light: "oklch(0.55 0.1 195)", dark: "oklch(0.74 0.11 192)" },
+  crimson: { label: "Crimson", light: "oklch(0.52 0.2 15)", dark: "oklch(0.68 0.18 18)" },
+  slate: { label: "Slate", light: "oklch(0.45 0.035 250)", dark: "oklch(0.78 0.02 250)" },
 };
 
 const MODES: { value: ThemeMode; label: string; icon: typeof Sun }[] = [

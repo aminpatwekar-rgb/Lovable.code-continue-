@@ -2,9 +2,26 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 
 type Theme = "light" | "dark";
 export type ThemeMode = "light" | "dark" | "system";
-export type Accent = "gold" | "sapphire" | "emerald" | "rose";
+export type Accent =
+  | "gold"
+  | "sapphire"
+  | "emerald"
+  | "rose"
+  | "violet"
+  | "teal"
+  | "crimson"
+  | "slate";
 
-export const ACCENTS: Accent[] = ["gold", "sapphire", "emerald", "rose"];
+export const ACCENTS: Accent[] = [
+  "gold",
+  "sapphire",
+  "emerald",
+  "rose",
+  "violet",
+  "teal",
+  "crimson",
+  "slate",
+];
 
 type ThemeContextValue = {
   theme: Theme;

@@ -215,6 +215,74 @@
   --gradient-brand: linear-gradient(135deg, oklch(0.68 0.18 20), oklch(0.76 0.14 35));
 }
 
+:root[data-accent="violet"] {
+  --primary: oklch(0.55 0.19 295);
+  --primary-foreground: oklch(0.99 0.005 300);
+  --ring: oklch(0.55 0.19 295);
+  --chart-1: oklch(0.55 0.19 295);
+  --chart-5: oklch(0.68 0.13 310);
+  --gradient-brand: linear-gradient(135deg, oklch(0.55 0.19 295), oklch(0.66 0.14 320));
+}
+.dark[data-accent="violet"] {
+  --primary: oklch(0.72 0.16 297);
+  --primary-foreground: oklch(0.16 0.03 300);
+  --ring: oklch(0.72 0.16 297);
+  --chart-1: oklch(0.72 0.16 297);
+  --chart-5: oklch(0.78 0.12 315);
+  --gradient-brand: linear-gradient(135deg, oklch(0.72 0.16 297), oklch(0.78 0.12 320));
+}
+
+:root[data-accent="teal"] {
+  --primary: oklch(0.55 0.1 195);
+  --primary-foreground: oklch(0.99 0.005 200);
+  --ring: oklch(0.55 0.1 195);
+  --chart-1: oklch(0.55 0.1 195);
+  --chart-5: oklch(0.66 0.09 205);
+  --gradient-brand: linear-gradient(135deg, oklch(0.55 0.1 195), oklch(0.67 0.09 210));
+}
+.dark[data-accent="teal"] {
+  --primary: oklch(0.74 0.11 192);
+  --primary-foreground: oklch(0.16 0.02 200);
+  --ring: oklch(0.74 0.11 192);
+  --chart-1: oklch(0.74 0.11 192);
+  --chart-5: oklch(0.8 0.09 205);
+  --gradient-brand: linear-gradient(135deg, oklch(0.74 0.11 192), oklch(0.8 0.09 205));
+}
+
+:root[data-accent="crimson"] {
+  --primary: oklch(0.52 0.2 15);
+  --primary-foreground: oklch(0.99 0.005 20);
+  --ring: oklch(0.52 0.2 15);
+  --chart-1: oklch(0.52 0.2 15);
+  --chart-5: oklch(0.64 0.16 25);
+  --gradient-brand: linear-gradient(135deg, oklch(0.52 0.2 15), oklch(0.64 0.16 30));
+}
+.dark[data-accent="crimson"] {
+  --primary: oklch(0.68 0.18 18);
+  --primary-foreground: oklch(0.16 0.03 20);
+  --ring: oklch(0.68 0.18 18);
+  --chart-1: oklch(0.68 0.18 18);
+  --chart-5: oklch(0.76 0.14 30);
+  --gradient-brand: linear-gradient(135deg, oklch(0.68 0.18 18), oklch(0.76 0.14 32));
+}
+
+:root[data-accent="slate"] {
+  --primary: oklch(0.45 0.035 250);
+  --primary-foreground: oklch(0.99 0.005 250);
+  --ring: oklch(0.45 0.035 250);
+  --chart-1: oklch(0.45 0.035 250);
+  --chart-5: oklch(0.6 0.03 250);
+  --gradient-brand: linear-gradient(135deg, oklch(0.45 0.035 250), oklch(0.6 0.03 250));
+}
+.dark[data-accent="slate"] {
+  --primary: oklch(0.78 0.02 250);
+  --primary-foreground: oklch(0.18 0.01 250);
+  --ring: oklch(0.78 0.02 250);
+  --chart-1: oklch(0.78 0.02 250);
+  --chart-5: oklch(0.66 0.025 250);
+  --gradient-brand: linear-gradient(135deg, oklch(0.78 0.02 250), oklch(0.66 0.03 250));
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

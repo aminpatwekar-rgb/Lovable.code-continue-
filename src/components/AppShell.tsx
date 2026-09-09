@@ -22,6 +22,13 @@ import { GlobalSearch } from "@/components/GlobalSearch";
 import { Wordmark } from "@/components/Wordmark";
 
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";

@@ -64,7 +64,9 @@ function systemTheme(): Theme {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>("system");
   const [theme, setTheme] = useState<Theme>("light");
-  const [accent, setAccentState] = useState<Accent>("gold");
+  const [accent, setAccentState] = useState<Accent | null>(null);
+  const [themeStyle, setThemeStyleState] = useState<ThemeStyle>("default");
+
 
   useEffect(() => {
     const storedMode = window.localStorage.getItem("theme") as ThemeMode | null;
@@ -77,6 +79,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     const storedAccent = window.localStorage.getItem("onyx-accent") as Accent | null;
     if (storedAccent && ACCENTS.includes(storedAccent)) setAccentState(storedAccent);
+
+    const storedStyle = window.localStorage.getItem("onyx-theme-style") as ThemeStyle | null;
+    if (storedStyle && THEME_STYLES.includes(storedStyle)) setThemeStyleState(storedStyle);
   }, []);
 
   useEffect(() => {
@@ -92,8 +97,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [theme]);
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-accent", accent);
+    if (accent) document.documentElement.setAttribute("data-accent", accent);
+    else document.documentElement.removeAttribute("data-accent");
   }, [accent]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme-style", themeStyle);
+  }, [themeStyle]);
+
 
   function setMode(next: ThemeMode) {
     setModeState(next);
@@ -101,9 +112,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setTheme(next === "system" ? systemTheme() : next);
   }
 
-  function setAccent(next: Accent) {
+  function setAccent(next: Accent | null) {
     setAccentState(next);
-    window.localStorage.setItem("onyx-accent", next);
+    if (next) window.localStorage.setItem("onyx-accent", next);
+    else window.localStorage.removeItem("onyx-accent");
+  }
+
+  function setThemeStyle(next: ThemeStyle) {
+    setThemeStyleState(next);
+    window.localStorage.setItem("onyx-theme-style", next);
   }
 
   return (
@@ -114,6 +131,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         setMode,
         accent,
         setAccent,
+        themeStyle,
+        setThemeStyle,
         toggle: () => setMode(theme === "dark" ? "light" : "dark"),
       }}
     >

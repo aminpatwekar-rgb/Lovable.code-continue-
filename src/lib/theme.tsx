@@ -23,13 +23,27 @@ export const ACCENTS: Accent[] = [
   "slate",
 ];
 
+export type ThemeStyle = "default" | "midnight" | "sunset" | "forest" | "ocean" | "mono";
+
+export const THEME_STYLES: ThemeStyle[] = [
+  "default",
+  "midnight",
+  "sunset",
+  "forest",
+  "ocean",
+  "mono",
+];
+
 type ThemeContextValue = {
   theme: Theme;
   mode: ThemeMode;
   setMode: (m: ThemeMode) => void;
   toggle: () => void;
-  accent: Accent;
-  setAccent: (a: Accent) => void;
+  /** null = follow the theme style's own primary colour */
+  accent: Accent | null;
+  setAccent: (a: Accent | null) => void;
+  themeStyle: ThemeStyle;
+  setThemeStyle: (s: ThemeStyle) => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue>({
@@ -37,8 +51,10 @@ const ThemeContext = createContext<ThemeContextValue>({
   mode: "system",
   setMode: () => {},
   toggle: () => {},
-  accent: "gold",
+  accent: null,
   setAccent: () => {},
+  themeStyle: "default",
+  setThemeStyle: () => {},
 });
 
 function systemTheme(): Theme {

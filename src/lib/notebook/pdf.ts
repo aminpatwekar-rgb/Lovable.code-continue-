@@ -36,11 +36,7 @@ export async function exportNotebookPdf(notebook: Notebook, title: string) {
 }
 
 /** Flattens one page to a PNG blob (used when attaching notebook pages to a submission). */
-export function pageToBlob(
-  notebook: Notebook,
-  index: number,
-  scale = 2,
-): Promise<Blob | null> {
+export function pageToBlob(notebook: Notebook, index: number, scale = 2): Promise<Blob | null> {
   return new Promise((resolve) => {
     const page = notebook.pages[index];
     if (!page) return resolve(null);

@@ -142,7 +142,6 @@ function AdminConsole() {
               : null;
         return { ...p, email: emails.get(p.id) ?? null, role: resolved } as UserRow;
       });
-
     },
   });
 
@@ -258,8 +257,7 @@ function AdminConsole() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (loading || (!role && !isAdmin))
-    return <Skeleton className="h-64 w-full rounded-xl" />;
+  if (loading || (!role && !isAdmin)) return <Skeleton className="h-64 w-full rounded-xl" />;
   if (!isAdmin)
     return (
       <div className="panel p-8 text-center">
@@ -284,9 +282,7 @@ function AdminConsole() {
   const filteredUsers = all.filter((u) => {
     const q = query.trim().toLowerCase();
     const matches =
-      !q ||
-      u.full_name.toLowerCase().includes(q) ||
-      (u.email ?? "").toLowerCase().includes(q);
+      !q || u.full_name.toLowerCase().includes(q) || (u.email ?? "").toLowerCase().includes(q);
     return matches && (roleFilter === "all" || u.role === roleFilter);
   });
 
@@ -315,7 +311,10 @@ function AdminConsole() {
     ...(submissions.data ?? [])
       .filter((s) => s.reviewed_at)
       .slice(0, 10)
-      .map((s) => ({ at: s.reviewed_at!, text: `A submission by ${nameOf(s.student_id)} was graded` })),
+      .map((s) => ({
+        at: s.reviewed_at!,
+        text: `A submission by ${nameOf(s.student_id)} was graded`,
+      })),
   ]
     .sort((x, y) => new Date(y.at).getTime() - new Date(x.at).getTime())
     .slice(0, 12);
@@ -556,9 +555,7 @@ function AdminConsole() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() =>
-                              archiveClass.mutate({ id: c.id, archived: !c.archived })
-                            }
+                            onClick={() => archiveClass.mutate({ id: c.id, archived: !c.archived })}
                           >
                             {c.archived ? "Restore" : "Archive"}
                           </Button>
@@ -568,9 +565,7 @@ function AdminConsole() {
                             aria-label={`Delete ${c.name}`}
                             onClick={() => {
                               if (
-                                window.confirm(
-                                  `Delete "${c.name}"? This action cannot be undone.`,
-                                )
+                                window.confirm(`Delete "${c.name}"? This action cannot be undone.`)
                               )
                                 deleteClass.mutate(c.id);
                             }}
@@ -644,16 +639,13 @@ function AdminConsole() {
         </TabsContent>
       </Tabs>
 
-      <AlertDialog
-        open={Boolean(pendingDelete)}
-        onOpenChange={(v) => !v && setPendingDelete(null)}
-      >
+      <AlertDialog open={Boolean(pendingDelete)} onOpenChange={(v) => !v && setPendingDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {pendingDelete?.full_name || "this user"}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes their account and everything they created. This action
-              cannot be undone.
+              This permanently removes their account and everything they created. This action cannot
+              be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

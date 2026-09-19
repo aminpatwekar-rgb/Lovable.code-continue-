@@ -1,6 +1,7 @@
 import * as React from "react";
 import * as TogglePrimitive from "@radix-ui/react-toggle";
 import { cva, type VariantProps } from "class-variance-authority";
+import { motion, useReducedMotion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 
@@ -26,16 +27,33 @@ const toggleVariants = cva(
   },
 );
 
+const SPRING_TRANSITION = { type: "spring" as const, stiffness: 500, damping: 30 };
+
 const Toggle = React.forwardRef<
   React.ElementRef<typeof TogglePrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof TogglePrimitive.Root> & VariantProps<typeof toggleVariants>
->(({ className, variant, size, ...props }, ref) => (
-  <TogglePrimitive.Root
-    ref={ref}
-    className={cn(toggleVariants({ variant, size, className }))}
-    {...props}
-  />
-));
+>(({ className, variant, size, disabled, ...props }, ref) => {
+  const shouldReduceMotion = useReducedMotion();
+  const motionProps =
+    !disabled && !shouldReduceMotion
+      ? {
+          whileHover: { scale: 1.02 },
+          whileTap: { scale: 0.96 },
+          transition: SPRING_TRANSITION,
+        }
+      : {};
+
+  return (
+    <TogglePrimitive.Root asChild disabled={disabled} {...props}>
+      <motion.button
+        ref={ref}
+        type="button"
+        className={cn(toggleVariants({ variant, size, className }))}
+        {...motionProps}
+      />
+    </TogglePrimitive.Root>
+  );
+});
 
 Toggle.displayName = TogglePrimitive.Root.displayName;
 

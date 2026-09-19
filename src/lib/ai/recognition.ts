@@ -7,8 +7,7 @@
  */
 
 export type RecognitionSource =
-  | { kind: "image"; dataUrl: string }
-  | { kind: "strokes"; strokes: unknown };
+  { kind: "image"; dataUrl: string } | { kind: "strokes"; strokes: unknown };
 
 export type RecognitionResult = {
   text: string;

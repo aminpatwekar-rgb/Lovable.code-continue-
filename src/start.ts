@@ -25,13 +25,10 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
 // a bare named import crashes the deployed server with
 // "createCsrfMiddleware is not a function" when the installed version differs
 // from the one used at build time.
-type CsrfFactory = (opts: {
-  filter?: (ctx: { handlerType?: string }) => boolean;
-}) => unknown;
+type CsrfFactory = (opts: { filter?: (ctx: { handlerType?: string }) => boolean }) => unknown;
 
 const createCsrf = (startRuntime as Record<string, unknown>)["createCsrfMiddleware"] as
-  | CsrfFactory
-  | undefined;
+  CsrfFactory | undefined;
 
 const csrfMiddleware =
   typeof createCsrf === "function"

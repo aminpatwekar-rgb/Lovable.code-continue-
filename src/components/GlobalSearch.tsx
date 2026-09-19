@@ -56,7 +56,11 @@ export function GlobalSearch() {
           .select("id, title, subject, classes(name)")
           .ilike("title", like)
           .limit(6),
-        supabase.from("quizzes").select("id, title, kind, classes(name)").ilike("title", like).limit(6),
+        supabase
+          .from("quizzes")
+          .select("id, title, kind, classes(name)")
+          .ilike("title", like)
+          .limit(6),
       ]);
 
       return [
@@ -112,54 +116,58 @@ export function GlobalSearch() {
         <DialogContent className="overflow-hidden p-0">
           <DialogTitle className="sr-only">Search ONYX</DialogTitle>
           <Command shouldFilter={false}>
-        <CommandInput
-          placeholder="Search classes, assignments and quizzes…"
-          value={term}
-          onValueChange={setTerm}
-        />
-        <CommandList>
-          {query.length < 2 ? (
-            <CommandEmpty>Type at least 2 characters.</CommandEmpty>
-          ) : results.isFetching ? (
-            <CommandEmpty>Searching…</CommandEmpty>
-          ) : items.length === 0 ? (
-            <CommandEmpty>No matches you have access to.</CommandEmpty>
-          ) : null}
+            <CommandInput
+              placeholder="Search classes, assignments and quizzes…"
+              value={term}
+              onValueChange={setTerm}
+            />
+            <CommandList>
+              {query.length < 2 ? (
+                <CommandEmpty>Type at least 2 characters.</CommandEmpty>
+              ) : results.isFetching ? (
+                <CommandEmpty>Searching…</CommandEmpty>
+              ) : items.length === 0 ? (
+                <CommandEmpty>No matches you have access to.</CommandEmpty>
+              ) : null}
 
-          {group("class").length > 0 && (
-            <CommandGroup heading="Classes">
-              {group("class").map((item) => (
-                <CommandItem key={item.id} value={`class-${item.id}`} onSelect={() => go(item)}>
-                  <GraduationCap className="mr-2 size-4" />
-                  <span className="flex-1 truncate">{item.title}</span>
-                  <span className="text-xs text-muted-foreground">{item.subtitle}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          )}
-          {group("assignment").length > 0 && (
-            <CommandGroup heading="Assignments">
-              {group("assignment").map((item) => (
-                <CommandItem key={item.id} value={`assignment-${item.id}`} onSelect={() => go(item)}>
-                  <BookOpen className="mr-2 size-4" />
-                  <span className="flex-1 truncate">{item.title}</span>
-                  <span className="text-xs text-muted-foreground">{item.subtitle}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          )}
-          {group("quiz").length > 0 && (
-            <CommandGroup heading="Quizzes">
-              {group("quiz").map((item) => (
-                <CommandItem key={item.id} value={`quiz-${item.id}`} onSelect={() => go(item)}>
-                  <ClipboardList className="mr-2 size-4" />
-                  <span className="flex-1 truncate">{item.title}</span>
-                  <span className="text-xs text-muted-foreground">{item.subtitle}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          )}
-        </CommandList>
+              {group("class").length > 0 && (
+                <CommandGroup heading="Classes">
+                  {group("class").map((item) => (
+                    <CommandItem key={item.id} value={`class-${item.id}`} onSelect={() => go(item)}>
+                      <GraduationCap className="mr-2 size-4" />
+                      <span className="flex-1 truncate">{item.title}</span>
+                      <span className="text-xs text-muted-foreground">{item.subtitle}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {group("assignment").length > 0 && (
+                <CommandGroup heading="Assignments">
+                  {group("assignment").map((item) => (
+                    <CommandItem
+                      key={item.id}
+                      value={`assignment-${item.id}`}
+                      onSelect={() => go(item)}
+                    >
+                      <BookOpen className="mr-2 size-4" />
+                      <span className="flex-1 truncate">{item.title}</span>
+                      <span className="text-xs text-muted-foreground">{item.subtitle}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {group("quiz").length > 0 && (
+                <CommandGroup heading="Quizzes">
+                  {group("quiz").map((item) => (
+                    <CommandItem key={item.id} value={`quiz-${item.id}`} onSelect={() => go(item)}>
+                      <ClipboardList className="mr-2 size-4" />
+                      <span className="flex-1 truncate">{item.title}</span>
+                      <span className="text-xs text-muted-foreground">{item.subtitle}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+            </CommandList>
           </Command>
         </DialogContent>
       </Dialog>

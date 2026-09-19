@@ -3,6 +3,7 @@
 import * as React from "react";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import { type VariantProps } from "class-variance-authority";
+import { motion, useReducedMotion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 import { toggleVariants } from "@/components/ui/toggle";
@@ -28,26 +29,41 @@ const ToggleGroup = React.forwardRef<
 
 ToggleGroup.displayName = ToggleGroupPrimitive.Root.displayName;
 
+const SPRING_TRANSITION = { type: "spring" as const, stiffness: 500, damping: 30 };
+
 const ToggleGroupItem = React.forwardRef<
   React.ElementRef<typeof ToggleGroupPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Item> &
     VariantProps<typeof toggleVariants>
->(({ className, children, variant, size, ...props }, ref) => {
+>(({ className, children, variant, size, disabled, ...props }, ref) => {
   const context = React.useContext(ToggleGroupContext);
+  const shouldReduceMotion = useReducedMotion();
+
+  const motionProps =
+    !disabled && !shouldReduceMotion
+      ? {
+          whileHover: { scale: 1.02 },
+          whileTap: { scale: 0.96 },
+          transition: SPRING_TRANSITION,
+        }
+      : {};
 
   return (
-    <ToggleGroupPrimitive.Item
-      ref={ref}
-      className={cn(
-        toggleVariants({
-          variant: context.variant || variant,
-          size: context.size || size,
-        }),
-        className,
-      )}
-      {...props}
-    >
-      {children}
+    <ToggleGroupPrimitive.Item asChild disabled={disabled} {...props}>
+      <motion.button
+        ref={ref}
+        type="button"
+        className={cn(
+          toggleVariants({
+            variant: context.variant || variant,
+            size: context.size || size,
+          }),
+          className,
+        )}
+        {...motionProps}
+      >
+        {children}
+      </motion.button>
     </ToggleGroupPrimitive.Item>
   );
 });

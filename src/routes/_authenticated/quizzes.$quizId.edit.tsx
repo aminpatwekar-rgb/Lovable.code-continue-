@@ -163,10 +163,7 @@ function Page() {
       if (error) throw error;
 
       if (removed.length) {
-        const { error: delErr } = await supabase
-          .from("quiz_questions")
-          .delete()
-          .in("id", removed);
+        const { error: delErr } = await supabase.from("quiz_questions").delete().in("id", removed);
         if (delErr) throw delErr;
       }
 
@@ -515,7 +512,10 @@ function Page() {
                   min={1}
                   value={settings.max_attempts}
                   onChange={(e) =>
-                    setSettings({ ...settings, max_attempts: Math.max(1, Number(e.target.value) || 1) })
+                    setSettings({
+                      ...settings,
+                      max_attempts: Math.max(1, Number(e.target.value) || 1),
+                    })
                   }
                 />
               </div>
@@ -567,10 +567,22 @@ function Page() {
             <div className="space-y-3">
               {(
                 [
-                  ["lockdown_enabled", "Lockdown mode", "Warn and lock the attempt if the student leaves the tab."],
-                  ["randomize_questions", "Shuffle questions", "Each student sees a different order."],
+                  [
+                    "lockdown_enabled",
+                    "Lockdown mode",
+                    "Warn and lock the attempt if the student leaves the tab.",
+                  ],
+                  [
+                    "randomize_questions",
+                    "Shuffle questions",
+                    "Each student sees a different order.",
+                  ],
                   ["randomize_choices", "Shuffle options", "Randomise answer choices per student."],
-                  ["show_results", "Show results", "Let students see their score after submitting."],
+                  [
+                    "show_results",
+                    "Show results",
+                    "Let students see their score after submitting.",
+                  ],
                 ] as const
               ).map(([key, label, hint]) => (
                 <div key={key} className="flex items-start justify-between gap-4">

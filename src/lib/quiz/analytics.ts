@@ -285,9 +285,8 @@ export async function fetchQuizAnalytics(quizId: string): Promise<QuizAnalytics>
     const correctPct = base ? Math.round((correct / base) * 100) : 0;
     const incorrectPct = base ? Math.round((incorrect / base) * 100) : 0;
     const avgMarks = responses
-      ? Math.round(
-          (answered.reduce((s, r) => s + (r.awarded_points ?? 0), 0) / responses) * 100,
-        ) / 100
+      ? Math.round((answered.reduce((s, r) => s + (r.awarded_points ?? 0), 0) / responses) * 100) /
+        100
       : 0;
 
     const options: OptionStat[] =

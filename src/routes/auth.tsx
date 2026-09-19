@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Loader2, GraduationCap, Presentation } from "lucide-react";
@@ -11,18 +11,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
 import {
   clearSessionConfirmation,
   isSessionConfirmed,
   markSessionConfirmed,
 } from "@/lib/session-confirm";
 
-
 const searchSchema = z.object({
   mode: z.enum(["signin", "signup"]).optional(),
   confirm: z.boolean().optional(),
 });
-
 
 export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
@@ -46,6 +45,7 @@ const credentials = z.object({
 });
 
 function AuthPage() {
+  const shouldReduceMotion = useReducedMotion();
   const search = Route.useSearch();
   const navigate = useNavigate();
   const { session, profile, loading } = useAuth();
@@ -67,13 +67,12 @@ function AuthPage() {
       navigate({ to: "/dashboard", replace: true });
   }, [loading, session, confirmed, switching, navigate]);
 
-  async function useAnotherAccount() {
+  async function handleUseAnotherAccount() {
     setSwitching(true);
     clearSessionConfirmation();
     await supabase.auth.signOut();
     setMode("signin");
   }
-
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -116,7 +115,6 @@ function AuthPage() {
         setSwitching(false);
         toast.success("Signed in");
       }
-
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -181,12 +179,15 @@ function AuthPage() {
             >
               Continue as {profile?.full_name?.trim().split(" ")[0] || session?.user.email}
             </Button>
-            <Button variant="outline" className="w-full" onClick={() => void useAnotherAccount()}>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => void handleUseAnotherAccount()}
+            >
               Use another account
             </Button>
           </div>
         ) : sent ? (
-
           <div className="space-y-3">
             <h1 className="text-2xl font-semibold">Confirm your email</h1>
             <p className="text-sm text-muted-foreground">
@@ -225,12 +226,13 @@ function AuthPage() {
                         { key: "teacher", label: "Teacher", icon: Presentation },
                       ] as const
                     ).map((r) => (
-                      <button
+                      <motion.button
                         key={r.key}
                         type="button"
+                        {...getPressProps(shouldReduceMotion, { hoverScale: 1.02, tapScale: 0.98 })}
                         onClick={() => setRole(r.key)}
                         className={cn(
-                          "flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors",
+                          "flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors cursor-pointer",
                           role === r.key
                             ? "border-primary bg-primary/10"
                             : "border-border hover:bg-accent/50",
@@ -238,7 +240,7 @@ function AuthPage() {
                       >
                         <r.icon className="size-4 text-primary" />
                         <span className="text-sm font-medium">{r.label}</span>
-                      </button>
+                      </motion.button>
                     ))}
                   </div>
                   <div className="space-y-1.5">
@@ -296,7 +298,8 @@ function AuthPage() {
             </form>
 
             <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
+              <span className="h-px flex-1 bg-border" /> or{" "}
+              <span className="h-px flex-1 bg-border" />
             </div>
 
             <Button variant="outline" className="w-full" onClick={google}>

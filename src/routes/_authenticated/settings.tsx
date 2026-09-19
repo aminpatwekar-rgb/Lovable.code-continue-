@@ -1,18 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Monitor, Moon, Sun, Check } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 
-import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useTheme, ACCENTS, type Accent, type ThemeMode } from "@/lib/theme";
+import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
 import { cn } from "@/lib/utils";
+
+import { ProfileSettingsCard } from "@/components/settings/ProfileSettingsCard";
+import { NotificationPreferencesCard } from "@/components/settings/NotificationPreferencesCard";
+import { RolePreferencesCard } from "@/components/settings/RolePreferencesCard";
+import { AccountSettingsCard } from "@/components/settings/AccountSettingsCard";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -54,17 +54,34 @@ const MODES: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
 
 function SettingsPage() {
   const { theme, mode, setMode, accent, setAccent } = useTheme();
+  const shouldReduceMotion = useReducedMotion();
 
   return (
-    <AppShell>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-          <p className="text-sm text-muted-foreground">
-            Personalise how ONYX looks on this device.
-          </p>
-        </div>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <p className="text-sm text-muted-foreground">
+          Personalise how ONYX looks on this device and manage your account preferences.
+        </p>
+      </div>
 
+      {/* 1. Profile */}
+      <section className="space-y-3">
+        <div className="border-b border-border/60 pb-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Profile
+          </h2>
+        </div>
+        <ProfileSettingsCard />
+      </section>
+
+      {/* 2. Appearance */}
+      <section className="space-y-3">
+        <div className="border-b border-border/60 pb-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Appearance
+          </h2>
+        </div>
         <Card className="lift transition-colors duration-200 hover:lift-hover">
           <CardHeader>
             <CardTitle>Appearance</CardTitle>
@@ -91,9 +108,7 @@ function SettingsPage() {
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
-              <p className="text-xs text-muted-foreground">
-                Currently showing the {theme} theme.
-              </p>
+              <p className="text-xs text-muted-foreground">Currently showing the {theme} theme.</p>
             </div>
 
             <div className="space-y-3">
@@ -103,20 +118,21 @@ function SettingsPage() {
                   const swatch = ACCENT_SWATCH[a];
                   const selected = accent === a;
                   return (
-                    <button
+                    <motion.button
                       key={a}
                       type="button"
                       onClick={() => setAccent(a)}
                       aria-label={swatch.label}
                       aria-pressed={selected}
+                      {...getPressProps(shouldReduceMotion, { hoverScale: 1.08, tapScale: 0.92 })}
                       className={cn(
-                        "flex size-10 items-center justify-center rounded-full ring-offset-2 ring-offset-background transition-all duration-200",
-                        selected ? "ring-2 ring-foreground" : "hover:scale-105",
+                        "flex size-10 items-center justify-center rounded-full ring-offset-2 ring-offset-background transition-colors duration-200 cursor-pointer",
+                        selected ? "ring-2 ring-foreground" : "hover:brightness-105",
                       )}
                       style={{ backgroundColor: theme === "dark" ? swatch.dark : swatch.light }}
                     >
                       {selected && <Check className="size-4 text-background" />}
-                    </button>
+                    </motion.button>
                   );
                 })}
               </div>
@@ -136,11 +152,7 @@ function SettingsPage() {
                   <Button size="sm" className="transition-colors duration-200">
                     Primary action
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="transition-colors duration-200"
-                  >
+                  <Button size="sm" variant="outline" className="transition-colors duration-200">
                     Secondary
                   </Button>
                 </div>
@@ -148,7 +160,37 @@ function SettingsPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
-    </AppShell>
+      </section>
+
+      {/* 3. Notifications */}
+      <section className="space-y-3">
+        <div className="border-b border-border/60 pb-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Notifications
+          </h2>
+        </div>
+        <NotificationPreferencesCard />
+      </section>
+
+      {/* 4. Preferences & Defaults */}
+      <section className="space-y-3">
+        <div className="border-b border-border/60 pb-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Preferences & Defaults
+          </h2>
+        </div>
+        <RolePreferencesCard />
+      </section>
+
+      {/* 5. Account & Security */}
+      <section className="space-y-3">
+        <div className="border-b border-border/60 pb-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Account & Security
+          </h2>
+        </div>
+        <AccountSettingsCard />
+      </section>
+    </div>
   );
 }

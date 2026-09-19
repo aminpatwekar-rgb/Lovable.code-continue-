@@ -2,11 +2,12 @@ import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Loader2 } from "lucide-react";
+import { motion, useReducedMotion, type HTMLMotionProps } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium cursor-pointer select-none transition-all duration-200 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium cursor-pointer select-none transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -19,7 +20,7 @@ const buttonVariants = cva(
         secondary:
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 hover:shadow-[var(--shadow-soft)]",
         ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline active:scale-100",
+        link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
         default: "h-9 px-4 py-2",
@@ -36,37 +37,68 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
+  extends
+    Omit<
+      React.ButtonHTMLAttributes<HTMLButtonElement>,
+      | "onAnimationStart"
+      | "onAnimationEnd"
+      | "onAnimationIteration"
+      | "onDrag"
+      | "onDragStart"
+      | "onDragEnd"
+      | "onTransitionEnd"
+    >,
+    VariantProps<typeof buttonVariants> {
   asChild?: boolean;
   loading?: boolean;
 }
 
+const MotionSlot = motion.create(Slot);
+
+const SPRING_TRANSITION = { type: "spring" as const, stiffness: 500, damping: 30 };
+
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, loading = false, children, disabled, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
+  (
+    { className, variant, size, asChild = false, loading = false, children, disabled, ...props },
+    ref,
+  ) => {
+    const shouldReduceMotion = useReducedMotion();
+    const isInteractive = !disabled && !loading && variant !== "link";
+
+    const motionProps =
+      isInteractive && !shouldReduceMotion
+        ? {
+            whileHover: { scale: 1.015 },
+            whileTap: { scale: 0.96 },
+            transition: SPRING_TRANSITION,
+          }
+        : {};
+
     if (asChild) {
       return (
-        <Comp
+        <MotionSlot
           className={cn(buttonVariants({ variant, size, className }))}
           ref={ref}
-          disabled={disabled}
-          {...props}
+          {...motionProps}
+          {...(props as React.ComponentPropsWithoutRef<typeof MotionSlot>)}
         >
           {children}
-        </Comp>
+        </MotionSlot>
       );
     }
+
     return (
-      <Comp
+      <motion.button
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         disabled={disabled || loading}
-        aria-busy={loading || undefined}
-        {...props}
+        {...(loading ? { "aria-busy": true } : {})}
+        {...motionProps}
+        {...(props as HTMLMotionProps<"button">)}
       >
         {loading && <Loader2 className="size-4 animate-spin" />}
         {children}
-      </Comp>
+      </motion.button>
     );
   },
 );

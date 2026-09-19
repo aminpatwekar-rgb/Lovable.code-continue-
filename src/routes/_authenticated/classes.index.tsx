@@ -1,12 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
-import { Copy, Plus, Users } from "lucide-react";
+import { ChevronRight, Copy, Plus, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useViewRole } from "@/lib/viewRole";
 import { makeJoinCode } from "@/lib/assignments";
+import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +41,8 @@ export const Route = createFileRoute("/_authenticated/classes/")({
 
 function Classes() {
   const { role, user, profile } = useAuth();
+  const { effectiveRole } = useViewRole();
+  const shouldReduceMotion = useReducedMotion();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -52,12 +56,11 @@ function Classes() {
   const [erNo, setErNo] = useState("");
   const [srNo, setSrNo] = useState("");
 
-  const isTeacher = role === "teacher" || role === "admin";
-
+  const isTeacher = effectiveRole === "teacher" || effectiveRole === "admin";
 
   const classes = useQuery({
-    queryKey: ["classes", user?.id, role],
-    enabled: Boolean(user && role),
+    queryKey: ["classes", user?.id, effectiveRole],
+    enabled: Boolean(user && effectiveRole),
     queryFn: async () => {
       if (isTeacher) {
         const { data, error } = await supabase
@@ -142,7 +145,6 @@ function Classes() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
-
 
   return (
     <div className="space-y-8">
@@ -277,8 +279,8 @@ function Classes() {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  These identifiers must be unique inside the class. Your teacher uses them to
-                  match your work.
+                  These identifiers must be unique inside the class. Your teacher uses them to match
+                  your work.
                 </p>
               </div>
               <DialogFooter>
@@ -286,7 +288,6 @@ function Classes() {
                   {join.isPending ? "Joining…" : "Join"}
                 </Button>
               </DialogFooter>
-
             </DialogContent>
           </Dialog>
         )}
@@ -304,45 +305,61 @@ function Classes() {
         </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {(classes.data ?? []).map((c, i) => (
-            <motion.div
-              key={c.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05, duration: 0.3 }}
-            >
-              <Link
-                to="/classes/$classId"
-                params={{ classId: c.id }}
-                className="panel lift block h-full p-5 hover:lift-hover"
+          <AnimatePresence mode="popLayout">
+            {(classes.data ?? []).map((c, i) => (
+              <motion.div
+                key={c.id}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                {...(!shouldReduceMotion ? { whileTap: { scale: 0.98 } } : {})}
+                transition={{
+                  delay: Math.min(i * 0.035, 0.3),
+                  duration: 0.22,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
               >
-                <h2 className="font-semibold">{c.name}</h2>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  {[c.subject, c.section].filter(Boolean).join(" · ") || "No subject"}
-                </p>
-                <div className="mt-4 flex items-center justify-between text-sm">
-                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                    <Users className="size-3.5" />
-                    {(c.class_members as unknown as { count: number }[])?.[0]?.count ?? 0} students
-                  </span>
-                  {isTeacher && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        void navigator.clipboard.writeText(c.join_code);
-                        toast.success("Join code copied");
-                      }}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 font-mono text-xs tracking-widest"
-                    >
-                      {c.join_code}
-                      <Copy className="size-3" />
-                    </button>
-                  )}
-                </div>
-              </Link>
-            </motion.div>
-          ))}
+                <Link
+                  to="/classes/$classId"
+                  params={{ classId: c.id }}
+                  className="group panel lift block h-full border border-border shadow-sm p-5 cursor-pointer hover:border-primary/40 hover:lift-hover"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h2 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                      {c.name}
+                    </h2>
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground opacity-60 transition-all duration-200 group-hover:translate-x-0.5 group-hover:opacity-100 group-hover:text-primary mt-0.5" />
+                  </div>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    {[c.subject, c.section].filter(Boolean).join(" · ") || "No subject"}
+                  </p>
+                  <div className="mt-4 flex items-center justify-between text-sm">
+                    <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                      <Users className="size-3.5" />
+                      {(c.class_members as unknown as { count: number }[])?.[0]?.count ?? 0}{" "}
+                      students
+                    </span>
+                    {isTeacher && (
+                      <motion.button
+                        type="button"
+                        {...getPressProps(shouldReduceMotion, { hoverScale: 1.05, tapScale: 0.95 })}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          void navigator.clipboard.writeText(c.join_code);
+                          toast.success("Join code copied");
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 font-mono text-xs tracking-widest cursor-pointer hover:bg-muted"
+                      >
+                        {c.join_code}
+                        <Copy className="size-3" />
+                      </motion.button>
+                    )}
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       )}
     </div>

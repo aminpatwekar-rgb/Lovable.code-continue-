@@ -3,7 +3,6 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { clearSessionConfirmation, markSessionConfirmed } from "@/lib/session-confirm";
 
-
 export type AppRole = "student" | "teacher" | "admin";
 
 export type Profile = {
@@ -77,7 +76,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRole(next);
   }
 
-
   useEffect(() => {
     let active = true;
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
@@ -102,7 +100,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRole(null);
       }
     });
-
 
     supabase.auth.getSession().then(async ({ data }) => {
       if (!active) return;

@@ -3,14 +3,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 type Theme = "light" | "dark";
 export type ThemeMode = "light" | "dark" | "system";
 export type Accent =
-  | "gold"
-  | "sapphire"
-  | "emerald"
-  | "rose"
-  | "violet"
-  | "teal"
-  | "crimson"
-  | "slate";
+  "gold" | "sapphire" | "emerald" | "rose" | "violet" | "teal" | "crimson" | "slate";
 
 export const ACCENTS: Accent[] = [
   "gold",
@@ -67,7 +60,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [accent, setAccentState] = useState<Accent | null>(null);
   const [themeStyle, setThemeStyleState] = useState<ThemeStyle>("default");
 
-
   useEffect(() => {
     const storedMode = window.localStorage.getItem("theme") as ThemeMode | null;
     const initialMode: ThemeMode =
@@ -104,7 +96,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.setAttribute("data-theme-style", themeStyle);
   }, [themeStyle]);
-
 
   function setMode(next: ThemeMode) {
     setModeState(next);

@@ -4,12 +4,7 @@
  */
 
 export type QuestionType =
-  | "mcq"
-  | "multi_select"
-  | "true_false"
-  | "fill_blank"
-  | "short_answer"
-  | "essay";
+  "mcq" | "multi_select" | "true_false" | "fill_blank" | "short_answer" | "essay";
 
 export type Difficulty = "easy" | "medium" | "hard";
 

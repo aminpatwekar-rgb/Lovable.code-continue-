@@ -8,12 +8,15 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { AnimatePresence } from "framer-motion";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { ThemeProvider } from "@/lib/theme";
-import { AuthProvider } from "@/lib/auth";
+import { AuthProvider, useAuth } from "@/lib/auth";
+import { ViewRoleProvider } from "@/lib/viewRole";
 import { Toaster } from "@/components/ui/sonner";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 function NotFoundComponent() {
   return (
@@ -78,11 +81,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "ONYX — Handwriting-First Assignment Platform" },
+      { title: "Smart Assignment Hub" },
+      { property: "og:title", content: "Smart Assignment Hub" },
       {
         name: "description",
         content:
-          "Submit, track and review handwritten and typed assignments with classes, deadlines and marks.",
+          "Handwriting-first assignment platform for schools and colleges with teacher, student, and admin roles.",
+      },
+      {
+        property: "og:description",
+        content:
+          "Handwriting-first assignment platform for schools and colleges with teacher, student, and admin roles.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -118,6 +127,17 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function RootContent() {
+  const { loading } = useAuth();
+
+  return (
+    <>
+      <Outlet />
+      <AnimatePresence>{loading && <LoadingScreen key="onyx-initial-loader" />}</AnimatePresence>
+    </>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
@@ -125,9 +145,11 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <Outlet />
-          <Toaster richColors position="top-center" />
+          <ViewRoleProvider>
+            {/* Renders full-screen loader during initial auth/session resolution */}
+            <RootContent />
+            <Toaster richColors position="top-center" />
+          </ViewRoleProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

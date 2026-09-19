@@ -47,7 +47,10 @@ export const FORMULA_LIBRARY: FormulaSection[] = [
       { name: "Ideal gas law", latex: "pV = nRT" },
       { name: "pH", latex: "\\mathrm{pH} = -\\log_{10}[\\ce{H+}]" },
       { name: "Rate of reaction", latex: "\\text{rate} = \\frac{\\Delta[\\ce{A}]}{\\Delta t}" },
-      { name: "Enthalpy change", latex: "\\Delta H = H_{\\text{products}} - H_{\\text{reactants}}" },
+      {
+        name: "Enthalpy change",
+        latex: "\\Delta H = H_{\\text{products}} - H_{\\text{reactants}}",
+      },
     ],
   },
   {

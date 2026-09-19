@@ -20,7 +20,9 @@ export const finalizeQuizAttempt = createServerFn({ method: "POST" })
 
     const { data: attempt, error } = await supabase
       .from("quiz_attempts")
-      .select("id, quiz_id, student_id, status, started_at, quizzes(title, class_id, passing_marks)")
+      .select(
+        "id, quiz_id, student_id, status, started_at, quizzes(title, class_id, passing_marks)",
+      )
       .eq("id", data.attemptId)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -114,17 +116,15 @@ export const finalizeQuizAttempt = createServerFn({ method: "POST" })
         .eq("code", code)
         .maybeSingle();
       if (!badge) continue;
-      await supabaseAdmin
-        .from("student_badges")
-        .upsert(
-          {
-            student_id: attempt.student_id,
-            badge_id: badge.id,
-            class_id: quiz?.class_id ?? null,
-            reason: "Earned automatically",
-          },
-          { onConflict: "student_id,badge_id,class_id", ignoreDuplicates: true },
-        );
+      await supabaseAdmin.from("student_badges").upsert(
+        {
+          student_id: attempt.student_id,
+          badge_id: badge.id,
+          class_id: quiz?.class_id ?? null,
+          reason: "Earned automatically",
+        },
+        { onConflict: "student_id,badge_id,class_id", ignoreDuplicates: true },
+      );
     }
 
     return { score, max, needsManual, badges: earned };

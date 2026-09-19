@@ -30,14 +30,7 @@ type GenerateInput = {
   avoid?: string[] | undefined;
 };
 
-const ALLOWED_TYPES = [
-  "mcq",
-  "multi_select",
-  "true_false",
-  "fill_blank",
-  "short_answer",
-  "essay",
-];
+const ALLOWED_TYPES = ["mcq", "multi_select", "true_false", "fill_blank", "short_answer", "essay"];
 
 function validate(input: GenerateInput): GenerateInput {
   const material = String(input?.material ?? "").trim();
@@ -61,7 +54,9 @@ function validate(input: GenerateInput): GenerateInput {
     types,
     withExplanations: input.withExplanations !== false,
     topic: typeof input.topic === "string" ? input.topic.slice(0, 200) : undefined,
-    avoid: Array.isArray(input.avoid) ? input.avoid.slice(0, 60).map((s) => String(s).slice(0, 300)) : [],
+    avoid: Array.isArray(input.avoid)
+      ? input.avoid.slice(0, 60).map((s) => String(s).slice(0, 300))
+      : [],
   };
 }
 
@@ -122,24 +117,24 @@ function parseQuestions(raw: string): GeneratedQuestion[] {
   return list
     .map((q) => {
       const item = q as Record<string, unknown>;
-      const type = ALLOWED_TYPES.includes(String(item['type'])) ? String(item['type']) : "mcq";
-      const options = Array.isArray(item['options']) ? item['options'].map((o) => String(o)) : [];
-      const correct = Array.isArray(item['correct'])
-        ? item['correct'].map((o) => String(o))
-        : item['correct'] != null
-          ? [String(item['correct'])]
+      const type = ALLOWED_TYPES.includes(String(item["type"])) ? String(item["type"]) : "mcq";
+      const options = Array.isArray(item["options"]) ? item["options"].map((o) => String(o)) : [];
+      const correct = Array.isArray(item["correct"])
+        ? item["correct"].map((o) => String(o))
+        : item["correct"] != null
+          ? [String(item["correct"])]
           : [];
-      const difficulty = ["easy", "medium", "hard"].includes(String(item['difficulty']))
-        ? String(item['difficulty'])
+      const difficulty = ["easy", "medium", "hard"].includes(String(item["difficulty"]))
+        ? String(item["difficulty"])
         : "medium";
       return {
         type,
         difficulty,
-        prompt: String(item['prompt'] ?? "").trim(),
+        prompt: String(item["prompt"] ?? "").trim(),
         options,
         correct,
-        explanation: String(item['explanation'] ?? "").trim(),
-        points: Number(item['points']) > 0 ? Number(item['points']) : 1,
+        explanation: String(item["explanation"] ?? "").trim(),
+        points: Number(item["points"]) > 0 ? Number(item["points"]) : 1,
       };
     })
     .filter((q) => q.prompt.length > 0);
@@ -206,7 +201,7 @@ async function callGemini(prompt: string) {
 /** Generates a batch of questions from study material. */
 export const generateQuizQuestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: GenerateInput) => validate(input))
+  .validator((input: GenerateInput) => validate(input))
   .handler(async ({ data }) => {
     const content = await callGemini(buildPrompt(data));
     return { questions: parseQuestions(content).slice(0, data.count) };
@@ -215,7 +210,7 @@ export const generateQuizQuestions = createServerFn({ method: "POST" })
 /** Regenerates a single question, avoiding everything already in the quiz. */
 export const regenerateQuizQuestion = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: GenerateInput) => validate({ ...input, count: 1 }))
+  .validator((input: GenerateInput) => validate({ ...input, count: 1 }))
   .handler(async ({ data }) => {
     const content = await callGemini(buildPrompt({ ...data, count: 1 }));
     const [question] = parseQuestions(content);

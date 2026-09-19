@@ -4,8 +4,7 @@
  * All heavy parsers are dynamically imported so they stay out of the SSR graph.
  */
 
-export const ACCEPTED_MATERIAL =
-  ".pdf,.docx,.doc,.ppt,.pptx,.txt,.md,application/pdf,text/plain";
+export const ACCEPTED_MATERIAL = ".pdf,.docx,.doc,.ppt,.pptx,.txt,.md,application/pdf,text/plain";
 
 export const MAX_MATERIAL_BYTES = 20 * 1024 * 1024;
 
@@ -45,7 +44,9 @@ async function fromPdf(file: File) {
     const content = await page.getTextContent();
     pages.push(
       content.items
-        .map((it) => (typeof (it as { str?: string }).str === "string" ? (it as { str: string }).str : ""))
+        .map((it) =>
+          typeof (it as { str?: string }).str === "string" ? (it as { str: string }).str : "",
+        )
         .join(" ")
         .replace(/\s+/g, " ")
         .trim(),

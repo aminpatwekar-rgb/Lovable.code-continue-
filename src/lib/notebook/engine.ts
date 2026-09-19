@@ -7,15 +7,7 @@ export const RULE_GAP = 34;
 export type Pt = { x: number; y: number; p: number };
 
 export type Tool =
-  | "pen"
-  | "pencil"
-  | "highlighter"
-  | "eraser"
-  | "line"
-  | "arrow"
-  | "rect"
-  | "ellipse"
-  | "diamond";
+  "pen" | "pencil" | "highlighter" | "eraser" | "line" | "arrow" | "rect" | "ellipse" | "diamond";
 
 export type Stroke = {
   id: string;
@@ -135,7 +127,6 @@ export function compileExpression(raw: string): ((x: number) => number) | null {
   js = js.replace(/\bpi\b/g, "Math.PI").replace(/\be\b/g, "Math.E");
 
   try {
-    // eslint-disable-next-line no-new-func
     const fn = new Function("F", "x", `"use strict"; return (${js});`) as (
       f: typeof FUNCS,
       x: number,

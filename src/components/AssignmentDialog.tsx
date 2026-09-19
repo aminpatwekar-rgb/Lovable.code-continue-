@@ -97,7 +97,6 @@ export function AssignmentDialog({
     setAllowVoice(a?.allow_voice_typing ?? false);
   }, [open, assignmentId]);
 
-
   const save = useMutation({
     mutationFn: async (publish: boolean) => {
       if (!title.trim()) throw new Error("Title is required");
@@ -247,11 +246,7 @@ export function AssignmentDialog({
           </div>
         </div>
         <DialogFooter className="gap-2">
-          <Button
-            variant="outline"
-            onClick={() => save.mutate(false)}
-            disabled={save.isPending}
-          >
+          <Button variant="outline" onClick={() => save.mutate(false)} disabled={save.isPending}>
             {save.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
             {editing ? "Save as draft" : "Save draft"}
           </Button>

@@ -1,11 +1,5 @@
 export type SubmissionStatus =
-  | "not_started"
-  | "in_progress"
-  | "submitted"
-  | "late"
-  | "reviewed"
-  | "returned"
-  | "completed";
+  "not_started" | "in_progress" | "submitted" | "late" | "reviewed" | "returned" | "completed";
 
 export const STATUS_LABEL: Record<SubmissionStatus, string> = {
   not_started: "Not started",
@@ -61,7 +55,6 @@ export function dueStatusLabel(due: string | null, submittedAt?: string | null) 
   if (days <= 0) return "Due today";
   return `Due in ${days} day${days === 1 ? "" : "s"}`;
 }
-
 
 /**
  * Statuses that count as "the student is done with it". Shared by the

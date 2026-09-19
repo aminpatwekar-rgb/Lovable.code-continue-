@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { Send, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,7 +21,14 @@ type Post = {
 };
 
 /** Class discussion board with one level of threaded replies. */
-export function ClassDiscussion({ classId, canModerate }: { classId: string; canModerate: boolean }) {
+export function ClassDiscussion({
+  classId,
+  canModerate,
+}: {
+  classId: string;
+  canModerate: boolean;
+}) {
+  const shouldReduceMotion = useReducedMotion();
   const { user } = useAuth();
   const qc = useQueryClient();
   const [body, setBody] = useState("");
@@ -91,13 +100,14 @@ export function ClassDiscussion({ classId, canModerate }: { classId: string; can
             </p>
             <p className="mt-1 whitespace-pre-wrap text-sm">{p.body}</p>
             {!nested && (
-              <button
+              <motion.button
                 type="button"
-                className="mt-1.5 text-xs text-muted-foreground hover:text-foreground"
+                {...getPressProps(shouldReduceMotion, { hoverScale: 1.05, tapScale: 0.95 })}
+                className="mt-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
                 onClick={() => setReplyTo(replyTo === p.id ? null : p.id)}
               >
                 Reply
-              </button>
+              </motion.button>
             )}
           </div>
           {(p.author_id === user?.id || canModerate) && (
@@ -142,35 +152,49 @@ export function ClassDiscussion({ classId, canModerate }: { classId: string; can
         </p>
       ) : (
         <ul className="space-y-3">
-          {roots.map((p) => (
-            <li key={p.id} className="panel p-4">
-              <Row p={p} />
-              {all
-                .filter((r) => r.parent_id === p.id)
-                .map((r) => (
-                  <Row key={r.id} p={r} nested />
-                ))}
-              {replyTo === p.id && (
-                <div className="ml-11 mt-3 space-y-2 border-l border-border pl-4">
-                  <Textarea
-                    value={replyBody}
-                    maxLength={2000}
-                    onChange={(e) => setReplyBody(e.target.value)}
-                    placeholder="Write a reply…"
-                    className="min-h-16"
-                    aria-label="Reply message"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={() => add.mutate({ text: replyBody, parent: p.id })}
-                    disabled={add.isPending || !replyBody.trim()}
-                  >
-                    Reply
-                  </Button>
-                </div>
-              )}
-            </li>
-          ))}
+          <AnimatePresence mode="popLayout">
+            {roots.map((p, i) => (
+              <motion.li
+                key={p.id}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{
+                  delay: Math.min(i * 0.035, 0.3),
+                  duration: 0.22,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                className="panel p-4"
+              >
+                <Row p={p} />
+                {all
+                  .filter((r) => r.parent_id === p.id)
+                  .map((r) => (
+                    <Row key={r.id} p={r} nested />
+                  ))}
+                {replyTo === p.id && (
+                  <div className="ml-11 mt-3 space-y-2 border-l border-border pl-4">
+                    <Textarea
+                      value={replyBody}
+                      maxLength={2000}
+                      onChange={(e) => setReplyBody(e.target.value)}
+                      placeholder="Write a reply…"
+                      className="min-h-16"
+                      aria-label="Reply message"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => add.mutate({ text: replyBody, parent: p.id })}
+                      disabled={add.isPending || !replyBody.trim()}
+                    >
+                      Reply
+                    </Button>
+                  </div>
+                )}
+              </motion.li>
+            ))}
+          </AnimatePresence>
         </ul>
       )}
     </div>

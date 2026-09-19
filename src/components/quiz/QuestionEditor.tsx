@@ -129,10 +129,24 @@ export function QuestionEditor({
         <div className="ml-auto flex gap-1">
           {onMove && (
             <>
-              <Button type="button" variant="ghost" size="icon" className="size-8" aria-label="Move up" onClick={() => onMove(-1)}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                aria-label="Move up"
+                onClick={() => onMove(-1)}
+              >
                 <ArrowUp className="size-4" />
               </Button>
-              <Button type="button" variant="ghost" size="icon" className="size-8" aria-label="Move down" onClick={() => onMove(1)}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                aria-label="Move down"
+                onClick={() => onMove(1)}
+              >
                 <ArrowDown className="size-4" />
               </Button>
             </>
@@ -163,7 +177,14 @@ export function QuestionEditor({
               <Library className="size-4" />
             </Button>
           )}
-          <Button type="button" variant="ghost" size="icon" className="size-8" aria-label="Delete question" onClick={onDelete}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            aria-label="Delete question"
+            onClick={onDelete}
+          >
             <Trash2 className="size-4 text-destructive" />
           </Button>
         </div>

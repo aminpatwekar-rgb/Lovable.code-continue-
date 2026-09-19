@@ -40,7 +40,11 @@ export const SYMBOL_GROUPS: SymbolGroup[] = [
       { label: "d/dx", latex: "\\frac{d}{dx} ", hint: "Derivative" },
       { label: "( )", latex: "\\left( \\right)" },
       { label: "| |", latex: "\\left| x \\right|" },
-      { label: "{ }", latex: "\\begin{cases} a & x>0 \\\\ b & x\\le 0 \\end{cases}", hint: "Cases" },
+      {
+        label: "{ }",
+        latex: "\\begin{cases} a & x>0 \\\\ b & x\\le 0 \\end{cases}",
+        hint: "Cases",
+      },
     ],
   },
   {

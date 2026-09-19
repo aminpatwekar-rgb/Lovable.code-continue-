@@ -12,7 +12,14 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { KIND_LABEL, percent, TYPE_LABEL, type QuestionType, type QuizKind } from "@/lib/quiz/types";
+import { useViewRole } from "@/lib/viewRole";
+import {
+  KIND_LABEL,
+  percent,
+  TYPE_LABEL,
+  type QuestionType,
+  type QuizKind,
+} from "@/lib/quiz/types";
 import { DeleteQuizButton } from "@/components/DeleteQuizButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,7 +51,8 @@ function fmt(value: string | null) {
 function Page() {
   const { quizId } = Route.useParams();
   const { user, role } = useAuth();
-  const isTeacher = role === "teacher" || role === "admin";
+  const { effectiveRole } = useViewRole();
+  const isTeacher = effectiveRole === "teacher" || effectiveRole === "admin";
   const navigate = useNavigate();
   const qc = useQueryClient();
 
@@ -61,10 +69,8 @@ function Page() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-
-
   const q = useQuery({
-    queryKey: ["quiz-detail", quizId, user?.id, role],
+    queryKey: ["quiz-detail", quizId, user?.id, effectiveRole],
     enabled: Boolean(user),
     queryFn: async () => {
       const { data: quiz, error } = await supabase
@@ -84,7 +90,6 @@ function Page() {
             .eq("quiz_id", quizId)
             .order("position")
         : await supabase.rpc("get_quiz_questions_for_student", { _quiz_id: quizId });
-
 
       const attemptQuery = supabase
         .from("quiz_attempts")
@@ -161,11 +166,7 @@ function Page() {
           <h1 className="truncate text-2xl font-semibold tracking-tight">{quiz.title}</h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <Badge variant="secondary">{KIND_LABEL[quiz.kind as QuizKind]}</Badge>
-            {quiz.published ? (
-              <Badge>Published</Badge>
-            ) : (
-              <Badge variant="outline">Draft</Badge>
-            )}
+            {quiz.published ? <Badge>Published</Badge> : <Badge variant="outline">Draft</Badge>}
             {quiz.lockdown_enabled && (
               <span className="inline-flex items-center gap-1">
                 <ShieldAlert className="size-3.5" /> Lockdown
@@ -213,10 +214,7 @@ function Page() {
         {[
           ["Questions", `${questions.length}`],
           ["Total marks", `${totalMarks}`],
-          [
-            "Time limit",
-            quiz.time_limit_minutes ? `${quiz.time_limit_minutes} min` : "No limit",
-          ],
+          ["Time limit", quiz.time_limit_minutes ? `${quiz.time_limit_minutes} min` : "No limit"],
           [
             isTeacher ? "Attempts" : "Your attempts",
             `${isTeacher ? attempts.length : myAttempts.length} / ${quiz.max_attempts}${isTeacher ? "" : ""}`,
@@ -266,7 +264,8 @@ function Page() {
                       {names[a.student_id] ?? "Student"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Attempt {a.attempt_no} · {a.submitted_at ? fmt(a.submitted_at) : "in progress"}
+                      Attempt {a.attempt_no} ·{" "}
+                      {a.submitted_at ? fmt(a.submitted_at) : "in progress"}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 text-sm">

@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchProfileEmails } from "@/lib/profile-emails";
 
 import { useAuth } from "@/lib/auth";
+import { useViewRole } from "@/lib/viewRole";
 import { formatDue, type SubmissionStatus } from "@/lib/assignments";
 import { StatusBadge } from "@/components/StatusBadge";
 import { SubmissionComments } from "@/components/SubmissionComments";
@@ -32,14 +33,14 @@ export const Route = createFileRoute("/_authenticated/submissions/$submissionId"
 function ReviewSubmission() {
   const { submissionId } = Route.useParams();
   const { role } = useAuth();
+  const { effectiveRole } = useViewRole();
   const qc = useQueryClient();
-  const isTeacher = role === "teacher" || role === "admin";
+  const isTeacher = effectiveRole === "teacher" || effectiveRole === "admin";
   const [marks, setMarks] = useState("");
   const [feedback, setFeedback] = useState("");
   const [notes, setNotes] = useState("");
   const [released, setReleased] = useState(true);
   const [hydrated, setHydrated] = useState(false);
-
 
   const q = useQuery({
     queryKey: ["submission", submissionId],
@@ -307,7 +308,6 @@ function ReviewSubmission() {
           Your teacher hasn&apos;t released the grade for this submission yet.
         </section>
       )}
-
 
       <SubmissionComments submissionId={submissionId} />
     </div>

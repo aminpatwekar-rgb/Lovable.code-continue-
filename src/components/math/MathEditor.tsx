@@ -13,13 +13,7 @@ import { FORMULA_LIBRARY } from "@/lib/science/formulas";
  * Equation builder: raw LaTeX field with live KaTeX preview, a symbol toolbar,
  * fraction and matrix editors, and the science formula library.
  */
-export function MathEditor({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
+export function MathEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const [num, setNum] = useState("");
   const [den, setDen] = useState("");
@@ -51,9 +45,7 @@ export function MathEditor({
     setRows(r);
     setCols(c);
     setCells((prev) =>
-      Array.from({ length: r }, (_, i) =>
-        Array.from({ length: c }, (_, j) => prev[i]?.[j] ?? ""),
-      ),
+      Array.from({ length: r }, (_, i) => Array.from({ length: c }, (_, j) => prev[i]?.[j] ?? "")),
     );
   }
 
@@ -128,21 +120,45 @@ export function MathEditor({
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5">
               <span className="text-sm text-muted-foreground">Rows</span>
-              <Button type="button" variant="outline" size="icon" className="size-8" onClick={() => resize(rows - 1, cols)}>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-8"
+                onClick={() => resize(rows - 1, cols)}
+              >
                 <Minus className="size-3.5" />
               </Button>
               <span className="w-5 text-center text-sm">{rows}</span>
-              <Button type="button" variant="outline" size="icon" className="size-8" onClick={() => resize(rows + 1, cols)}>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-8"
+                onClick={() => resize(rows + 1, cols)}
+              >
                 <Plus className="size-3.5" />
               </Button>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-sm text-muted-foreground">Columns</span>
-              <Button type="button" variant="outline" size="icon" className="size-8" onClick={() => resize(rows, cols - 1)}>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-8"
+                onClick={() => resize(rows, cols - 1)}
+              >
                 <Minus className="size-3.5" />
               </Button>
               <span className="w-5 text-center text-sm">{cols}</span>
-              <Button type="button" variant="outline" size="icon" className="size-8" onClick={() => resize(rows, cols + 1)}>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-8"
+                onClick={() => resize(rows, cols + 1)}
+              >
                 <Plus className="size-3.5" />
               </Button>
             </div>

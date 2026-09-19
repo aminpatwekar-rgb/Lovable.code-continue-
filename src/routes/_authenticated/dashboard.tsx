@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
   BookOpen,
@@ -9,9 +9,14 @@ import {
   GraduationCap,
   Users,
   FileClock,
+  ArrowRight,
+  Sparkles,
+  Inbox,
+  Calendar,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useViewRole } from "@/lib/viewRole";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,12 +26,12 @@ import { daysLate, formatDue, type SubmissionStatus } from "@/lib/assignments";
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard — ONYX" },
+      { title: "Dashboard — Smart Assignment Hub" },
       {
         name: "description",
         content: "Your assignments, deadlines, submissions and completion progress at a glance.",
       },
-      { property: "og:title", content: "Dashboard — ONYX" },
+      { property: "og:title", content: "Dashboard — Smart Assignment Hub" },
       { property: "og:description", content: "Track upcoming, overdue and completed work." },
       { name: "robots", content: "noindex" },
     ],
@@ -38,30 +43,42 @@ function Stat({
   icon: Icon,
   label,
   value,
-  tone = "text-primary",
+  tone = "text-primary bg-primary/10 border-primary/20",
 }: {
-  icon: typeof BookOpen;
+  icon: typeof GraduationCap;
   label: string;
-  value: string | number;
+  value: number | string;
   tone?: string;
 }) {
   return (
-    <div className="panel lift p-5 hover:lift-hover">
-      <Icon className={`size-4 ${tone}`} />
-      <p className="mt-3 text-3xl font-semibold tabular-nums">{value}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{label}</p>
+    <div className="panel p-5 relative overflow-hidden bg-card">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          {label}
+        </span>
+        <div className={`p-2 rounded-lg border ${tone}`}>
+          <Icon className="size-4" />
+        </div>
+      </div>
+      <p className="mt-4 text-3xl font-bold tracking-tight text-foreground tabular-nums">{value}</p>
     </div>
   );
 }
 
 function Dashboard() {
   const { profile, role, user } = useAuth();
+  const { effectiveRole } = useViewRole();
+
+  const isTeacherView = effectiveRole === "teacher" || effectiveRole === "admin";
 
   const teacher = useQuery({
-    enabled: role === "teacher" || role === "admin",
+    enabled: isTeacherView,
     queryKey: ["teacher-dash", user?.id],
     queryFn: async () => {
-      const { data: classes } = await supabase.from("classes").select("id").eq("teacher_id", user!.id);
+      const { data: classes } = await supabase
+        .from("classes")
+        .select("id")
+        .eq("teacher_id", user!.id);
       const ids = (classes ?? []).map((c) => c.id);
       const [{ count: students }, { data: assignments }] = await Promise.all([
         ids.length
@@ -79,7 +96,10 @@ function Dashboard() {
       ]);
       const aIds = (assignments ?? []).map((a) => a.id);
       const { data: subs } = aIds.length
-        ? await supabase.from("submissions").select("id, status, assignment_id").in("assignment_id", aIds)
+        ? await supabase
+            .from("submissions")
+            .select("id, status, assignment_id")
+            .in("assignment_id", aIds)
         : { data: [] as { id: string; status: string; assignment_id: string }[] };
       return {
         classes: ids.length,
@@ -91,7 +111,7 @@ function Dashboard() {
   });
 
   const student = useQuery({
-    enabled: role === "student",
+    enabled: effectiveRole === "student",
     queryKey: ["student-dash", user?.id],
     queryFn: async () => {
       const { data: memberships } = await supabase
@@ -117,63 +137,145 @@ function Dashboard() {
     },
   });
 
-  const greeting = `Hello, ${profile?.full_name?.split(" ")[0] || "there"}`;
+  const firstName = profile?.full_name?.trim().split(" ")[0] || "there";
 
-  if (role === "teacher" || role === "admin") {
+  if (isTeacherView) {
     const d = teacher.data;
     return (
       <div className="space-y-8">
-        <header>
-          <h1 className="text-3xl font-semibold">{greeting}</h1>
-          <p className="mt-1 text-muted-foreground">Here's what's happening across your classes.</p>
+        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/60 pb-6">
+          <div>
+            <div className="inline-flex items-center gap-1.5 text-xs font-medium text-primary mb-1">
+              <Sparkles className="size-3.5" />
+              Teacher Workspace
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+              Welcome back, {firstName}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Here is an overview of your active classes, assignments, and student submissions.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="h-9">
+              <Link to="/classes">Manage Classes</Link>
+            </Button>
+            <Button asChild size="sm" className="h-9 gap-1.5">
+              <Link to="/assignments">
+                View Assignments <ArrowRight className="size-3.5" />
+              </Link>
+            </Button>
+          </div>
         </header>
+
         {teacher.isLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-32 rounded-xl" />
+              <Skeleton key={i} className="h-28 rounded-xl" />
             ))}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat icon={GraduationCap} label="Classes" value={d?.classes ?? 0} />
-            <Stat icon={Users} label="Students" value={d?.students ?? 0} />
-            <Stat icon={BookOpen} label="Active assignments" value={d?.assignments.length ?? 0} />
+            <Stat
+              icon={GraduationCap}
+              label="Active Classes"
+              value={d?.classes ?? 0}
+              tone="text-primary bg-primary/10 border-primary/20"
+            />
+            <Stat
+              icon={Users}
+              label="Enrolled Students"
+              value={d?.students ?? 0}
+              tone="text-info bg-info/10 border-info/20"
+            />
+            <Stat
+              icon={BookOpen}
+              label="Active Assignments"
+              value={d?.assignments.length ?? 0}
+              tone="text-success bg-success/10 border-success/20"
+            />
             <Stat
               icon={FileClock}
-              label="Pending review"
+              label="Pending Review"
               value={d?.pending ?? 0}
-              tone="text-warning"
+              tone="text-warning bg-warning/10 border-warning/20"
             />
           </div>
         )}
 
-        <section className="space-y-3">
+        <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Recent assignments</h2>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/classes">Manage classes</Link>
+            <div>
+              <h2 className="text-base sm:text-lg font-semibold text-foreground">
+                Recent Assignments
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Quick access to student progress and deadlines
+              </p>
+            </div>
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              <Link to="/assignments">
+                All assignments <ArrowRight className="ml-1 size-3" />
+              </Link>
             </Button>
           </div>
+
           {(d?.assignments ?? []).length === 0 ? (
-            <p className="panel p-6 text-sm text-muted-foreground">
-              No assignments yet. Create a class, then post your first assignment.
-            </p>
+            <div className="panel p-8 text-center border-dashed border-border/80">
+              <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <Inbox className="size-6" />
+              </div>
+              <h3 className="mt-3 text-sm font-semibold text-foreground">No assignments yet</h3>
+              <p className="mt-1 text-xs text-muted-foreground max-w-sm mx-auto">
+                {effectiveRole !== role
+                  ? "Previewing as Teacher — no teacher data created for this account."
+                  : "Create a class and post your first assignment to start collecting and grading student work."}
+              </p>
+              <div className="mt-4">
+                <Button asChild size="sm">
+                  <Link to="/classes">Get Started with Classes</Link>
+                </Button>
+              </div>
+            </div>
           ) : (
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {(d?.assignments ?? []).slice(0, 6).map((a) => (
-                <li key={a.id}>
-                  <Link
-                    to="/assignments/$assignmentId"
-                    params={{ assignmentId: a.id }}
-                    className="panel lift block p-4 hover:lift-hover"
+            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <AnimatePresence mode="popLayout">
+                {(d?.assignments ?? []).slice(0, 6).map((a, i) => (
+                  <motion.li
+                    key={a.id}
+                    layout
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    transition={{
+                      delay: Math.min(i * 0.035, 0.3),
+                      duration: 0.22,
+                      ease: [0.22, 1, 0.36, 1],
+                    }}
                   >
-                    <p className="font-medium">{a.title}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Due {formatDue(a.due_date)}
-                    </p>
-                  </Link>
-                </li>
-              ))}
+                    <Link
+                      to="/assignments/$assignmentId"
+                      params={{ assignmentId: a.id }}
+                      className="panel p-4 block transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/40 bg-card group"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-semibold text-sm text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                          {a.title}
+                        </p>
+                      </div>
+                      <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Calendar className="size-3.5 text-muted-foreground/70" />
+                        <span>Due {formatDue(a.due_date)}</span>
+                      </div>
+                    </Link>
+                  </motion.li>
+                ))}
+              </AnimatePresence>
             </ul>
           )}
         </section>
@@ -198,92 +300,175 @@ function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-3xl font-semibold">{greeting}</h1>
-        <p className="mt-1 text-muted-foreground">Your work, deadlines and progress.</p>
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/60 pb-6">
+        <div>
+          <div className="inline-flex items-center gap-1.5 text-xs font-medium text-primary mb-1">
+            <Sparkles className="size-3.5" />
+            Student Dashboard
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+            Welcome back, {firstName}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Track your tasks, upcoming deadlines, and study progress.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="h-9">
+            <Link to="/classes">Join Class</Link>
+          </Button>
+          <Button asChild size="sm" className="h-9 gap-1.5">
+            <Link to="/assignments">
+              Assignments <ArrowRight className="size-3.5" />
+            </Link>
+          </Button>
+        </div>
       </header>
 
       {student.isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-32 rounded-xl" />
-          ))}
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-28 rounded-xl" />
+            ))}
+          </div>
+          <Skeleton className="h-24 rounded-xl" />
         </div>
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat icon={Clock} label="Upcoming" value={list.length - done} tone="text-warning" />
+            <Stat
+              icon={Clock}
+              label="Pending Work"
+              value={list.length - done}
+              tone="text-warning bg-warning/10 border-warning/20"
+            />
             <Stat
               icon={AlertTriangle}
               label="Overdue"
               value={overdue}
-              tone="text-destructive"
+              tone="text-destructive bg-destructive/10 border-destructive/20"
             />
-            <Stat icon={CheckCircle2} label="Submitted" value={done} tone="text-success" />
-            <Stat icon={GraduationCap} label="Classes" value={student.data?.classes ?? 0} />
+            <Stat
+              icon={CheckCircle2}
+              label="Completed"
+              value={done}
+              tone="text-success bg-success/10 border-success/20"
+            />
+            <Stat
+              icon={GraduationCap}
+              label="Enrolled Classes"
+              value={student.data?.classes ?? 0}
+              tone="text-info bg-info/10 border-info/20"
+            />
           </div>
 
-          <div className="panel p-5">
+          <div className="panel p-5 bg-card">
             <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">Completion</span>
-              <span className="tabular-nums text-muted-foreground">{pct}%</span>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-foreground">Overall Completion</span>
+                <span className="text-xs text-muted-foreground">
+                  ({done} of {list.length} tasks completed)
+                </span>
+              </div>
+              <span className="font-bold text-primary tabular-nums">{pct}%</span>
             </div>
-            <Progress value={pct} className="mt-3" />
+            <Progress value={pct} className="mt-3.5 h-2.5 bg-secondary" />
           </div>
 
-          <section className="space-y-3">
+          <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Your assignments</h2>
-              <Button asChild variant="outline" size="sm">
-                <Link to="/classes">Join a class</Link>
+              <div>
+                <h2 className="text-base sm:text-lg font-semibold text-foreground">
+                  Your Assignments
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Stay ahead of due dates and submit work
+                </p>
+              </div>
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                <Link to="/assignments">
+                  View all <ArrowRight className="ml-1 size-3" />
+                </Link>
               </Button>
             </div>
+
             {list.length === 0 ? (
-              <p className="panel p-6 text-sm text-muted-foreground">
-                Nothing here yet — join a class with the code your teacher shared.
-              </p>
+              <div className="panel p-8 text-center border-dashed border-border/80">
+                <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <Inbox className="size-6" />
+                </div>
+                <h3 className="mt-3 text-sm font-semibold text-foreground">
+                  No assignments active
+                </h3>
+                <p className="mt-1 text-xs text-muted-foreground max-w-sm mx-auto">
+                  {effectiveRole !== role
+                    ? "Previewing as Student — no student data for this account."
+                    : "You do not have any pending assignments. Join a class with your teacher's code to get started."}
+                </p>
+                {effectiveRole === role && (
+                  <div className="mt-4">
+                    <Button asChild size="sm">
+                      <Link to="/classes">Join a Class</Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
             ) : (
-              <ul className="grid gap-3 sm:grid-cols-2">
-                {list.map((a, i) => {
-                  const s = student.data?.byAssignment.get(a.id);
-                  const late = a.due_date ? daysLate(a.due_date) : 0;
-                  const status = (s?.status ?? "not_started") as SubmissionStatus;
-                  const isOverdue =
-                    late > 0 && ["not_started", "in_progress", "returned"].includes(status);
-                  return (
-                    <motion.li
-                      key={a.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.04, duration: 0.3 }}
-                    >
-                      <Link
-                        to="/assignments/$assignmentId"
-                        params={{ assignmentId: a.id }}
-                        className="panel lift block p-4 hover:lift-hover"
+              <ul className="grid gap-3.5 sm:grid-cols-2">
+                <AnimatePresence mode="popLayout">
+                  {list.map((a, i) => {
+                    const s = student.data?.byAssignment.get(a.id);
+                    const late = a.due_date ? daysLate(a.due_date) : 0;
+                    const status = (s?.status ?? "not_started") as SubmissionStatus;
+                    const isOverdue =
+                      late > 0 && ["not_started", "in_progress", "returned"].includes(status);
+                    return (
+                      <motion.li
+                        key={a.id}
+                        layout
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.96 }}
+                        transition={{ delay: Math.min(i * 0.035, 0.3), duration: 0.22 }}
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate font-medium">{a.title}</p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {a.subject || "General"} ·{" "}
-                              {(a.classes as { name: string } | null)?.name}
-                            </p>
+                        <Link
+                          to="/assignments/$assignmentId"
+                          params={{ assignmentId: a.id }}
+                          className="panel p-4 block transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/40 bg-card group"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
+                                {a.title}
+                              </p>
+                              <p className="mt-0.5 text-xs text-muted-foreground truncate">
+                                {a.subject || "General"} ·{" "}
+                                {(a.classes as { name: string } | null)?.name || "Class"}
+                              </p>
+                            </div>
+                            <StatusBadge status={isOverdue ? "late" : status} />
                           </div>
-                          <StatusBadge status={isOverdue ? "late" : status} />
-                        </div>
-                        <div className="mt-3 flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Due {formatDue(a.due_date)}</span>
-                          {isOverdue && (
-                            <span className="font-medium text-destructive">
-                              Late by {late} day{late === 1 ? "" : "s"}
+                          <div className="mt-3.5 pt-3 border-t border-border/50 flex items-center justify-between text-xs">
+                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                              <Clock className="size-3.5" /> Due {formatDue(a.due_date)}
                             </span>
-                          )}
-                        </div>
-                      </Link>
-                    </motion.li>
-                  );
-                })}
+                            {isOverdue && (
+                              <span className="font-semibold text-destructive inline-flex items-center gap-1">
+                                <AlertTriangle className="size-3" /> Late by {late}d
+                              </span>
+                            )}
+                          </div>
+                        </Link>
+                      </motion.li>
+                    );
+                  })}
+                </AnimatePresence>
               </ul>
             )}
           </section>

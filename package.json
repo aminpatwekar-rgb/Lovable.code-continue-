@@ -4,7 +4,7 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "vite dev --host 0.0.0.0 --port 3000",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
@@ -43,9 +43,9 @@
     "@supabase/supabase-js": "^2.112.0",
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-query": "^5.101.1",
-    "@tanstack/react-router": "^1.170.18",
+    "@tanstack/react-router": "1.170.18",
     "@tanstack/react-start": "1.168.32",
-    "@tanstack/router-plugin": "^1.168.23",
+    "@tanstack/router-plugin": "1.168.23",
     "@types/katex": "^0.16.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -92,5 +92,10 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^8.1.5"
+  },
+  "overrides": {
+    "@tanstack/react-router": "1.170.18",
+    "@tanstack/router-core": "1.171.15",
+    "@tanstack/router-plugin": "1.168.23"
   }
 }

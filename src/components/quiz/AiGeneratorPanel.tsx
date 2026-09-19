@@ -214,9 +214,7 @@ export function AiGeneratorPanel({
       <Button
         type="button"
         disabled={!canGenerate}
-        onClick={() =>
-          onGenerate({ material, count, difficulty, types, withExplanations, topic })
-        }
+        onClick={() => onGenerate({ material, count, difficulty, types, withExplanations, topic })}
         className="w-full"
       >
         {busy ? (

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
 import { Crown, Medal, Trophy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -143,36 +144,47 @@ function Page() {
           </p>
         </div>
       ) : (
-        <ol className="panel divide-y divide-border">
-          {rows.map((row, i) => (
-            <li
-              key={row.studentId}
-              className={`flex items-center justify-between gap-3 p-4 ${
-                row.studentId === user?.id ? "bg-primary/5" : ""
-              }`}
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="w-8 shrink-0 text-center text-sm font-semibold tabular-nums text-muted-foreground">
-                  {i === 0 ? (
-                    <Crown className="mx-auto size-4 text-primary" aria-label="First place" />
-                  ) : i < 3 ? (
-                    <Medal className="mx-auto size-4 text-muted-foreground" aria-hidden />
-                  ) : (
-                    i + 1
-                  )}
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{row.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {row.badges} badge{row.badges === 1 ? "" : "s"}
-                  </p>
+        <ol className="panel divide-y divide-border overflow-hidden">
+          <AnimatePresence mode="popLayout">
+            {rows.map((row, i) => (
+              <motion.li
+                key={row.studentId}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{
+                  delay: Math.min(i * 0.035, 0.3),
+                  duration: 0.22,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                className={`flex items-center justify-between gap-3 p-4 ${
+                  row.studentId === user?.id ? "bg-primary/5" : ""
+                }`}
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="w-8 shrink-0 text-center text-sm font-semibold tabular-nums text-muted-foreground">
+                    {i === 0 ? (
+                      <Crown className="mx-auto size-4 text-primary" aria-label="First place" />
+                    ) : i < 3 ? (
+                      <Medal className="mx-auto size-4 text-muted-foreground" aria-hidden />
+                    ) : (
+                      i + 1
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{row.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {row.badges} badge{row.badges === 1 ? "" : "s"}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <Badge variant="secondary" className="tabular-nums">
-                {row.points} pts
-              </Badge>
-            </li>
-          ))}
+                <Badge variant="secondary" className="tabular-nums">
+                  {row.points} pts
+                </Badge>
+              </motion.li>
+            ))}
+          </AnimatePresence>
         </ol>
       )}
     </div>

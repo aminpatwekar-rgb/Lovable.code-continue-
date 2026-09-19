@@ -12,4 +12,44 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    server: {
+      allowedHosts: true,
+      cors: true,
+    },
+    build: {
+      rollupOptions: {
+        onwarn(
+          warning: { code?: string; message?: string },
+          defaultHandler: (warning: unknown) => void,
+        ) {
+          if (
+            warning.code === "MODULE_LEVEL_DIRECTIVE" ||
+            String(warning.message || "").includes("MODULE_LEVEL_DIRECTIVE") ||
+            String(warning.message || "").includes("use client") ||
+            String(warning.message || "").includes("module level directive")
+          ) {
+            return;
+          }
+          defaultHandler(warning);
+        },
+      },
+      rolldownOptions: {
+        onwarn(
+          warning: { code?: string; message?: string },
+          defaultHandler: (warning: unknown) => void,
+        ) {
+          if (
+            warning.code === "MODULE_LEVEL_DIRECTIVE" ||
+            String(warning.message || "").includes("MODULE_LEVEL_DIRECTIVE") ||
+            String(warning.message || "").includes("use client") ||
+            String(warning.message || "").includes("module level directive")
+          ) {
+            return;
+          }
+          defaultHandler(warning);
+        },
+      },
+    },
+  },
 });

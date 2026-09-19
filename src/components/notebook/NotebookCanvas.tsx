@@ -124,12 +124,18 @@ export function NotebookCanvas({
   const [scale, setScale] = useState(1);
   const [past, setPast] = useState<Notebook[]>([]);
   const [future, setFuture] = useState<Notebook[]>([]);
-  const [textDraft, setTextDraft] = useState<{ id?: string; x: number; y: number; value: string } | null>(
-    null,
-  );
-  const [mathDraft, setMathDraft] = useState<{ id?: string; x: number; y: number; value: string } | null>(
-    null,
-  );
+  const [textDraft, setTextDraft] = useState<{
+    id?: string;
+    x: number;
+    y: number;
+    value: string;
+  } | null>(null);
+  const [mathDraft, setMathDraft] = useState<{
+    id?: string;
+    x: number;
+    y: number;
+    value: string;
+  } | null>(null);
   const [plotDraft, setPlotDraft] = useState<Omit<Plot, "id"> | null>(null);
 
   const page = value.pages[Math.min(pageIndex, value.pages.length - 1)] ?? blankPage();
@@ -289,7 +295,14 @@ export function NotebookCanvas({
         ? p.overlays.map((o) => (o.id === id ? { ...o, value: body } : o))
         : [
             ...p.overlays,
-            { id: crypto.randomUUID(), type: "text", x: textDraft.x, y: textDraft.y, value: body, size: 18 } as Overlay,
+            {
+              id: crypto.randomUUID(),
+              type: "text",
+              x: textDraft.x,
+              y: textDraft.y,
+              value: body,
+              size: 18,
+            } as Overlay,
           ],
     }));
   }
@@ -309,12 +322,25 @@ export function NotebookCanvas({
         ? p.overlays.map((o) => (o.id === id ? { ...o, value: body } : o))
         : [
             ...p.overlays,
-            { id: crypto.randomUUID(), type: "math", x: mathDraft.x, y: mathDraft.y, value: body, size: 20 } as Overlay,
+            {
+              id: crypto.randomUUID(),
+              type: "math",
+              x: mathDraft.x,
+              y: mathDraft.y,
+              value: body,
+              size: 20,
+            } as Overlay,
           ],
     }));
   }
 
-  function startDrag(e: React.PointerEvent, id: string, kind: "overlay" | "plot", x: number, y: number) {
+  function startDrag(
+    e: React.PointerEvent,
+    id: string,
+    kind: "overlay" | "plot",
+    x: number,
+    y: number,
+  ) {
     if (readOnly || mode !== "select") return;
     e.stopPropagation();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -361,11 +387,7 @@ export function NotebookCanvas({
 
   const overlays = useMemo(() => page.overlays, [page.overlays]);
 
-  const toolButton = (
-    key: Mode,
-    icon: React.ReactNode,
-    label: string,
-  ) => (
+  const toolButton = (key: Mode, icon: React.ReactNode, label: string) => (
     <Button
       key={key}
       type="button"

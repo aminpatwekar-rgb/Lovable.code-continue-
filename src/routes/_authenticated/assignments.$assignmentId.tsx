@@ -2,11 +2,13 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, FileUp, Loader2, Trash2, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useViewRole } from "@/lib/viewRole";
 import { daysLate, formatDue, type SubmissionStatus } from "@/lib/assignments";
+import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
 import { StatusBadge } from "@/components/StatusBadge";
 import { TypedEditor, type ImageBlock } from "@/components/TypedEditor";
 import { AssignmentActions, type AssignmentRow } from "@/components/AssignmentActions";
@@ -28,13 +30,20 @@ export const Route = createFileRoute("/_authenticated/assignments/$assignmentId"
   component: AssignmentPage,
 });
 
-type Page = { id: string; storage_path: string; file_name: string; url: string; page_order: number };
+type Page = {
+  id: string;
+  storage_path: string;
+  file_name: string;
+  url: string;
+  page_order: number;
+};
 
 function AssignmentPage() {
   const { assignmentId } = Route.useParams();
   const { user, role } = useAuth();
+  const { effectiveRole } = useViewRole();
   const qc = useQueryClient();
-  const isTeacher = role === "teacher" || role === "admin";
+  const isTeacher = effectiveRole === "teacher" || effectiveRole === "admin";
   const submissionsRef = useRef<HTMLDivElement>(null);
 
   const assignment = useQuery({
@@ -163,7 +172,6 @@ function AssignmentPage() {
   );
 }
 
-
 function TeacherView({ assignmentId, maxMarks }: { assignmentId: string; maxMarks: number }) {
   const subs = useQuery({
     queryKey: ["assignment-subs", assignmentId],
@@ -205,8 +213,7 @@ function TeacherView({ assignmentId, maxMarks }: { assignmentId: string; maxMark
                     <p className="truncate text-sm font-medium">{p?.full_name ?? "Student"}</p>
                     <p className="text-xs text-muted-foreground">
                       {s.submitted_at ? formatDue(s.submitted_at) : "Draft"}
-                      {s.paste_violation_count > 0 &&
-                        ` · ${s.paste_violation_count} paste flags`}
+                      {s.paste_violation_count > 0 && ` · ${s.paste_violation_count} paste flags`}
                     </p>
                   </div>
                   <span className="text-sm tabular-nums text-muted-foreground">
@@ -241,6 +248,7 @@ function StudentSubmission({
   userId: string;
   onSaved: () => void;
 }) {
+  const shouldReduceMotion = useReducedMotion();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
@@ -344,9 +352,7 @@ function StudentSubmission({
       .select("id")
       .single();
     if (rowErr) throw rowErr;
-    const { data: signed } = await supabase.storage
-      .from("submissions")
-      .createSignedUrl(path, 3600);
+    const { data: signed } = await supabase.storage.from("submissions").createSignedUrl(path, 3600);
     return { id: row.id, path, url: signed?.signedUrl ?? "", file_name: file.name };
   }
 
@@ -458,7 +464,9 @@ function StudentSubmission({
     <section className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Your submission</h2>
-        <StatusBadge status={(sub?.is_late ? "late" : (sub?.status ?? "not_started")) as SubmissionStatus} />
+        <StatusBadge
+          status={(sub?.is_late ? "late" : (sub?.status ?? "not_started")) as SubmissionStatus}
+        />
       </div>
 
       {sub?.grade_released && (sub.marks_awarded !== null || sub.teacher_feedback) && (
@@ -490,7 +498,6 @@ function StudentSubmission({
         </p>
       )}
 
-
       {locked ? (
         <div className="panel p-6">
           <p className="text-sm text-muted-foreground">
@@ -514,10 +521,7 @@ function StudentSubmission({
           )}
         </div>
       ) : (
-        <Tabs
-          value={activeMode}
-          onValueChange={(v) => setChoice(v as "handwritten" | "typed")}
-        >
+        <Tabs value={activeMode} onValueChange={(v) => setChoice(v as "handwritten" | "typed")}>
           {assignment.submission_type === "either" && (
             <TabsList>
               <TabsTrigger value="handwritten">Handwritten</TabsTrigger>
@@ -538,7 +542,11 @@ function StudentSubmission({
               <p className="text-sm text-muted-foreground">
                 Drag pages here, or take photos of your handwritten work.
               </p>
-              <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>
+              <Button
+                variant="outline"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+              >
                 {uploading ? (
                   <Loader2 className="mr-1.5 size-4 animate-spin" />
                 ) : (
@@ -572,9 +580,15 @@ function StudentSubmission({
                     />
                     <div className="flex items-center justify-between px-2 py-1.5 text-xs">
                       <span className="text-muted-foreground">Page {i + 1}</span>
-                      <button type="button" onClick={() => void removePage(p)}>
+                      <motion.button
+                        type="button"
+                        {...getPressProps(shouldReduceMotion, { hoverScale: 1.15, tapScale: 0.9 })}
+                        onClick={() => void removePage(p)}
+                        className="cursor-pointer"
+                        aria-label="Remove page"
+                      >
                         <Trash2 className="size-3.5 text-destructive" />
-                      </button>
+                      </motion.button>
                     </div>
                   </motion.div>
                 ))}

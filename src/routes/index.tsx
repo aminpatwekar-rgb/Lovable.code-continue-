@@ -95,8 +95,8 @@ function Landing() {
               <span className="text-display">modern</span> submission flow.
             </h1>
             <p className="mt-6 max-w-xl text-lg text-muted-foreground">
-              ONYX gives teachers classes, assignments and review tools — and gives students a
-              calm place to submit scanned pages or typed work that can't be pasted in.
+              ONYX gives teachers classes, assignments and review tools — and gives students a calm
+              place to submit scanned pages or typed work that can't be pasted in.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild size="lg">

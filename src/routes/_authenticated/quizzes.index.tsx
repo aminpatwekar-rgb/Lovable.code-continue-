@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { ClipboardList, Lock, Plus, Timer, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useViewRole } from "@/lib/viewRole";
 import { KIND_LABEL, percent, type QuizKind } from "@/lib/quiz/types";
 import { fetchQuestionCounts } from "@/lib/quiz/counts";
 import { DeleteQuizButton } from "@/components/DeleteQuizButton";
@@ -52,8 +54,9 @@ export const Route = createFileRoute("/_authenticated/quizzes/")({
 
 function QuizzesPage() {
   const { role } = useAuth();
+  const { effectiveRole } = useViewRole();
   if (!role) return <ListSkeleton />;
-  return role === "student" ? <StudentQuizzes /> : <TeacherQuizzes />;
+  return effectiveRole === "student" ? <StudentQuizzes /> : <TeacherQuizzes />;
 }
 
 function ListSkeleton() {
@@ -255,12 +258,24 @@ function TeacherQuizzes() {
   const live = (q.data?.rows ?? []).filter((x) => !x.archived);
   const archived = (q.data?.rows ?? []).filter((x) => x.archived);
 
-  const row = (x: (typeof live)[number]) => {
+  const row = (x: (typeof live)[number], index: number) => {
     const questions = counts.get(x.id) ?? 0;
     const attempts = x.quiz_attempts?.[0]?.count ?? 0;
 
     return (
-      <div key={x.id} className="panel flex flex-wrap items-center gap-3 p-4">
+      <motion.div
+        key={x.id}
+        layout
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96 }}
+        transition={{
+          delay: Math.min(index * 0.035, 0.3),
+          duration: 0.22,
+          ease: [0.22, 1, 0.36, 1],
+        }}
+        className="panel flex flex-wrap items-center gap-3 p-4"
+      >
         <div className="min-w-0 flex-1">
           <Link
             to="/quizzes/$quizId"
@@ -310,7 +325,7 @@ function TeacherQuizzes() {
             onConfirm={() => removeQuiz.mutate(x.id)}
           />
         </div>
-      </div>
+      </motion.div>
     );
   };
 
@@ -338,7 +353,7 @@ function TeacherQuizzes() {
         </TabsList>
         <TabsContent value="live" className="mt-4 space-y-3">
           {live.length ? (
-            live.map(row)
+            <AnimatePresence mode="popLayout">{live.map(row)}</AnimatePresence>
           ) : (
             <EmptyState
               title="No quizzes yet"
@@ -348,7 +363,7 @@ function TeacherQuizzes() {
         </TabsContent>
         <TabsContent value="archived" className="mt-4 space-y-3">
           {archived.length ? (
-            archived.map(row)
+            <AnimatePresence mode="popLayout">{archived.map(row)}</AnimatePresence>
           ) : (
             <EmptyState title="Nothing archived" body="Archived quizzes will appear here." />
           )}
@@ -383,7 +398,6 @@ function StudentQuizzes() {
         .order("attempt_no", { ascending: false });
       const counts = await fetchQuestionCounts((quizzes ?? []).map((x) => x.id));
       return { quizzes: quizzes ?? [], attempts: attempts ?? [], counts };
-
     },
   });
 
@@ -407,7 +421,7 @@ function StudentQuizzes() {
   });
   const available = all.filter((x) => !done.includes(x));
 
-  const card = (x: (typeof all)[number]) => {
+  const card = (x: (typeof all)[number], index: number) => {
     const a = best.get(x.id);
     const count = counts.get(x.id) ?? 0;
     const used = attempts.filter((t) => t.quiz_id === x.id).length;
@@ -416,7 +430,19 @@ function StudentQuizzes() {
     const closed = x.end_at ? new Date(x.end_at) < new Date() : false;
 
     return (
-      <div key={x.id} className="panel flex flex-wrap items-center gap-3 p-4">
+      <motion.div
+        key={x.id}
+        layout
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96 }}
+        transition={{
+          delay: Math.min(index * 0.035, 0.3),
+          duration: 0.22,
+          ease: [0.22, 1, 0.36, 1],
+        }}
+        className="panel flex flex-wrap items-center gap-3 p-4"
+      >
         <div className="min-w-0 flex-1">
           <Link
             to="/quizzes/$quizId"
@@ -443,11 +469,19 @@ function StudentQuizzes() {
           ) : null}
           <Button asChild size="sm" variant={a ? "outline" : "default"} disabled={count === 0}>
             <Link to="/quizzes/$quizId" params={{ quizId: x.id }}>
-              {notOpen ? "Not open yet" : closed ? "Closed" : exhausted ? "View result" : a ? "Retake" : "Start"}
+              {notOpen
+                ? "Not open yet"
+                : closed
+                  ? "Closed"
+                  : exhausted
+                    ? "View result"
+                    : a
+                      ? "Retake"
+                      : "Start"}
             </Link>
           </Button>
         </div>
-      </div>
+      </motion.div>
     );
   };
 
@@ -477,7 +511,7 @@ function StudentQuizzes() {
         </TabsList>
         <TabsContent value="available" className="mt-4 space-y-3">
           {available.length ? (
-            available.map(card)
+            <AnimatePresence mode="popLayout">{available.map(card)}</AnimatePresence>
           ) : (
             <EmptyState
               title="Nothing to take right now"
@@ -487,9 +521,12 @@ function StudentQuizzes() {
         </TabsContent>
         <TabsContent value="done" className="mt-4 space-y-3">
           {done.length ? (
-            done.map(card)
+            <AnimatePresence mode="popLayout">{done.map(card)}</AnimatePresence>
           ) : (
-            <EmptyState title="No attempts yet" body="Your completed quizzes will be listed here." />
+            <EmptyState
+              title="No attempts yet"
+              body="Your completed quizzes will be listed here."
+            />
           )}
         </TabsContent>
       </Tabs>

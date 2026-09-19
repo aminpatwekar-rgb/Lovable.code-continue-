@@ -26,6 +26,32 @@ type Props = {
   onUploadImage: (file: File) => Promise<ImageBlock | null>;
 };
 
+interface SpeechRecognitionEvent {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: {
+      isFinal: boolean;
+      [index: number]: { transcript: string };
+    };
+  };
+}
+
+interface SpeechRecognitionErrorEvent {
+  error?: string;
+}
+
+interface SpeechRecognitionInstance {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((e: SpeechRecognitionEvent) => void) | null;
+  onerror: ((e: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
 export function TypedEditor({
   value,
   onChange,
@@ -42,7 +68,6 @@ export function TypedEditor({
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [listening, setListening] = useState(false);
-
 
   function block(kind: string, label: string) {
     toast.warning(`${label} is disabled on this assignment`, {
@@ -80,7 +105,7 @@ export function TypedEditor({
   // Voice typing stays on until the student turns it off. Browsers end a
   // recognition session after every pause, so the `stopped` flag decides
   // whether `onend` restarts it or lets it die.
-  const recRef = useRef<any>(null);
+  const recRef = useRef<SpeechRecognitionInstance | null>(null);
   const stoppedRef = useRef(true);
   const valueRef = useRef(value);
   valueRef.current = value;
@@ -100,8 +125,16 @@ export function TypedEditor({
 
   function startVoice() {
     const SR =
-      (window as unknown as { webkitSpeechRecognition?: new () => any }).webkitSpeechRecognition ??
-      (window as unknown as { SpeechRecognition?: new () => any }).SpeechRecognition;
+      (
+        window as unknown as {
+          webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
+        }
+      ).webkitSpeechRecognition ??
+      (
+        window as unknown as {
+          SpeechRecognition?: new () => SpeechRecognitionInstance;
+        }
+      ).SpeechRecognition;
     if (!SR) {
       toast.error("Voice typing isn't supported in this browser");
       return;
@@ -110,17 +143,17 @@ export function TypedEditor({
     rec.continuous = true;
     rec.interimResults = false;
     rec.lang = navigator.language || "en-US";
-    rec.onresult = (e: any) => {
+    rec.onresult = (e: SpeechRecognitionEvent) => {
       let text = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) text += e.results[i][0].transcript;
+        if (e.results[i]?.isFinal) text += e.results[i]?.[0]?.transcript ?? "";
       }
       text = text.trim();
       if (!text) return;
       const current = valueRef.current;
       onChangeRef.current(current ? `${current} ${text}` : text);
     };
-    rec.onerror = (e: any) => {
+    rec.onerror = (e: SpeechRecognitionErrorEvent) => {
       if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {
         stoppedRef.current = true;
         setListening(false);
@@ -156,7 +189,6 @@ export function TypedEditor({
       /* already stopped */
     }
   }
-
 
   return (
     <div className="space-y-4">

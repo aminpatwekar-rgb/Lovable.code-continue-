@@ -5,8 +5,8 @@ import { toast } from "sonner";
 import { ArrowLeft, Copy, Link2, LogOut, Plus, Settings, UserMinus, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-
 import { useAuth } from "@/lib/auth";
+import { useViewRole } from "@/lib/viewRole";
 import { AssignmentDialog } from "@/components/AssignmentDialog";
 import { AssignmentActions, type AssignmentRow } from "@/components/AssignmentActions";
 import { DueDateChip } from "@/components/DueDateChip";
@@ -71,13 +71,14 @@ type Member = {
   sr_no: string | null;
 };
 
-
 function ClassDetail() {
   const { classId } = Route.useParams();
   const { user, role } = useAuth();
+  const { effectiveRole } = useViewRole();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const isTeacher = role === "teacher" || role === "admin";
+  // UI rendering branches on effectiveRole; administrative ownership/permissions checks retain real role
+  const isTeacher = effectiveRole === "teacher" || effectiveRole === "admin";
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
@@ -149,7 +150,6 @@ function ClassDetail() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-
   const roster = useQuery({
     queryKey: ["roster", classId],
     queryFn: async () => {
@@ -171,8 +171,6 @@ function ClassDetail() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
-
-
 
   const assignments = useQuery({
     queryKey: ["class-assignments", classId, isTeacher],
@@ -278,7 +276,6 @@ function ClassDetail() {
               <div className="mt-2">
                 <DueDateChip due={a.due_date} size="sm" />
               </div>
-
             </Link>
             {isTeacher && user && <AssignmentActions assignment={a} teacherId={user.id} />}
           </li>
@@ -342,7 +339,6 @@ function ClassDetail() {
           </AlertDialog>
         )}
         {canManage && (
-
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -451,7 +447,6 @@ function ClassDetail() {
           <ClassDiscussion classId={classId} canModerate={canManage} />
         </TabsContent>
 
-
         <TabsContent value="assignments" className="mt-5 space-y-3">
           <AssignmentList items={active} />
         </TabsContent>
@@ -478,9 +473,7 @@ function ClassDetail() {
             </div>
           ) : (roster.data ?? []).length === 0 ? (
             <p className="panel p-6 text-sm text-muted-foreground">
-              {isTeacher
-                ? "No students yet. Share the join code above."
-                : "No classmates yet."}
+              {isTeacher ? "No students yet. Share the join code above." : "No classmates yet."}
             </p>
           ) : (
             <ul className="panel divide-y divide-border">

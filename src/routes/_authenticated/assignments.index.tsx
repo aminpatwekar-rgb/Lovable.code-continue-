@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useViewRole } from "@/lib/viewRole";
 import { bucketOf, daysLate, formatDue, type SubmissionStatus } from "@/lib/assignments";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,11 +11,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type AssignmentTab = "all" | "upcoming" | "overdue" | "done" | "review";
 
+const VALID: AssignmentTab[] = ["all", "upcoming", "overdue", "done", "review"];
+
 export const Route = createFileRoute("/_authenticated/assignments/")({
   // The tab lives in the URL so dashboard cards can deep-link into a filter.
-  validateSearch: (search: Record<string, unknown>) => ({
-    tab: typeof search['tab'] === "string" ? (search['tab'] as AssignmentTab) : ("upcoming" as const),
-  }),
+  validateSearch: (search: Record<string, unknown>): { tab?: AssignmentTab } => {
+    const tab = search["tab"];
+    if (typeof tab === "string" && VALID.includes(tab as AssignmentTab)) {
+      return { tab: tab as AssignmentTab };
+    }
+    return {};
+  },
   head: () => ({
     meta: [
       { title: "Assignments — ONYX" },
@@ -30,17 +37,17 @@ export const Route = createFileRoute("/_authenticated/assignments/")({
   component: Assignments,
 });
 
-const VALID: AssignmentTab[] = ["all", "upcoming", "overdue", "done", "review"];
-
 function Assignments() {
   const { user, role } = useAuth();
+  const { effectiveRole } = useViewRole();
   const navigate = useNavigate({ from: "/assignments/" });
-  const { tab } = Route.useSearch();
-  const isTeacher = role === "teacher" || role === "admin";
+  const search = Route.useSearch();
+  const tab = search.tab ?? "upcoming";
+  const isTeacher = effectiveRole === "teacher" || effectiveRole === "admin";
 
   const q = useQuery({
-    queryKey: ["all-assignments", user?.id, role],
-    enabled: Boolean(user && role),
+    queryKey: ["all-assignments", user?.id, effectiveRole],
+    enabled: Boolean(user && effectiveRole),
     queryFn: async () => {
       if (isTeacher) {
         const { data, error } = await supabase
@@ -176,9 +183,7 @@ function Assignments() {
             <TabsTrigger value="upcoming">Upcoming ({groups.upcoming.length})</TabsTrigger>
             <TabsTrigger value="overdue">Overdue ({groups.overdue.length})</TabsTrigger>
             {isTeacher && (
-              <TabsTrigger value="review">
-                To review ({review.data?.length ?? 0})
-              </TabsTrigger>
+              <TabsTrigger value="review">To review ({review.data?.length ?? 0})</TabsTrigger>
             )}
             <TabsTrigger value="done">
               {isTeacher ? "Archive" : "Submitted"} ({groups.done.length})

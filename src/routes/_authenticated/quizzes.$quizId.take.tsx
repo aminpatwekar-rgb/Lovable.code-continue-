@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { motion, useReducedMotion } from "framer-motion";
 import { AlertTriangle, Clock, Loader2, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { finalizeQuizAttempt } from "@/lib/quiz/grading.functions";
 import { formatClock, shuffle, TYPE_LABEL, type QuestionType } from "@/lib/quiz/types";
+import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -65,6 +67,7 @@ type Quiz = {
 type Attempt = { id: string; attempt_no: number; started_at: string; question_order: string[] };
 
 function Page() {
+  const shouldReduceMotion = useReducedMotion();
   const { quizId } = Route.useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -108,13 +111,11 @@ function Page() {
 
         // Answer keys are never sent to the browser: this RPC returns the
         // student-safe columns only (no `correct`, no `explanation`).
-        const { data: rows, error: rErr } = await supabase.rpc(
-          "get_quiz_questions_for_student",
-          { _quiz_id: quizId },
-        );
+        const { data: rows, error: rErr } = await supabase.rpc("get_quiz_questions_for_student", {
+          _quiz_id: quizId,
+        });
         if (rErr) throw rErr;
         if (!rows?.length) throw new Error("This quiz has no questions yet.");
-
 
         let live: Attempt | null = null;
         const { data: open } = await supabase
@@ -519,13 +520,14 @@ function Page() {
           {questions.map((q, i) => {
             const done = (responses[q.id] ?? []).some((v) => v.trim());
             return (
-              <button
+              <motion.button
                 key={q.id}
                 type="button"
+                {...getPressProps(shouldReduceMotion, { hoverScale: 1.08, tapScale: 0.94 })}
                 onClick={() => setIndex(i)}
                 aria-label={`Go to question ${i + 1}`}
                 aria-current={i === index}
-                className={`size-8 rounded-md border text-xs font-medium transition-colors ${
+                className={`size-8 rounded-md border text-xs font-medium cursor-pointer transition-colors ${
                   i === index
                     ? "border-primary bg-primary text-primary-foreground"
                     : done
@@ -534,7 +536,7 @@ function Page() {
                 }`}
               >
                 {i + 1}
-              </button>
+              </motion.button>
             );
           })}
         </div>

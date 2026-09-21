@@ -13,6 +13,7 @@ import { DueDateChip } from "@/components/DueDateChip";
 import { Announcements } from "@/components/Announcements";
 import { ClassDiscussion } from "@/components/ClassDiscussion";
 import { ClassSettingsDialog, type ClassRecord } from "@/components/ClassSettingsDialog";
+import { ClassResources } from "@/components/ClassResources";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -433,6 +434,7 @@ function ClassDetail() {
           </TabsTrigger>
 
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
+          <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="discussion">Discussion</TabsTrigger>
         </TabsList>
 
@@ -442,6 +444,9 @@ function ClassDetail() {
             canPost={canManage}
             emptyText="No class announcements yet."
           />
+        </TabsContent>
+        <TabsContent value="resources" className="mt-5">
+          <ClassResources classId={classId} canManage={canManage} />
         </TabsContent>
         <TabsContent value="discussion" className="mt-5">
           <ClassDiscussion classId={classId} canModerate={canManage} />

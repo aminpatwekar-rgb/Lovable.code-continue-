@@ -1,12 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Monitor, Moon, Sun, Check } from "lucide-react";
+import { Monitor, Moon, Sun, Check, WandSparkles } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { useTheme, ACCENTS, type Accent, type ThemeMode } from "@/lib/theme";
-import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
+import {
+  useTheme,
+  ACCENTS,
+  THEME_STYLES,
+  type Accent,
+  type ThemeMode,
+  type ThemeStyle,
+} from "@/lib/theme";
+import { getPressProps } from "@/lib/motionPresets";
 import { cn } from "@/lib/utils";
 
 import { ProfileSettingsCard } from "@/components/settings/ProfileSettingsCard";
@@ -52,8 +59,17 @@ const MODES: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: "system", label: "System", icon: Monitor },
 ];
 
+const THEME_STYLE_LABELS: Record<ThemeStyle, string> = {
+  default: "Onyx",
+  midnight: "Midnight",
+  sunset: "Sunset",
+  forest: "Forest",
+  ocean: "Ocean",
+  mono: "Mono",
+};
+
 function SettingsPage() {
-  const { theme, mode, setMode, accent, setAccent } = useTheme();
+  const { theme, mode, setMode, accent, setAccent, themeStyle, setThemeStyle } = useTheme();
   const shouldReduceMotion = useReducedMotion();
 
   return (
@@ -112,8 +128,56 @@ function SettingsPage() {
             </div>
 
             <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium">Theme style</p>
+                <p className="text-xs text-muted-foreground">Choose the visual character of ONYX.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                {THEME_STYLES.map((style) => {
+                  const selected = themeStyle === style;
+                  return (
+                    <Button
+                      key={style}
+                      type="button"
+                      variant="outline"
+                      onClick={() => setThemeStyle(style)}
+                      aria-pressed={selected}
+                      className={cn(
+                        "h-auto min-w-0 flex-col items-stretch gap-2 rounded-lg p-2 text-left",
+                        selected && "border-primary ring-2 ring-primary ring-offset-2 ring-offset-background",
+                      )}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={cn("h-10 w-full rounded-md border border-border/60", `theme-style-preview-${style}`)}
+                      />
+                      <span className="flex w-full items-center justify-between gap-1 px-0.5 text-xs">
+                        {THEME_STYLE_LABELS[style]}
+                        {selected && <Check className="size-3.5 text-primary" />}
+                      </span>
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-3">
               <p className="text-sm font-medium">Accent colour</p>
               <div className="flex flex-wrap items-center gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setAccent(null)}
+                  aria-label="Use theme accent"
+                  aria-pressed={accent === null}
+                  className={cn(
+                    "size-10 rounded-full",
+                    accent === null && "ring-2 ring-foreground ring-offset-2 ring-offset-background",
+                  )}
+                >
+                  <WandSparkles className="size-4" />
+                </Button>
                 {ACCENTS.map((a) => {
                   const swatch = ACCENT_SWATCH[a];
                   const selected = accent === a;
@@ -136,18 +200,26 @@ function SettingsPage() {
                   );
                 })}
               </div>
-              <p className="text-xs capitalize text-muted-foreground">{accent} selected</p>
+              <p className="text-xs text-muted-foreground">
+                {accent ? `${ACCENT_SWATCH[accent].label} selected` : `${THEME_STYLE_LABELS[themeStyle]} theme accent selected`}
+              </p>
             </div>
 
             <div className="space-y-3">
               <p className="text-sm font-medium">Preview</p>
-              <div className="panel lift space-y-3 p-4 transition-colors duration-200">
-                <span className="brand-gradient inline-flex size-9 items-center justify-center rounded-lg text-sm font-bold text-primary-foreground">
-                  O
-                </span>
-                <p className="text-sm text-muted-foreground">
-                  This is how cards, text and buttons look with your current selection.
-                </p>
+              <div className="panel lift relative overflow-hidden p-4 transition-colors duration-200">
+                <div aria-hidden="true" className="brand-gradient absolute inset-x-0 top-0 h-1" />
+                <div className="flex items-start gap-3 pt-1">
+                  <span className="brand-gradient inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-primary-foreground">
+                    O
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">{THEME_STYLE_LABELS[themeStyle]} preview</p>
+                    <p className="text-xs text-muted-foreground">
+                      {mode === "system" ? `System (${theme})` : mode} mode · {accent ? ACCENT_SWATCH[accent].label : "Theme"} accent
+                    </p>
+                  </div>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" className="transition-colors duration-200">
                     Primary action

@@ -96,6 +96,7 @@
   "overrides": {
     "@tanstack/react-router": "1.170.18",
     "@tanstack/router-core": "1.171.15",
-    "@tanstack/router-plugin": "1.168.23"
+    "@tanstack/router-plugin": "1.168.23",
+    "h3-v2": "npm:h3@2.0.1-rc.32"
   }
 }

@@ -19,10 +19,7 @@ export default defineConfig({
     },
     build: {
       rollupOptions: {
-        onwarn(
-          warning: { code?: string; message?: string },
-          defaultHandler: (warning: unknown) => void,
-        ) {
+        onwarn(warning, defaultHandler) {
           if (
             warning.code === "MODULE_LEVEL_DIRECTIVE" ||
             String(warning.message || "").includes("MODULE_LEVEL_DIRECTIVE") ||
@@ -35,10 +32,7 @@ export default defineConfig({
         },
       },
       rolldownOptions: {
-        onwarn(
-          warning: { code?: string; message?: string },
-          defaultHandler: (warning: unknown) => void,
-        ) {
+        onwarn(warning, defaultHandler) {
           if (
             warning.code === "MODULE_LEVEL_DIRECTIVE" ||
             String(warning.message || "").includes("MODULE_LEVEL_DIRECTIVE") ||

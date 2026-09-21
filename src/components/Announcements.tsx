@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Megaphone, Trash2 } from "lucide-react";
+import { Download, Loader2, Megaphone, Paperclip, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,14 @@ export type AnnouncementRow = {
   author_id: string;
   created_at: string;
   profiles: { full_name: string } | null;
+  announcement_attachments: Array<{
+    id: string;
+    storage_path: string;
+    file_name: string;
+    mime_type: string | null;
+    size_bytes: number | null;
+    downloadUrl: string;
+  }>;
 };
 
 const AUDIENCE_LABEL: Record<string, string> = {
@@ -42,14 +50,27 @@ export function useAnnouncements(classId?: string) {
       let q = supabase
         .from("announcements")
         .select(
-          "id, title, body, audience, class_id, author_id, created_at, profiles!announcements_author_profile_fkey(full_name)",
+          "id, title, body, audience, class_id, author_id, created_at, profiles!announcements_author_profile_fkey(full_name), announcement_attachments(id, storage_path, file_name, mime_type, size_bytes)",
         )
         .order("created_at", { ascending: false })
         .limit(50);
       q = classId ? q.eq("class_id", classId) : q.is("class_id", null);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as unknown as AnnouncementRow[];
+      return Promise.all(
+        (data ?? []).map(async (announcement) => {
+          const attachments = await Promise.all(
+            (announcement.announcement_attachments ?? []).map(async (attachment) => {
+              const { data: signed, error: signedError } = await supabase.storage
+                .from("announcement-attachments")
+                .createSignedUrl(attachment.storage_path, 3600);
+              if (signedError) throw signedError;
+              return { ...attachment, downloadUrl: signed.signedUrl };
+            }),
+          );
+          return { ...announcement, announcement_attachments: attachments } as unknown as AnnouncementRow;
+        }),
+      );
     },
   });
 }
@@ -69,27 +90,51 @@ export function Announcements({
 }) {
   const { user, role } = useAuth();
   const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
   const list = useAnnouncements(classId);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [audience, setAudience] = useState(classId ? "class" : "everyone");
+  const [files, setFiles] = useState<File[]>([]);
 
   const post = useMutation({
     mutationFn: async () => {
       if (!title.trim()) throw new Error("A title is required");
-      const { error } = await supabase.from("announcements").insert({
+      if (!user) throw new Error("Sign in to publish an announcement");
+      const { data: announcement, error } = await supabase.from("announcements").insert({
         author_id: user!.id,
         class_id: classId ?? null,
         audience: classId ? "class" : audience,
         title: title.trim().slice(0, 160),
         body: body.trim() || null,
-      });
+      }).select("id").single();
       if (error) throw error;
+      for (const file of files) {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-");
+        const path = `${announcement.id}/${crypto.randomUUID()}-${safeName}`;
+        const { error: uploadError } = await supabase.storage
+          .from("announcement-attachments")
+          .upload(path, file, { contentType: file.type || undefined, upsert: false });
+        if (uploadError) throw uploadError;
+        const { error: metadataError } = await supabase.from("announcement_attachments").insert({
+          announcement_id: announcement.id,
+          storage_path: path,
+          file_name: file.name,
+          mime_type: file.type || null,
+          size_bytes: file.size,
+        });
+        if (metadataError) {
+          await supabase.storage.from("announcement-attachments").remove([path]);
+          throw metadataError;
+        }
+      }
     },
     onSuccess: () => {
       toast.success("Announcement published");
       setTitle("");
       setBody("");
+      setFiles([]);
+      if (fileRef.current) fileRef.current.value = "";
       void qc.invalidateQueries({ queryKey: ["announcements"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -146,8 +191,25 @@ export function Announcements({
               </Select>
             </div>
           )}
+          <div className="space-y-1.5">
+            <Label htmlFor="ann-files">Attachments</Label>
+            <Input
+              ref={fileRef}
+              id="ann-files"
+              type="file"
+              multiple
+              disabled={post.isPending}
+              onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
+            />
+            {files.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {files.length} {files.length === 1 ? "file" : "files"} selected
+              </p>
+            )}
+          </div>
           <Button onClick={() => post.mutate()} disabled={post.isPending}>
-            <Megaphone className="mr-1.5 size-4" /> Publish announcement
+            {post.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Megaphone className="mr-1.5 size-4" />}
+            {post.isPending ? "Publishing…" : "Publish announcement"}
           </Button>
         </div>
       )}
@@ -189,6 +251,19 @@ export function Announcements({
                 )}
               </div>
               {a.body && <p className="mt-2 whitespace-pre-wrap text-sm">{a.body}</p>}
+              {a.announcement_attachments.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {a.announcement_attachments.map((attachment) => (
+                    <Button key={attachment.id} asChild variant="outline" size="sm">
+                      <a href={attachment.downloadUrl} download={attachment.file_name}>
+                        <Paperclip className="mr-1.5 size-3.5" />
+                        <span className="max-w-48 truncate">{attachment.file_name}</span>
+                        <Download className="ml-1.5 size-3.5" />
+                      </a>
+                    </Button>
+                  ))}
+                </div>
+              )}
             </li>
           ))}
         </ul>

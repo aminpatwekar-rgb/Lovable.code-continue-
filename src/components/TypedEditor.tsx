@@ -3,7 +3,16 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ImagePlus, Trash2, ArrowUp, ArrowDown, Mic, ShieldAlert } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { MathEditor } from "@/components/math/MathEditor";
+import { ImagePlus, Trash2, ArrowUp, ArrowDown, Mic, ShieldAlert, Sigma } from "lucide-react";
 
 export type ImageBlock = {
   id: string;
@@ -20,6 +29,7 @@ type Props = {
   allowImages: boolean;
   allowAutocorrect: boolean;
   allowVoice: boolean;
+  allowMath?: boolean;
   disabled?: boolean;
   onViolation: (kind: string) => void;
   violations: number;
@@ -60,14 +70,19 @@ export function TypedEditor({
   allowImages,
   allowAutocorrect,
   allowVoice,
+  allowMath = true,
   disabled,
   onViolation,
   violations,
   onUploadImage,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const selectionRef = useRef({ start: value.length, end: value.length });
   const [uploading, setUploading] = useState(false);
   const [listening, setListening] = useState(false);
+  const [mathOpen, setMathOpen] = useState(false);
+  const [equation, setEquation] = useState("");
 
   function block(kind: string, label: string) {
     toast.warning(`${label} is disabled on this assignment`, {
@@ -190,6 +205,44 @@ export function TypedEditor({
     }
   }
 
+  function rememberSelection() {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    selectionRef.current = {
+      start: textarea.selectionStart ?? value.length,
+      end: textarea.selectionEnd ?? value.length,
+    };
+  }
+
+  function focusAt(position: number) {
+    requestAnimationFrame(() => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      textarea.focus();
+      textarea.setSelectionRange(position, position);
+    });
+  }
+
+  function openMathEditor() {
+    rememberSelection();
+    setEquation("");
+    setMathOpen(true);
+  }
+
+  function insertEquation() {
+    const latex = equation.trim();
+    if (!latex) return;
+    const { start, end } = selectionRef.current;
+    const wrapped = `$${latex}$`;
+    const next = value.slice(0, start) + wrapped + value.slice(end);
+    const caret = start + wrapped.length;
+    onChange(next);
+    selectionRef.current = { start: caret, end: caret };
+    setMathOpen(false);
+    setEquation("");
+    focusAt(caret);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -201,7 +254,19 @@ export function TypedEditor({
             {violations} blocked attempt{violations === 1 ? "" : "s"} flagged
           </span>
         )}
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex flex-wrap justify-end gap-2">
+          {allowMath && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={disabled}
+              onClick={openMathEditor}
+            >
+              <Sigma className="mr-1.5 size-3.5" /> Insert equation
+            </Button>
+          )}
+
           {allowVoice && (
             <Button
               type="button"
@@ -239,6 +304,7 @@ export function TypedEditor({
       />
 
       <Textarea
+        ref={textareaRef}
         value={value}
         disabled={disabled}
         spellCheck={allowAutocorrect}
@@ -285,6 +351,30 @@ export function TypedEditor({
         placeholder="Write your answer here. Pasting is disabled."
         className="min-h-[320px] resize-y font-normal leading-7"
       />
+
+      <Dialog
+        open={mathOpen}
+        onOpenChange={(open) => {
+          setMathOpen(open);
+          if (!open) focusAt(selectionRef.current.start);
+        }}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Insert equation</DialogTitle>
+            <DialogDescription>Build an equation, then insert it into your answer.</DialogDescription>
+          </DialogHeader>
+          <MathEditor value={equation} onChange={setEquation} />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setMathOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" disabled={!equation.trim()} onClick={insertEquation}>
+              Insert equation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {allowImages && blocks.length > 0 && (
         <div className="space-y-3">

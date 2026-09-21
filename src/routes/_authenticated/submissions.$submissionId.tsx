@@ -11,6 +11,7 @@ import { useViewRole } from "@/lib/viewRole";
 import { formatDue, type SubmissionStatus } from "@/lib/assignments";
 import { StatusBadge } from "@/components/StatusBadge";
 import { SubmissionComments } from "@/components/SubmissionComments";
+import { RenderMathText } from "@/components/math/RenderMathText";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -195,7 +196,7 @@ function ReviewSubmission() {
       {sub.typed_content && (
         <section className="panel p-6">
           <h2 className="text-lg font-semibold">Typed answer</h2>
-          <p className="mt-3 whitespace-pre-wrap leading-7">{sub.typed_content}</p>
+          <RenderMathText text={sub.typed_content} className="mt-3" />
           {inline.length > 0 && (
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               {inline.map((f) => (

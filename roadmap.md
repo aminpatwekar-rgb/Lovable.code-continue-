@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Replace shared ONYX logo and favicon with the uploaded artwork
+
 - [x] Fix verified admin class-announcement RLS mismatch and validate posting permissions
 
 - [ ] Stage 1 checkpoint: stop after announcement attachments and class resources; report schema, buckets, files, typecheck, and build; await approval

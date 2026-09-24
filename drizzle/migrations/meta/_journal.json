@@ -8,6 +8,13 @@
       "when": 1789995284103,
       "tag": "0000_add_announcement_attachments_and_class_resources",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790266307083,
+      "tag": "0001_allow_admin_class_announcements",
+      "breakpoints": true
     }
   ]
 }

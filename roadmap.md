@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Fix verified admin class-announcement RLS mismatch and validate posting permissions
+
 - [ ] Stage 1 checkpoint: stop after announcement attachments and class resources; report schema, buckets, files, typecheck, and build; await approval
 - [ ] Stage 2 checkpoint: stop after grade export, student import, and pagination; report and await approval
 - [ ] Stage 3 checkpoint: complete calendar, attendance, and rubric grading; report final checklist

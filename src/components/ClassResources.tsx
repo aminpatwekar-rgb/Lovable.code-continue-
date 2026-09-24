@@ -61,7 +61,7 @@ export function ClassResources({ classId, canManage }: { classId: string; canMan
         const path = `${classId}/${crypto.randomUUID()}-${safeName}`;
         const { error: uploadError } = await supabase.storage
           .from("class-resources")
-          .upload(path, file, { contentType: file.type || undefined, upsert: false });
+          .upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
         if (uploadError) throw uploadError;
         const { error: metadataError } = await supabase.from("class_resources").insert({
           class_id: classId,

@@ -102,7 +102,7 @@ export function Announcements({
       if (!title.trim()) throw new Error("A title is required");
       if (!user) throw new Error("Sign in to publish an announcement");
       const { data: announcement, error } = await supabase.from("announcements").insert({
-        author_id: user!.id,
+        author_id: user.id,
         class_id: classId ?? null,
         audience: classId ? "class" : audience,
         title: title.trim().slice(0, 160),
@@ -114,7 +114,7 @@ export function Announcements({
         const path = `${announcement.id}/${crypto.randomUUID()}-${safeName}`;
         const { error: uploadError } = await supabase.storage
           .from("announcement-attachments")
-          .upload(path, file, { contentType: file.type || undefined, upsert: false });
+          .upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
         if (uploadError) throw uploadError;
         const { error: metadataError } = await supabase.from("announcement_attachments").insert({
           announcement_id: announcement.id,

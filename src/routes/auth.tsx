@@ -12,6 +12,7 @@ import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
+import onyxMark from "@/assets/onyx-mark.png.asset.json";
 import {
   clearSessionConfirmation,
   isSessionConfirmed,
@@ -154,9 +155,7 @@ function AuthPage() {
         className="panel w-full max-w-md p-7"
       >
         <Link to="/" className="mb-6 flex items-center gap-2">
-          <span className="brand-gradient flex size-8 items-center justify-center rounded-lg text-sm font-bold text-primary-foreground">
-            O
-          </span>
+          <img src={onyxMark.url} alt="" aria-hidden="true" className="size-8 rounded-full object-cover" />
           <span className="font-semibold tracking-tight">ONYX</span>
         </Link>
 

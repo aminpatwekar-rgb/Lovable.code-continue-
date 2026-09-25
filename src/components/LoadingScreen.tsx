@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { cn } from "@/lib/utils";
+import onyxMark from "@/assets/onyx-mark.png.asset.json";
 
 const PHRASES = ["Setting things up…", "Loading your workspace…", "Preparing academic hub…"];
 
@@ -108,7 +109,7 @@ export function LoadingScreen({ className }: { className?: string }) {
             <span className="size-2 rounded-full bg-primary shadow-[0_0_10px_var(--primary)] -translate-y-1" />
           </motion.div>
 
-          {/* Center "O" Box */}
+          {/* Center ONYX mark */}
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -117,9 +118,9 @@ export function LoadingScreen({ className }: { className?: string }) {
               stiffness: 350,
               damping: 22,
             }}
-            className="relative z-10 flex size-12 items-center justify-center rounded-xl bg-primary text-xl font-black text-primary-foreground shadow-md ring-2 ring-background"
+            className="relative z-10 size-12 overflow-hidden rounded-full shadow-md ring-2 ring-background"
           >
-            O
+            <img src={onyxMark.url} alt="" aria-hidden="true" className="size-full object-cover" />
           </motion.div>
         </div>
 

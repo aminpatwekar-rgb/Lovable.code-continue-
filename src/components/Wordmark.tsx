@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import onyxMark from "@/assets/onyx-mark.png.asset.json";
 
 export function Wordmark({
   size = "md",
@@ -9,17 +10,15 @@ export function Wordmark({
   subtitle?: string;
   className?: string;
 }) {
-  const box = size === "sm" ? "size-9 text-base rounded-lg" : "size-11 text-lg rounded-xl";
+  const box = size === "sm" ? "size-9" : "size-11";
   return (
     <div className={cn("flex items-center gap-3", className)}>
-      <span
-        className={cn(
-          "flex shrink-0 items-center justify-center bg-primary font-black text-primary-foreground",
-          box,
-        )}
-      >
-        O
-      </span>
+      <img
+        src={onyxMark.url}
+        alt=""
+        aria-hidden="true"
+        className={cn("shrink-0 rounded-full object-cover", box)}
+      />
       <span className="flex flex-col leading-tight">
         <span className="text-lg font-bold tracking-tight">ONYX</span>
         {subtitle && (

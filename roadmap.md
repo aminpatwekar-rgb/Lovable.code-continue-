@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Replace shared ONYX logo and favicon with the uploaded artwork
+- [x] Replace shared ONYX logo and favicon with the uploaded artwork
 
 - [x] Fix verified admin class-announcement RLS mismatch and validate posting permissions
 

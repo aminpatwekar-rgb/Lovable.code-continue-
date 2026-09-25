@@ -4,13 +4,24 @@ import { routeTree } from "./routeTree.gen";
 import { LoadingScreen } from "./components/LoadingScreen";
 
 export const getRouter = () => {
-  const queryClient = new QueryClient();
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        // Keep recently loaded pages warm so navigation does not refetch the
+        // same data on every route change or window focus.
+        staleTime: 30_000,
+        gcTime: 5 * 60_000,
+        refetchOnWindowFocus: false,
+        retry: 1,
+      },
+    },
+  });
 
   const router = createTanStackRouter({
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
-    defaultPreloadStaleTime: 0,
+    // Avoid refetching route data immediately after a preload.\n    defaultPreloadStaleTime: 30_000,
     defaultPendingComponent: LoadingScreen,
     defaultPendingMs: 200,
     defaultPendingMinMs: 300,

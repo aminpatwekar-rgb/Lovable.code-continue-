@@ -71,10 +71,11 @@ function Classes() {
         if (error) throw error;
         return data ?? [];
       }
-      const { data: m } = await supabase
+      const { data: m, error: membershipError } = await supabase
         .from("class_members")
         .select("class_id")
         .eq("student_id", user!.id);
+      if (membershipError) throw membershipError;
       const ids = (m ?? []).map((x) => x.class_id);
       if (!ids.length) return [];
       const { data, error } = await supabase
@@ -141,7 +142,7 @@ function Classes() {
       setRollNo("");
       setErNo("");
       setSrNo("");
-      void qc.invalidateQueries();
+      void qc.invalidateQueries({ queryKey: ["classes"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -298,6 +299,10 @@ function Classes() {
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-40 rounded-xl" />
           ))}
+        </div>
+      ) : classes.isError ? (
+        <div className="panel p-6 text-sm text-destructive">
+          Couldn't load classes. {(classes.error as Error).message}
         </div>
       ) : (classes.data ?? []).length === 0 ? (
         <p className="panel p-8 text-center text-sm text-muted-foreground">

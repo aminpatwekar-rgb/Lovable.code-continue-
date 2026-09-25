@@ -75,10 +75,11 @@ function Dashboard() {
     enabled: isTeacherView,
     queryKey: ["teacher-dash", user?.id],
     queryFn: async () => {
-      const { data: classes } = await supabase
+      const { data: classes, error: classError } = await supabase
         .from("classes")
         .select("id")
         .eq("teacher_id", user!.id);
+      if (classError) throw classError;
       const ids = (classes ?? []).map((c) => c.id);
       const [{ count: students }, { data: assignments }] = await Promise.all([
         ids.length
@@ -95,12 +96,13 @@ function Dashboard() {
           .order("due_date", { ascending: true }),
       ]);
       const aIds = (assignments ?? []).map((a) => a.id);
-      const { data: subs } = aIds.length
+      const { data: subs, error: submissionsError } = aIds.length
         ? await supabase
             .from("submissions")
             .select("id, status, assignment_id")
             .in("assignment_id", aIds)
-        : { data: [] as { id: string; status: string; assignment_id: string }[] };
+        : { data: [] as { id: string; status: string; assignment_id: string }[], error: null };
+      if (submissionsError) throw submissionsError;
       return {
         classes: ids.length,
         students: students ?? 0,
@@ -114,10 +116,11 @@ function Dashboard() {
     enabled: effectiveRole === "student",
     queryKey: ["student-dash", user?.id],
     queryFn: async () => {
-      const { data: memberships } = await supabase
+      const { data: memberships, error: membershipError } = await supabase
         .from("class_members")
         .select("class_id")
         .eq("student_id", user!.id);
+      if (membershipError) throw membershipError;
       const classIds = (memberships ?? []).map((m) => m.class_id);
       const { data: assignments } = classIds.length
         ? await supabase
@@ -128,14 +131,31 @@ function Dashboard() {
             .eq("archived", false)
             .order("due_date", { ascending: true })
         : { data: [] };
-      const { data: subs } = await supabase
+      const { data: subs, error: submissionsError } = await supabase
         .from("submissions")
         .select("id, assignment_id, status, marks_awarded")
         .eq("student_id", user!.id);
+      if (submissionsError) throw submissionsError;
       const byAssignment = new Map((subs ?? []).map((s) => [s.assignment_id, s]));
       return { classes: classIds.length, assignments: assignments ?? [], byAssignment };
     },
   });
+
+  if (isTeacherView && teacher.isError) {
+    return (
+      <div className="panel p-6 text-sm text-destructive">
+        Couldn't load your dashboard. {(teacher.error as Error).message}
+      </div>
+    );
+  }
+
+  if (!isTeacherView && student.isError) {
+    return (
+      <div className="panel p-6 text-sm text-destructive">
+        Couldn't load your dashboard. {(student.error as Error).message}
+      </div>
+    );
+  }
 
   const firstName = profile?.full_name?.trim().split(" ")[0] || "there";
 

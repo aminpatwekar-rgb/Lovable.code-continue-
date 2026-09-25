@@ -58,10 +58,11 @@ function Assignments() {
         if (error) throw error;
         return { list: data ?? [], byAssignment: new Map<string, { status: string }>() };
       }
-      const { data: m } = await supabase
+      const { data: m, error: membershipError } = await supabase
         .from("class_members")
         .select("class_id")
         .eq("student_id", user!.id);
+      if (membershipError) throw membershipError;
       const ids = (m ?? []).map((x) => x.class_id);
       const { data } = ids.length
         ? await supabase
@@ -72,10 +73,11 @@ function Assignments() {
             .eq("archived", false)
             .order("due_date", { ascending: true })
         : { data: [] };
-      const { data: subs } = await supabase
+      const { data: subs, error: submissionsError } = await supabase
         .from("submissions")
         .select("assignment_id, status, is_late")
         .eq("student_id", user!.id);
+      if (submissionsError) throw submissionsError;
       return {
         list: data ?? [],
         byAssignment: new Map((subs ?? []).map((s) => [s.assignment_id, s])),
@@ -88,18 +90,20 @@ function Assignments() {
     enabled: isTeacher && Boolean(user),
     queryKey: ["teacher-review-queue", user?.id],
     queryFn: async () => {
-      const { data: mine } = await supabase
+      const { data: mine, error: mineError } = await supabase
         .from("assignments")
         .select("id, title, classes(name)")
         .eq("teacher_id", user!.id);
+      if (mineError) throw mineError;
       const ids = (mine ?? []).map((a) => a.id);
       if (!ids.length) return [];
-      const { data } = await supabase
+      const { data, error: reviewError } = await supabase
         .from("submissions")
         .select("id, assignment_id, status, submitted_at, student_id")
         .in("assignment_id", ids)
         .in("status", ["submitted", "late"])
         .order("submitted_at", { ascending: true });
+      if (reviewError) throw reviewError;
       const titles = new Map((mine ?? []).map((a) => [a.id, a]));
       return (data ?? []).map((s) => ({ ...s, assignment: titles.get(s.assignment_id) }));
     },
@@ -170,6 +174,10 @@ function Assignments() {
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-32 rounded-xl" />
           ))}
+        </div>
+      ) : q.isError ? (
+        <div className="panel p-6 text-sm text-destructive">
+          Couldn't load assignments. {(q.error as Error).message}
         </div>
       ) : (
         <Tabs

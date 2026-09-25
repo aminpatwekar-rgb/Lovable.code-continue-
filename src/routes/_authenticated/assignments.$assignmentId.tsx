@@ -175,6 +175,8 @@ function AssignmentPage() {
 }
 
 function TeacherView({ assignmentId, maxMarks }: { assignmentId: string; maxMarks: number }) {
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
   const subs = useQuery({
     queryKey: ["assignment-subs", assignmentId],
     queryFn: async () => {
@@ -192,41 +194,77 @@ function TeacherView({ assignmentId, maxMarks }: { assignmentId: string; maxMark
 
   if (subs.isLoading) return <Skeleton className="h-40 w-full rounded-xl" />;
 
+  const rows = subs.data ?? [];
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  const visible = rows.slice((page - 1) * pageSize, page * pageSize);
+
+  const exportGrades = () => {
+    const csv = toCsv(
+      ["Student", "Submission status", "Submitted at", "Late", "Marks", "Max marks", "Paste flags"],
+      rows.map((s) => {
+        const p = s.profiles as unknown as { full_name: string } | null;
+        return [
+          p?.full_name ?? "Student",
+          s.status,
+          s.submitted_at ?? "",
+          s.is_late ? "Yes" : "No",
+          s.marks_awarded ?? "",
+          maxMarks,
+          s.paste_violation_count ?? 0,
+        ];
+      }),
+    );
+    downloadCsv(`onyx-${assignmentId}-grades.csv`, csv);
+  };
+
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold">Submissions ({subs.data?.length ?? 0})</h2>
-      {(subs.data ?? []).length === 0 ? (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">Submissions ({rows.length})</h2>
+        <Button variant="outline" onClick={exportGrades} disabled={rows.length === 0}>
+          <Download className="mr-1.5 size-4" /> Export grades CSV
+        </Button>
+      </div>
+      {rows.length === 0 ? (
         <p className="panel p-6 text-sm text-muted-foreground">Nothing submitted yet.</p>
       ) : (
-        <ul className="panel divide-y divide-border">
-          {visible.map((s) => {
-            const p = s.profiles as unknown as { full_name: string } | null;
-            return (
-              <li key={s.id}>
-                <Link
-                  to="/submissions/$submissionId"
-                  params={{ submissionId: s.id }}
-                  className="flex items-center gap-3 p-4 transition-colors hover:bg-accent/40"
-                >
-                  <Avatar className="size-9">
-                    <AvatarFallback>{(p?.full_name ?? "?").slice(0, 2)}</AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{p?.full_name ?? "Student"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {s.submitted_at ? formatDue(s.submitted_at) : "Draft"}
-                      {s.paste_violation_count > 0 && ` · ${s.paste_violation_count} paste flags`}
-                    </p>
-                  </div>
-                  <span className="text-sm tabular-nums text-muted-foreground">
-                    {s.marks_awarded == null ? "—" : `${s.marks_awarded}/${maxMarks}`}
-                  </span>
-                  <StatusBadge status={(s.is_late ? "late" : s.status) as SubmissionStatus} />
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          <ul className="panel divide-y divide-border">
+            {visible.map((s) => {
+              const p = s.profiles as unknown as { full_name: string } | null;
+              return (
+                <li key={s.id}>
+                  <Link
+                    to="/submissions/$submissionId"
+                    params={{ submissionId: s.id }}
+                    className="flex items-center gap-3 p-4 transition-colors hover:bg-accent/40"
+                  >
+                    <Avatar className="size-9">
+                      <AvatarFallback>{(p?.full_name ?? "?").slice(0, 2)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{p?.full_name ?? "Student"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {s.submitted_at ? formatDue(s.submitted_at) : "Draft"}
+                        {s.paste_violation_count > 0 && ` · ${s.paste_violation_count} paste flags`}
+                      </p>
+                    </div>
+                    <span className="text-sm tabular-nums text-muted-foreground">
+                      {s.marks_awarded == null ? "—" : `${s.marks_awarded}/${maxMarks}`}
+                    </span>
+                    <StatusBadge status={(s.is_late ? "late" : s.status) as SubmissionStatus} />
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          <Pagination
+            page={page}
+            pageCount={pageCount}
+            onPageChange={setPage}
+            label={`${rows.length} submissions`}
+          />
+        </>
       )}
     </section>
   );

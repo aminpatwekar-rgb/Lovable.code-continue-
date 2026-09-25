@@ -21,6 +21,7 @@ import {
   type QuizKind,
 } from "@/lib/quiz/types";
 import { DeleteQuizButton } from "@/components/DeleteQuizButton";
+import { getQuizReviewAttempts } from "@/lib/quiz/review.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -91,27 +92,14 @@ function Page() {
             .order("position")
         : await supabase.rpc("get_quiz_questions_for_student", { _quiz_id: quizId });
 
-      const attemptQuery = supabase
-        .from("quiz_attempts")
-        .select("id, student_id, attempt_no, status, score, max_score, submitted_at, started_at")
-        .eq("quiz_id", quizId)
-        .order("submitted_at", { ascending: false, nullsFirst: false });
+      const review = isTeacher
+        ? await getQuizReviewAttempts({ data: { quizId } })
+        : null;
 
-      const { data: attempts } = isTeacher
-        ? await attemptQuery
-        : await attemptQuery.eq("student_id", user!.id);
+      const attempts = review?.attempts ?? [];
+      const names = review?.names ?? {};
 
-      let names: Record<string, string> = {};
-      if (isTeacher && attempts?.length) {
-        const ids = [...new Set(attempts.map((a) => a.student_id))];
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, full_name")
-          .in("id", ids);
-        names = Object.fromEntries((profiles ?? []).map((p) => [p.id, p.full_name]));
-      }
-
-      return { quiz, questions: questions ?? [], attempts: attempts ?? [], names };
+      return { quiz, questions: questions ?? [], attempts, names };
     },
   });
 

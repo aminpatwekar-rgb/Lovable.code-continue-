@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, FileUp, Loader2, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Download, FileUp, Loader2, Trash2, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useViewRole } from "@/lib/viewRole";
@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { downloadCsv, toCsv } from "@/lib/csv";
+import { Pagination } from "@/components/Pagination";
 
 export const Route = createFileRoute("/_authenticated/assignments/$assignmentId")({
   head: () => ({
@@ -197,7 +199,7 @@ function TeacherView({ assignmentId, maxMarks }: { assignmentId: string; maxMark
         <p className="panel p-6 text-sm text-muted-foreground">Nothing submitted yet.</p>
       ) : (
         <ul className="panel divide-y divide-border">
-          {(subs.data ?? []).map((s) => {
+          {visible.map((s) => {
             const p = s.profiles as unknown as { full_name: string } | null;
             return (
               <li key={s.id}>

@@ -15,7 +15,7 @@ import {
   type QuizKind,
 } from "@/lib/quiz/types";
 import { generateQuizQuestions, regenerateQuizQuestion } from "@/lib/quiz/ai.functions";
-import { getQuizReviewAttempt, getQuizReviewAttempts } from "@/lib/quiz/review.functions";
+import {\n  getQuizReviewAttempt,\n  getQuizReviewAttempts,\n  type QuizReviewAttemptDetail,\n} from "@/lib/quiz/review.functions";
 import { percent } from "@/lib/quiz/types";
 import { QuestionEditor } from "@/components/quiz/QuestionEditor";
 import { AiGeneratorPanel, type GenerationOptions } from "@/components/quiz/AiGeneratorPanel";
@@ -72,7 +72,7 @@ function toLocalInput(value: string | null) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-type ReviewAttemptFn = ReturnType<typeof useServerFn<typeof getQuizReviewAttempt>>;
+type ReviewAttemptFn = (args: { data: { attemptId: string } }) => Promise<QuizReviewAttemptDetail>;
 
 function AttemptReview({
   attemptId,

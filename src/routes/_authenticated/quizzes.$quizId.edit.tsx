@@ -15,7 +15,11 @@ import {
   type QuizKind,
 } from "@/lib/quiz/types";
 import { generateQuizQuestions, regenerateQuizQuestion } from "@/lib/quiz/ai.functions";
-import {\n  getQuizReviewAttempt,\n  getQuizReviewAttempts,\n  type QuizReviewAttemptDetail,\n} from "@/lib/quiz/review.functions";
+import {
+  getQuizReviewAttempt,
+  getQuizReviewAttempts,
+  type QuizReviewAttemptDetail,
+} from "@/lib/quiz/review.functions";
 import { percent } from "@/lib/quiz/types";
 import { QuestionEditor } from "@/components/quiz/QuestionEditor";
 import { AiGeneratorPanel, type GenerationOptions } from "@/components/quiz/AiGeneratorPanel";
@@ -193,13 +197,15 @@ function Page() {
 
   const generate = useServerFn(generateQuizQuestions);
   const regenerate = useServerFn(regenerateQuizQuestion);
-  const reviewAttempts = useServerFn(getQuizReviewAttempts);\n  const reviewAttempt = useServerFn(getQuizReviewAttempt);
+  const reviewAttempts = useServerFn(getQuizReviewAttempts);
+  const reviewAttempt = useServerFn(getQuizReviewAttempt);
 
   const [settings, setSettings] = useState<Settings | null>(null);
   const [questions, setQuestions] = useState<QuestionDraft[]>([]);
   const [removed, setRemoved] = useState<string[]>([]);
   const [material, setMaterial] = useState("");
-  const [regenIndex, setRegenIndex] = useState<number | null>(null);\n  const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
+  const [regenIndex, setRegenIndex] = useState<number | null>(null);
+  const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
 
   const quiz = useQuery({
     queryKey: ["quiz-edit", quizId],

@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Plus, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Save, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import {
@@ -15,9 +15,12 @@ import {
   type QuizKind,
 } from "@/lib/quiz/types";
 import { generateQuizQuestions, regenerateQuizQuestion } from "@/lib/quiz/ai.functions";
+import { getQuizReviewAttempts } from "@/lib/quiz/review.functions";
+import { percent } from "@/lib/quiz/types";
 import { QuestionEditor } from "@/components/quiz/QuestionEditor";
 import { AiGeneratorPanel, type GenerationOptions } from "@/components/quiz/AiGeneratorPanel";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -77,6 +80,7 @@ function Page() {
 
   const generate = useServerFn(generateQuizQuestions);
   const regenerate = useServerFn(regenerateQuizQuestion);
+  const reviewAttempts = useServerFn(getQuizReviewAttempts);
 
   const [settings, setSettings] = useState<Settings | null>(null);
   const [questions, setQuestions] = useState<QuestionDraft[]>([]);
@@ -139,6 +143,13 @@ function Page() {
     () => questions.reduce((sum, q) => sum + (Number(q.points) || 0), 0),
     [questions],
   );
+
+  const attempts = useQuery({
+    queryKey: ["quiz-review-attempts", quizId],
+    enabled: Boolean(user),
+    queryFn: () => reviewAttempts({ data: { quizId } }),
+    staleTime: 15_000,
+  });
 
   const save = useMutation({
     mutationFn: async () => {
@@ -393,6 +404,7 @@ function Page() {
       <Tabs defaultValue="questions">
         <TabsList>
           <TabsTrigger value="questions">Questions ({questions.length})</TabsTrigger>
+          <TabsTrigger value="attempts">Attempts</TabsTrigger>
           <TabsTrigger value="ai">AI generator</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
@@ -433,6 +445,108 @@ function Page() {
           <Button variant="outline" onClick={() => setQuestions((p) => [...p, blankQuestion()])}>
             <Plus className="mr-2 size-4" /> Add question
           </Button>
+        </TabsContent>
+
+        <TabsContent value="attempts" className="mt-4 space-y-4">
+          {attempts.isLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-24 w-full rounded-xl" />
+              <Skeleton className="h-20 w-full rounded-xl" />
+              <Skeleton className="h-20 w-full rounded-xl" />
+            </div>
+          ) : attempts.isError ? (
+            <div className="panel p-5 text-sm text-destructive">
+              Could not load student attempts. {(attempts.error as Error).message}
+            </div>
+          ) : (
+            (() => {
+              const rows = attempts.data?.attempts ?? [];
+              const names = attempts.data?.names ?? {};
+              const studentIds = new Set(rows.map((a) => a.student_id));
+              const graded = rows.filter((a) => a.score != null && a.max_score);
+              const average = graded.length
+                ? Math.round(
+                    graded.reduce(
+                      (sum, a) => sum + percent(a.score ?? 0, a.max_score ?? 0),
+                      0,
+                    ) / graded.length,
+                  )
+                : null;
+
+              return (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="panel p-4">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Students attempted
+                      </p>
+                      <p className="mt-1 text-xl font-semibold">{studentIds.size}</p>
+                    </div>
+                    <div className="panel p-4">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Total attempts
+                      </p>
+                      <p className="mt-1 text-xl font-semibold">{rows.length}</p>
+                    </div>
+                    <div className="panel p-4">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Average score
+                      </p>
+                      <p className="mt-1 text-xl font-semibold">
+                        {average === null ? "—" : `${average}%`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {rows.length === 0 ? (
+                    <div className="panel p-10 text-center">
+                      <Users className="mx-auto mb-2 size-6 text-muted-foreground" />
+                      <p className="font-medium">No students have attempted this quiz yet.</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Submitted and in-progress attempts will appear here automatically.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="panel divide-y divide-border">
+                      {rows.map((a) => (
+                        <div
+                          key={a.id}
+                          className="flex flex-wrap items-center justify-between gap-3 p-4"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">
+                              {names[a.student_id] ?? "Student"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Attempt {a.attempt_no} ·{" "}
+                              {a.submitted_at
+                                ? new Date(a.submitted_at).toLocaleString()
+                                : "In progress"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3 text-sm">
+                            <Badge
+                              variant={a.status === "graded" ? "default" : "outline"}
+                            >
+                              {a.status.replace("_", " ")}
+                            </Badge>
+                            <span className="tabular-nums font-medium">
+                              {a.score != null && a.max_score != null
+                                ? `${a.score}/${a.max_score} · ${percent(
+                                    a.score,
+                                    a.max_score,
+                                  )}%`
+                                : "Not graded"}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()
+          )}
         </TabsContent>
 
         <TabsContent value="ai" className="mt-4">

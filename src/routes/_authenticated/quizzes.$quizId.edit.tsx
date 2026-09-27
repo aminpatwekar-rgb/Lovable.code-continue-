@@ -15,7 +15,11 @@ import {
   type QuizKind,
 } from "@/lib/quiz/types";
 import { generateQuizQuestions, regenerateQuizQuestion } from "@/lib/quiz/ai.functions";
-import {\n  getQuizReviewAttempt,\n  getQuizReviewAttempts,\n  type QuizReviewAttemptDetail,\n} from "@/lib/quiz/review.functions";
+import {
+  getQuizReviewAttempt,
+  getQuizReviewAttempts,
+  type QuizReviewAttemptDetail,
+} from "@/lib/quiz/review.functions";
 import { percent } from "@/lib/quiz/types";
 import { QuestionEditor } from "@/components/quiz/QuestionEditor";
 import { AiGeneratorPanel, type GenerationOptions } from "@/components/quiz/AiGeneratorPanel";
@@ -193,13 +197,15 @@ function Page() {
 
   const generate = useServerFn(generateQuizQuestions);
   const regenerate = useServerFn(regenerateQuizQuestion);
-  const reviewAttempts = useServerFn(getQuizReviewAttempts);\n  const reviewAttempt = useServerFn(getQuizReviewAttempt);
+  const reviewAttempts = useServerFn(getQuizReviewAttempts);
+  const reviewAttempt = useServerFn(getQuizReviewAttempt);
 
   const [settings, setSettings] = useState<Settings | null>(null);
   const [questions, setQuestions] = useState<QuestionDraft[]>([]);
   const [removed, setRemoved] = useState<string[]>([]);
   const [material, setMaterial] = useState("");
-  const [regenIndex, setRegenIndex] = useState<number | null>(null);\n  const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
+  const [regenIndex, setRegenIndex] = useState<number | null>(null);
+  const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
 
   const quiz = useQuery({
     queryKey: ["quiz-edit", quizId],
@@ -620,51 +626,53 @@ function Page() {
                       </p>
                     </div>
                   ) : (
-                    <div className="panel divide-y divide-border">
-                      {rows.map((a) => (
-                        <button
-                          key={a.id}
-                          type="button"
-                          onClick={() => setSelectedAttemptId(a.id)}
-                          className="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-muted/40"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">
-                              {names[a.student_id] ?? "Student"}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Attempt {a.attempt_no} ·{" "}
-                              {a.submitted_at
-                                ? new Date(a.submitted_at).toLocaleString()
-                                : "In progress"}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3 text-sm">
-                            <Badge
-                              variant={a.status === "graded" ? "default" : "outline"}
-                            >
-                              {a.status.replace("_", " ")}
-                            </Badge>
-                            <span className="tabular-nums font-medium">
-                              {a.score != null && a.max_score != null
-                                ? `${a.score}/${a.max_score} · ${percent(
-                                    a.score,
-                                    a.max_score,
-                                  )}%`
-                                : "Not graded"}
-                            </span>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
+                    <>
+                      <div className="panel divide-y divide-border">
+                        {rows.map((a) => (
+                          <button
+                            key={a.id}
+                            type="button"
+                            onClick={() => setSelectedAttemptId(a.id)}
+                            className="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-muted/40"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">
+                                {names[a.student_id] ?? "Student"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Attempt {a.attempt_no} ·{" "}
+                                {a.submitted_at
+                                  ? new Date(a.submitted_at).toLocaleString()
+                                  : "In progress"}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3 text-sm">
+                              <Badge
+                                variant={a.status === "graded" ? "default" : "outline"}
+                              >
+                                {a.status.replace("_", " ")}
+                              </Badge>
+                              <span className="tabular-nums font-medium">
+                                {a.score != null && a.max_score != null
+                                  ? `${a.score}/${a.max_score} · ${percent(
+                                      a.score,
+                                      a.max_score,
+                                    )}%`
+                                  : "Not graded"}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
 
-                    {selectedAttemptId && (
-                      <AttemptReview
-                        attemptId={selectedAttemptId}
-                        reviewAttempt={reviewAttempt}
-                        onClose={() => setSelectedAttemptId(null)}
-                      />
-                    )}
+                      {selectedAttemptId && (
+                        <AttemptReview
+                          attemptId={selectedAttemptId}
+                          reviewAttempt={reviewAttempt}
+                          onClose={() => setSelectedAttemptId(null)}
+                        />
+                      )}
+                    </>
                   )}
                 </>
               );

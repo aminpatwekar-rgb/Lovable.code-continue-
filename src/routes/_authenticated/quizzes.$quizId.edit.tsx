@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Plus, Save, Users } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Save, Users, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import {
@@ -15,7 +15,7 @@ import {
   type QuizKind,
 } from "@/lib/quiz/types";
 import { generateQuizQuestions, regenerateQuizQuestion } from "@/lib/quiz/ai.functions";
-import { getQuizReviewAttempts } from "@/lib/quiz/review.functions";
+import { getQuizReviewAttempt, getQuizReviewAttempts } from "@/lib/quiz/review.functions";
 import { percent } from "@/lib/quiz/types";
 import { QuestionEditor } from "@/components/quiz/QuestionEditor";
 import { AiGeneratorPanel, type GenerationOptions } from "@/components/quiz/AiGeneratorPanel";
@@ -72,6 +72,119 @@ function toLocalInput(value: string | null) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+type ReviewAttemptFn = ReturnType<typeof useServerFn<typeof getQuizReviewAttempt>>;
+
+function AttemptReview({
+  attemptId,
+  reviewAttempt,
+  onClose,
+}: {
+  attemptId: string;
+  reviewAttempt: ReviewAttemptFn;
+  onClose: () => void;
+}) {
+  const detail = useQuery({
+    queryKey: ["quiz-review-attempt", attemptId],
+    queryFn: () => reviewAttempt({ data: { attemptId } }),
+    staleTime: 15_000,
+  });
+
+  return (
+    <div className="panel space-y-4 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Attempt review</p>
+          <h3 className="mt-1 text-lg font-semibold">
+            {detail.data?.student_name ?? "Student"}
+          </h3>
+          {detail.data && (
+            <p className="text-sm text-muted-foreground">
+              Attempt {detail.data.attempt.attempt_no} ·{" "}
+              {detail.data.attempt.score != null && detail.data.attempt.max_score != null
+                ? `${detail.data.attempt.score}/${detail.data.attempt.max_score} · ${percent(
+                    detail.data.attempt.score,
+                    detail.data.attempt.max_score,
+                  )}%`
+                : "Not graded"}
+            </p>
+          )}
+        </div>
+        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close attempt review">
+          <X className="size-4" />
+        </Button>
+      </div>
+
+      {detail.isLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+        </div>
+      ) : detail.isError ? (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+          Could not load this student's answers. {(detail.error as Error).message}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {detail.data?.answers.map((answer) => (
+            <div key={answer.question_id} className="rounded-xl border border-border p-4">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Question {answer.position + 1} · {answer.type.replace("_", " ")}
+                </p>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {answer.awarded_points != null
+                    ? `${answer.awarded_points}/${answer.points}`
+                    : `—/${answer.points}`}
+                </span>
+              </div>
+              <p className="mt-2 whitespace-pre-wrap text-sm font-medium">{answer.prompt}</p>
+
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Student's answer
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm">
+                    {answer.response.length ? answer.response.join(", ") : "No answer"}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Correct answer
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm">
+                    {answer.correct.length ? answer.correct.join(", ") : "No answer key"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <Badge
+                  variant={
+                    answer.is_correct === true
+                      ? "default"
+                      : answer.is_correct === false
+                        ? "destructive"
+                        : "outline"
+                  }
+                >
+                  {answer.is_correct === true
+                    ? "Correct"
+                    : answer.is_correct === false
+                      ? "Incorrect"
+                      : answer.id
+                        ? "Needs manual grading"
+                        : "Unanswered"}
+                </Badge>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Page() {
   const { quizId } = Route.useParams();
   const { user, role } = useAuth();
@@ -80,13 +193,13 @@ function Page() {
 
   const generate = useServerFn(generateQuizQuestions);
   const regenerate = useServerFn(regenerateQuizQuestion);
-  const reviewAttempts = useServerFn(getQuizReviewAttempts);
+  const reviewAttempts = useServerFn(getQuizReviewAttempts);\n  const reviewAttempt = useServerFn(getQuizReviewAttempt);
 
   const [settings, setSettings] = useState<Settings | null>(null);
   const [questions, setQuestions] = useState<QuestionDraft[]>([]);
   const [removed, setRemoved] = useState<string[]>([]);
   const [material, setMaterial] = useState("");
-  const [regenIndex, setRegenIndex] = useState<number | null>(null);
+  const [regenIndex, setRegenIndex] = useState<number | null>(null);\n  const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
 
   const quiz = useQuery({
     queryKey: ["quiz-edit", quizId],
@@ -509,9 +622,11 @@ function Page() {
                   ) : (
                     <div className="panel divide-y divide-border">
                       {rows.map((a) => (
-                        <div
+                        <button
                           key={a.id}
-                          className="flex flex-wrap items-center justify-between gap-3 p-4"
+                          type="button"
+                          onClick={() => setSelectedAttemptId(a.id)}
+                          className="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-muted/40"
                         >
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium">
@@ -539,9 +654,17 @@ function Page() {
                                 : "Not graded"}
                             </span>
                           </div>
-                        </div>
+                        </button>
                       ))}
                     </div>
+
+                    {selectedAttemptId && (
+                      <AttemptReview
+                        attemptId={selectedAttemptId}
+                        reviewAttempt={reviewAttempt}
+                        onClose={() => setSelectedAttemptId(null)}
+                      />
+                    )}
                   )}
                 </>
               );

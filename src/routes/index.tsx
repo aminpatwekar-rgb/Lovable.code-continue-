@@ -108,7 +108,7 @@ function Landing() {
         </section>
 
         <section className="grid gap-4 pb-24 sm:grid-cols-2">
-          {FEATURES.map((f, i) => (
+          {FEATURES.map((f) => (
             <article
               key={f.title}
               className="panel lift landing-feature-reveal p-6 hover:lift-hover"

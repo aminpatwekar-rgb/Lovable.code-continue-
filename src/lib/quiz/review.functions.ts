@@ -93,3 +93,126 @@ export const getQuizReviewAttempts = createServerFn({ method: "GET" })
       names,
     } satisfies QuizReviewResult;
   });
+
+
+export type QuizReviewAnswer = {
+  id: string | null;
+  question_id: string;
+  position: number;
+  type: string;
+  prompt: string;
+  points: number;
+  response: string[];
+  correct: string[];
+  is_correct: boolean | null;
+  awarded_points: number | null;
+};
+
+export type QuizReviewAttemptDetail = {
+  attempt: QuizReviewAttempt;
+  student_name: string;
+  answers: QuizReviewAnswer[];
+};
+
+export const getQuizReviewAttempt = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { attemptId: string }) => {
+    if (!input?.attemptId || typeof input.attemptId !== "string") {
+      throw new Error("A valid attempt id is required");
+    }
+    return { attemptId: input.attemptId };
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: attempt, error: attemptError } = await supabaseAdmin
+      .from("quiz_attempts")
+      .select(
+        "id, quiz_id, student_id, attempt_no, status, score, max_score, submitted_at, started_at",
+      )
+      .eq("id", data.attemptId)
+      .maybeSingle();
+
+    if (attemptError) throw new Error(attemptError.message);
+    if (!attempt) throw new Error("Attempt not found.");
+
+    const { data: quiz, error: quizError } = await supabaseAdmin
+      .from("quizzes")
+      .select("id, teacher_id")
+      .eq("id", attempt.quiz_id)
+      .maybeSingle();
+
+    if (quizError) throw new Error(quizError.message);
+    if (!quiz) throw new Error("Quiz not found.");
+
+    const { data: adminRole, error: roleError } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    if (roleError) throw new Error(roleError.message);
+
+    if (quiz.teacher_id !== userId && !adminRole) {
+      throw new Error("You are not allowed to review this attempt.");
+    }
+
+    const [{ data: questions, error: questionsError }, { data: answers, error: answersError }, { data: profile, error: profileError }] =
+      await Promise.all([
+        supabaseAdmin
+          .from("quiz_questions")
+          .select("id, type, prompt, correct, points, position")
+          .eq("quiz_id", attempt.quiz_id)
+          .order("position"),
+        supabaseAdmin
+          .from("quiz_answers")
+          .select("id, question_id, response, is_correct, awarded_points")
+          .eq("attempt_id", attempt.id),
+        supabaseAdmin
+          .from("profiles")
+          .select("full_name")
+          .eq("id", attempt.student_id)
+          .maybeSingle(),
+      ]);
+
+    if (questionsError) throw new Error(questionsError.message);
+    if (answersError) throw new Error(answersError.message);
+    if (profileError) throw new Error(profileError.message);
+
+    const byQuestion = new Map((answers ?? []).map((a) => [a.question_id, a]));
+
+    return {
+      attempt: {
+        id: attempt.id,
+        student_id: attempt.student_id,
+        attempt_no: attempt.attempt_no,
+        status: attempt.status,
+        score: attempt.score == null ? null : Number(attempt.score),
+        max_score: attempt.max_score == null ? null : Number(attempt.max_score),
+        submitted_at: attempt.submitted_at,
+        started_at: attempt.started_at,
+      },
+      student_name: profile?.full_name ?? "Student",
+      answers: (questions ?? []).map((q) => {
+        const a = byQuestion.get(q.id);
+        return {
+          id: a?.id ?? null,
+          question_id: q.id,
+          position: Number(q.position) || 0,
+          type: q.type,
+          prompt: q.prompt,
+          points: Number(q.points) || 0,
+          response: Array.isArray(a?.response)
+            ? (a!.response as unknown[]).map(String)
+            : [],
+          correct: Array.isArray(q.correct)
+            ? (q.correct as unknown[]).map(String)
+            : [],
+          is_correct: a?.is_correct ?? null,
+          awarded_points: a?.awarded_points == null ? null : Number(a.awarded_points),
+        };
+      }),
+    } satisfies QuizReviewAttemptDetail;
+  });

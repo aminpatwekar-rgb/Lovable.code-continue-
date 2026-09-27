@@ -1,14 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, Download, FileUp, Link2, LogOut, Plus, Settings, UserMinus, Users } from "lucide-react";
+import { ArrowLeft, Copy, Download, Link2, LogOut, Plus, Settings, UserMinus, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { useAuth } from "@/lib/auth";
-import { useServerFn } from "@tanstack/react-start";
-import { importClassStudents } from "@/lib/class.functions";
-import { csvObjects, downloadCsv, toCsv } from "@/lib/csv";
+import { downloadCsv, toCsv } from "@/lib/csv";
 import { Pagination } from "@/components/Pagination";
 import { useViewRole } from "@/lib/viewRole";
 import { AssignmentDialog } from "@/components/AssignmentDialog";
@@ -90,8 +88,6 @@ function ClassDetail() {
   const [newOwner, setNewOwner] = useState("");
   const [banner, setBanner] = useState<string | null>(null);
   const [rosterPage, setRosterPage] = useState(1);
-  const rosterFileRef = useRef<HTMLInputElement>(null);
-  const importStudentsFn = useServerFn(importClassStudents);
 
   const klass = useQuery({
     queryKey: ["class", classId],
@@ -165,27 +161,6 @@ function ClassDetail() {
       if (error) throw error;
       return (data ?? []) as Member[];
     },
-  });
-
-  const importStudents = useMutation({
-    mutationFn: async (rows: Record<string, string>[]) => importStudentsFn({
-      data: {
-        classId,
-        students: rows.map((row) => ({
-          email: row["email"] ?? "",
-          full_name: row["full_name"] ?? "",
-          roll_no: row["roll_no"] ?? "",
-          er_no: row["er_no"] ?? "",
-          sr_no: row["sr_no"] ?? "",
-        })),
-      },
-    }),
-    onSuccess: (result) => {
-      toast.success(`Imported ${result.imported} student${result.imported === 1 ? "" : "s"}`);
-      if (result.skipped) toast.warning(`${result.skipped} row${result.skipped === 1 ? "" : "s"} skipped`);
-      void qc.invalidateQueries({ queryKey: ["roster", classId] });
-    },
-    onError: (e: Error) => toast.error(e.message),
   });
 
   const leave = useMutation({
@@ -272,18 +247,6 @@ function ClassDetail() {
     downloadCsv("onyx-student-import-template.csv", toCsv(["email", "full_name", "roll_no", "er_no", "sr_no"], [["student@example.com", "Student Name", "12", "ER123", "SR123"]]));
   }
 
-  async function handleRosterImport(file: File | undefined) {
-    if (!file) return;
-    try {
-      const rows = csvObjects(await file.text()).filter((row) => row["email"]);
-      if (!rows.length) throw new Error("CSV must contain an email column and at least one student row");
-      importStudents.mutate(rows);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not read CSV");
-    } finally {
-      if (rosterFileRef.current) rosterFileRef.current.value = "";
-    }
-  }
   const all = assignments.data ?? [];
 
   const active = all.filter((a) => !a.archived && a.published);
@@ -518,12 +481,9 @@ function ClassDetail() {
         <TabsContent value="students" className="mt-5">
           {isTeacher && (
             <div className="mb-4 flex flex-wrap items-center gap-2">
-              <input ref={rosterFileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => void handleRosterImport(e.target.files?.[0])} />
-              <Button variant="outline" onClick={() => rosterFileRef.current?.click()} disabled={importStudents.isPending}>
-                <FileUp className="mr-1.5 size-4" /> {importStudents.isPending ? "Importing..." : "Import students CSV"}
+              <Button variant="ghost" onClick={exportRosterTemplate}>
+                <Download className="mr-1.5 size-4" /> CSV template
               </Button>
-              <Button variant="ghost" onClick={exportRosterTemplate}><Download className="mr-1.5 size-4" /> CSV template</Button>
-              <p className="text-xs text-muted-foreground">Existing ONYX accounts are matched by email.</p>
             </div>
           )}
           {roster.isLoading ? (

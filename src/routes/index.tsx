@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { motion } from "framer-motion";
 import {
   PenLine,
   ShieldCheck,
@@ -80,12 +79,7 @@ function Landing() {
 
       <main className="mx-auto max-w-6xl px-5">
         <section className="py-20 sm:py-28">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="max-w-3xl"
-          >
+          <div className="landing-hero-reveal max-w-3xl">
             <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
               <CheckCircle2 className="size-3.5 text-success" /> Built for schools and colleges
             </span>
@@ -110,23 +104,19 @@ function Landing() {
                 </Link>
               </Button>
             </div>
-          </motion.div>
+          </div>
         </section>
 
         <section className="grid gap-4 pb-24 sm:grid-cols-2">
           {FEATURES.map((f, i) => (
-            <motion.article
+            <article
               key={f.title}
-              initial={{ opacity: 0, y: 14 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={{ duration: 0.4, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] }}
-              className="panel lift p-6 hover:lift-hover"
+              className="panel lift landing-feature-reveal p-6 hover:lift-hover"
             >
               <f.icon className="size-5 text-primary" />
               <h2 className="mt-4 text-lg font-semibold">{f.title}</h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
-            </motion.article>
+            </article>
           ))}
         </section>
       </main>

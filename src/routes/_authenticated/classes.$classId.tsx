@@ -169,7 +169,16 @@ function ClassDetail() {
 
   const importStudents = useMutation({
     mutationFn: async (rows: Record<string, string>[]) => importStudentsFn({
-      data: { classId, students: rows.map((r) => ({ email: r.email, full_name: r.full_name, roll_no: r.roll_no, er_no: r.er_no, sr_no: r.sr_no })) },
+      data: {
+        classId,
+        students: rows.map((row) => ({
+          email: row["email"] ?? "",
+          full_name: row["full_name"] ?? "",
+          roll_no: row["roll_no"] ?? "",
+          er_no: row["er_no"] ?? "",
+          sr_no: row["sr_no"] ?? "",
+        })),
+      },
     }),
     onSuccess: (result) => {
       toast.success(`Imported ${result.imported} student${result.imported === 1 ? "" : "s"}`);
@@ -266,7 +275,7 @@ function ClassDetail() {
   async function handleRosterImport(file: File | undefined) {
     if (!file) return;
     try {
-      const rows = csvObjects(await file.text()).filter((r) => r.email);
+      const rows = csvObjects(await file.text()).filter((row) => row["email"]);
       if (!rows.length) throw new Error("CSV must contain an email column and at least one student row");
       importStudents.mutate(rows);
     } catch (e) {

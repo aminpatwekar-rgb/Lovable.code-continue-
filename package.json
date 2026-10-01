@@ -97,9 +97,9 @@
     "vite": "^8.1.5"
   },
   "overrides": {
-    "@tanstack/react-router": "1.170.18",
-    "@tanstack/router-core": "1.171.15",
-    "@tanstack/router-plugin": "1.168.23",
+    "@tanstack/react-router": "1.170.41",
+    "@tanstack/router-core": "1.171.34",
+    "@tanstack/router-plugin": "1.168.42",
     "h3-v2": "npm:h3@2.0.1-rc.32"
   }
 }

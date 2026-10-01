@@ -92,12 +92,26 @@ function Page() {
             .order("position")
         : await supabase.rpc("get_quiz_questions_for_student", { _quiz_id: quizId });
 
-      const review = isTeacher
-        ? await getQuizReviewAttempts({ data: { quizId } })
-        : null;
+      let attempts;
+      let names: Record<string, string> = {};
 
-      const attempts = review?.attempts ?? [];
-      const names = review?.names ?? {};
+      if (isTeacher) {
+        const review = await getQuizReviewAttempts({ data: { quizId } });
+        attempts = review.attempts;
+        names = review.names;
+      } else {
+        if (!user) throw new Error("You must be signed in to view quiz attempts.");
+        const { data: studentAttempts, error: attemptsError } = await supabase
+          .from("quiz_attempts")
+          .select(
+            "id, student_id, attempt_no, status, score, max_score, submitted_at, started_at",
+          )
+          .eq("quiz_id", quizId)
+          .eq("student_id", user.id)
+          .order("submitted_at", { ascending: false, nullsFirst: false });
+        if (attemptsError) throw attemptsError;
+        attempts = studentAttempts ?? [];
+      }
 
       return { quiz, questions: questions ?? [], attempts, names };
     },

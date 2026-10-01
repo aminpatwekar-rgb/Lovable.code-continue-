@@ -772,3 +772,67 @@
   user-select: none;
   -webkit-user-select: none;
 }
+
+/* Answer editor: typed equations render as formatted math */
+.math-editor .tiptap {
+  min-height: 304px;
+  outline: none;
+}
+.math-editor .tiptap p {
+  margin: 0;
+  min-height: 1.75rem;
+}
+.math-editor .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--color-muted-foreground);
+  pointer-events: none;
+}
+.math-editor .tiptap-mathematics-render {
+  cursor: pointer;
+  border-radius: 0.375rem;
+  padding: 0 0.15rem;
+  transition: background-color 150ms ease;
+}
+.math-editor .tiptap-mathematics-render:hover {
+  background-color: color-mix(in oklab, var(--color-primary) 12%, transparent);
+}
+.math-editor .tiptap-mathematics-render.ProseMirror-selectednode {
+  outline: 2px solid var(--color-ring);
+}
+.math-editor .tiptap [data-type="block-math"] {
+  display: block;
+  font-size: 1.15em;
+  margin: 0.25rem 0;
+  padding: 0.5rem;
+  text-align: center;
+  overflow-x: auto;
+}
+.math-editor .tiptap .inline-math-error {
+  color: var(--color-destructive);
+}
+
+/* Equation entry box (MathLive) */
+.math-field-host math-field {
+  display: block;
+  width: 100%;
+  min-height: 3.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 1.5rem;
+  color: var(--color-foreground);
+  background: transparent;
+  border: 1px solid var(--color-input);
+  border-radius: var(--radius-md);
+  --caret-color: var(--color-primary);
+  --selection-background-color: color-mix(in oklab, var(--color-primary) 25%, transparent);
+  --contains-highlight-background-color: transparent;
+}
+.math-field-host math-field:focus-within {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 1px;
+}
+.math-field-host math-field::part(virtual-keyboard-toggle),
+.math-field-host math-field::part(menu-toggle) {
+  display: none;
+}

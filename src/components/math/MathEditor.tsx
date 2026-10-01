@@ -13,7 +13,19 @@ import { FORMULA_LIBRARY } from "@/lib/science/formulas";
  * Equation builder: raw LaTeX field with live KaTeX preview, a symbol toolbar,
  * fraction and matrix editors, and the science formula library.
  */
-export function MathEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function MathEditor({
+  value,
+  onChange,
+  display = true,
+  onDisplayChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  /** Preview as a centered block equation (true) or inline with text (false). */
+  display?: boolean;
+  /** When provided, shows an Inline / Block switch above the preview. */
+  onDisplayChange?: (display: boolean) => void;
+}) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const [num, setNum] = useState("");
   const [den, setDen] = useState("");
@@ -51,8 +63,37 @@ export function MathEditor({ value, onChange }: { value: string; onChange: (v: s
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-border bg-card/60 p-4">
-        <MathPreview latex={value} />
+      {onDisplayChange && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Insert as</span>
+          <div className="flex gap-1.5" role="group" aria-label="Equation style">
+            <Button
+              type="button"
+              size="sm"
+              variant={display ? "outline" : "default"}
+              aria-pressed={!display}
+              onClick={() => onDisplayChange(false)}
+            >
+              Inline
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={display ? "default" : "outline"}
+              aria-pressed={display}
+              onClick={() => onDisplayChange(true)}
+            >
+              Block
+            </Button>
+          </div>
+        </div>
+      )}
+      <div className="rounded-lg border border-border bg-card/60 p-4" aria-live="polite">
+        {value.trim() ? (
+          <MathPreview latex={value} display={display} />
+        ) : (
+          <p className="text-sm text-muted-foreground">Your equation will appear here.</p>
+        )}
       </div>
 
       <Textarea
@@ -65,7 +106,7 @@ export function MathEditor({ value, onChange }: { value: string; onChange: (v: s
       />
 
       <Tabs defaultValue="symbols">
-        <TabsList className="flex-wrap">
+        <TabsList>
           <TabsTrigger value="symbols">Symbols</TabsTrigger>
           <TabsTrigger value="fraction">Fraction</TabsTrigger>
           <TabsTrigger value="matrix">Matrix</TabsTrigger>

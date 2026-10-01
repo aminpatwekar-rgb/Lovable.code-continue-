@@ -11,6 +11,7 @@ import { daysLate, formatDue, type SubmissionStatus } from "@/lib/assignments";
 import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
 import { StatusBadge } from "@/components/StatusBadge";
 import { TypedEditor, type ImageBlock } from "@/components/TypedEditor";
+import { RenderMathText } from "@/components/math/RenderMathText";
 import { AssignmentActions, type AssignmentRow } from "@/components/AssignmentActions";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -122,7 +123,7 @@ function AssignmentPage() {
           )}
         </div>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="text-3xl font-semibold">{a.title}</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold">{a.title}</h1>
           {isTeacher && user && (
             <AssignmentActions
               assignment={a as unknown as AssignmentRow}
@@ -556,9 +557,7 @@ function StudentSubmission({
               ))}
             </div>
           )}
-          {sub?.typed_content && (
-            <p className="mt-4 whitespace-pre-wrap leading-7">{sub.typed_content}</p>
-          )}
+          {sub?.typed_content && <RenderMathText text={sub.typed_content} className="mt-4" />}
         </div>
       ) : (
         <Tabs value={activeMode} onValueChange={(v) => setChoice(v as "handwritten" | "typed")}>

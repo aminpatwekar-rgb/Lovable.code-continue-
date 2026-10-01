@@ -324,7 +324,7 @@ function AdminConsole() {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="text-3xl font-semibold">Admin console</h1>
+        <h1 className="text-2xl sm:text-3xl font-semibold">Admin console</h1>
         <p className="mt-1 text-muted-foreground">
           Platform-wide people, classes and announcements.
         </p>
@@ -353,7 +353,7 @@ function AdminConsole() {
       )}
 
       <Tabs defaultValue="overview">
-        <TabsList className="flex-wrap">
+        <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users ({all.length})</TabsTrigger>
           <TabsTrigger value="classes">Classes ({counts.classes})</TabsTrigger>

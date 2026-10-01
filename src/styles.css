@@ -760,6 +760,14 @@
   }
 }
 
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @utility no-select {
   user-select: none;
   -webkit-user-select: none;

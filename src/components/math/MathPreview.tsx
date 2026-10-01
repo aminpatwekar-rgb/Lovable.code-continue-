@@ -30,12 +30,15 @@ export function MathPreview({
   }, [latex, display]);
 
   if (!result.ok) {
-    return <p className={cn("text-sm text-destructive", className)}>{result.value}</p>;
+    return <span className={cn("text-sm text-destructive", className)}>{result.value}</span>;
+  }
+  // KaTeX output is generated locally from the user's own LaTeX with trust disabled.
+  if (!display) {
+    return <span className={className} dangerouslySetInnerHTML={{ __html: result.value }} />;
   }
   return (
     <div
-      className={cn("overflow-x-auto", className)}
-      // KaTeX output is generated locally from the user's own LaTeX with trust disabled.
+      className={cn("overflow-x-auto overflow-y-hidden", className)}
       dangerouslySetInnerHTML={{ __html: result.value }}
     />
   );

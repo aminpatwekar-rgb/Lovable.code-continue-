@@ -2,7 +2,18 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, Download, Link2, LogOut, Plus, Settings, UserMinus, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Copy,
+  Download,
+  Link2,
+  LogOut,
+  MoreHorizontal,
+  Plus,
+  Settings,
+  UserMinus,
+  Users,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { useAuth } from "@/lib/auth";
@@ -17,6 +28,12 @@ import { ClassDiscussion } from "@/components/ClassDiscussion";
 import { ClassSettingsDialog, type ClassRecord } from "@/components/ClassSettingsDialog";
 import { ClassResources } from "@/components/ClassResources";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -310,13 +327,13 @@ function ClassDetail() {
         <img
           src={banner}
           alt={`${klass.data.name} banner`}
-          className="h-40 w-full rounded-xl object-cover"
+          className="h-28 w-full rounded-xl object-cover sm:h-40"
         />
       )}
 
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold">{klass.data.name}</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold">{klass.data.name}</h1>
           <p className="mt-1 text-muted-foreground">
             {[klass.data.subject, klass.data.section].filter(Boolean).join(" · ") || "No subject"}
           </p>
@@ -366,6 +383,7 @@ function ClassDetail() {
             </button>
             <Button
               variant="outline"
+              className="hidden sm:inline-flex"
               onClick={() => {
                 void navigator.clipboard.writeText(
                   `${window.location.origin}/classes?join=${klass.data!.join_code}`,
@@ -375,14 +393,54 @@ function ClassDetail() {
             >
               <Link2 className="mr-1.5 size-4" /> Invite link
             </Button>
-            <Button variant="outline" onClick={() => setSettingsOpen(true)}>
+            <Button
+              variant="outline"
+              className="hidden sm:inline-flex"
+              onClick={() => setSettingsOpen(true)}
+            >
               <Settings className="mr-1.5 size-4" /> Settings
             </Button>
             {role === "admin" && (
-              <Button variant="outline" onClick={() => setTransferOpen(true)}>
+              <Button
+                variant="outline"
+                className="hidden sm:inline-flex"
+                onClick={() => setTransferOpen(true)}
+              >
                 <Users className="mr-1.5 size-4" /> Transfer
               </Button>
             )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="sm:hidden"
+                  aria-label="More actions"
+                >
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => {
+                    void navigator.clipboard.writeText(
+                      `${window.location.origin}/classes?join=${klass.data!.join_code}`,
+                    );
+                    toast.success("Invitation link copied");
+                  }}
+                >
+                  <Link2 className="mr-2 size-4" /> Invite link
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
+                  <Settings className="mr-2 size-4" /> Settings
+                </DropdownMenuItem>
+                {role === "admin" && (
+                  <DropdownMenuItem onClick={() => setTransferOpen(true)}>
+                    <Users className="mr-2 size-4" /> Transfer
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button onClick={() => setOpen(true)}>
               <Plus className="mr-1.5 size-4" /> New assignment
             </Button>
@@ -437,7 +495,7 @@ function ClassDetail() {
       </header>
 
       <Tabs defaultValue="assignments">
-        <TabsList className="flex-wrap">
+        <TabsList>
           <TabsTrigger value="assignments">Assignments ({active.length})</TabsTrigger>
           {isTeacher && <TabsTrigger value="drafts">Drafts ({drafts.length})</TabsTrigger>}
           {isTeacher && <TabsTrigger value="archived">Archived ({archived.length})</TabsTrigger>}

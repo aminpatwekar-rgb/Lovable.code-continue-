@@ -163,7 +163,7 @@ function Assignments() {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="text-3xl font-semibold">Assignments</h1>
+        <h1 className="text-2xl sm:text-3xl font-semibold">Assignments</h1>
         <p className="mt-1 text-muted-foreground">
           {isTeacher ? "Everything you've posted." : "Everything assigned to you."}
         </p>
@@ -186,7 +186,7 @@ function Assignments() {
             void navigate({ to: ".", search: { tab: v as AssignmentTab }, replace: true })
           }
         >
-          <TabsList className="flex-wrap">
+          <TabsList>
             {isTeacher && <TabsTrigger value="all">All ({groups.all.length})</TabsTrigger>}
             <TabsTrigger value="upcoming">Upcoming ({groups.upcoming.length})</TabsTrigger>
             <TabsTrigger value="overdue">Overdue ({groups.overdue.length})</TabsTrigger>

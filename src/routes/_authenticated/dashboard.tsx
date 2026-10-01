@@ -51,16 +51,18 @@ function Stat({
   tone?: string;
 }) {
   return (
-    <div className="panel p-5 relative overflow-hidden bg-card">
+    <div className="panel relative overflow-hidden bg-card p-3.5 sm:p-5">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <span className="text-xs font-medium text-muted-foreground sm:uppercase sm:tracking-wider">
           {label}
         </span>
-        <div className={`p-2 rounded-lg border ${tone}`}>
+        <div className={`hidden rounded-lg border p-2 sm:block ${tone}`}>
           <Icon className="size-4" />
         </div>
       </div>
-      <p className="mt-4 text-3xl font-bold tracking-tight text-foreground tabular-nums">{value}</p>
+      <p className="mt-1.5 text-2xl font-bold tracking-tight text-foreground tabular-nums sm:mt-4 sm:text-3xl">
+        {value}
+      </p>
     </div>
   );
 }
@@ -162,17 +164,17 @@ function Dashboard() {
   if (isTeacherView) {
     const d = teacher.data;
     return (
-      <div className="space-y-8">
-        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/60 pb-6">
+      <div className="space-y-5 sm:space-y-8">
+        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/60 pb-4 sm:pb-6">
           <div>
-            <div className="inline-flex items-center gap-1.5 text-xs font-medium text-primary mb-1">
+            <div className="mb-1 hidden items-center gap-1.5 text-xs font-medium text-primary sm:inline-flex">
               <Sparkles className="size-3.5" />
               Teacher Workspace
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               Welcome back, {firstName}
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 hidden text-sm text-muted-foreground sm:block">
               Here is an overview of your active classes, assignments, and student submissions.
             </p>
           </div>
@@ -180,7 +182,7 @@ function Dashboard() {
             <Button asChild variant="outline" size="sm" className="h-9">
               <Link to="/classes">Manage Classes</Link>
             </Button>
-            <Button asChild size="sm" className="h-9 gap-1.5">
+            <Button asChild size="sm" className="hidden h-9 gap-1.5 sm:inline-flex">
               <Link to="/assignments">
                 View Assignments <ArrowRight className="size-3.5" />
               </Link>
@@ -189,13 +191,13 @@ function Dashboard() {
         </header>
 
         {teacher.isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {[0, 1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-28 rounded-xl" />
             ))}
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             <Stat
               icon={GraduationCap}
               label="Active Classes"
@@ -229,7 +231,7 @@ function Dashboard() {
               <h2 className="text-base sm:text-lg font-semibold text-foreground">
                 Recent Assignments
               </h2>
-              <p className="text-xs text-muted-foreground">
+              <p className="hidden text-xs text-muted-foreground sm:block">
                 Quick access to student progress and deadlines
               </p>
             </div>
@@ -268,6 +270,7 @@ function Dashboard() {
                 {(d?.assignments ?? []).slice(0, 6).map((a, i) => (
                   <motion.li
                     key={a.id}
+                    className={i >= 4 ? "hidden sm:block" : undefined}
                     layout
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -319,17 +322,17 @@ function Dashboard() {
   const pct = list.length ? Math.round((done / list.length) * 100) : 0;
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/60 pb-6">
+    <div className="space-y-5 sm:space-y-8">
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/60 pb-4 sm:pb-6">
         <div>
-          <div className="inline-flex items-center gap-1.5 text-xs font-medium text-primary mb-1">
+          <div className="mb-1 hidden items-center gap-1.5 text-xs font-medium text-primary sm:inline-flex">
             <Sparkles className="size-3.5" />
             Student Dashboard
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
             Welcome back, {firstName}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 hidden text-sm text-muted-foreground sm:block">
             Track your tasks, upcoming deadlines, and study progress.
           </p>
         </div>
@@ -337,7 +340,7 @@ function Dashboard() {
           <Button asChild variant="outline" size="sm" className="h-9">
             <Link to="/classes">Join Class</Link>
           </Button>
-          <Button asChild size="sm" className="h-9 gap-1.5">
+          <Button asChild size="sm" className="hidden h-9 gap-1.5 sm:inline-flex">
             <Link to="/assignments">
               Assignments <ArrowRight className="size-3.5" />
             </Link>
@@ -347,7 +350,7 @@ function Dashboard() {
 
       {student.isLoading ? (
         <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {[0, 1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-28 rounded-xl" />
             ))}
@@ -356,7 +359,7 @@ function Dashboard() {
         </div>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             <Stat
               icon={Clock}
               label="Pending Work"
@@ -383,11 +386,11 @@ function Dashboard() {
             />
           </div>
 
-          <div className="panel p-5 bg-card">
+          <div className="panel bg-card p-4 sm:p-5">
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-foreground">Overall Completion</span>
-                <span className="text-xs text-muted-foreground">
+                <span className="hidden text-xs text-muted-foreground sm:inline">
                   ({done} of {list.length} tasks completed)
                 </span>
               </div>
@@ -402,7 +405,7 @@ function Dashboard() {
                 <h2 className="text-base sm:text-lg font-semibold text-foreground">
                   Your Assignments
                 </h2>
-                <p className="text-xs text-muted-foreground">
+                <p className="hidden text-xs text-muted-foreground sm:block">
                   Stay ahead of due dates and submit work
                 </p>
               </div>
@@ -451,6 +454,7 @@ function Dashboard() {
                     return (
                       <motion.li
                         key={a.id}
+                        className={i >= 4 ? "hidden sm:block" : undefined}
                         layout
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}

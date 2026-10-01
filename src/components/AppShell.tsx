@@ -26,7 +26,7 @@ import { GlobalSearch } from "@/components/GlobalSearch";
 import { Wordmark } from "@/components/Wordmark";
 
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +50,13 @@ const NAV = [
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { to: "/achievements", label: "Achievements", icon: Award },
   { to: "/settings", label: "Settings", icon: Settings },
+] as const;
+
+const BOTTOM_NAV = [
+  { to: "/dashboard", label: "Home", icon: LayoutDashboard },
+  { to: "/classes", label: "Classes", icon: GraduationCap },
+  { to: "/assignments", label: "Tasks", icon: BookOpen },
+  { to: "/quizzes", label: "Quizzes", icon: ClipboardList },
 ] as const;
 
 const ADMIN_NAV = [{ to: "/admin", label: "Admin", icon: Shield }] as const;
@@ -257,80 +264,99 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <header className="glass sticky top-0 z-40 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border px-4 py-3 lg:hidden">
-        <div className="min-w-0 flex items-center gap-2">
-          <Link to="/dashboard" className="flex items-center gap-2">
-            <Wordmark size="sm" />
-          </Link>
-          {canSwitchRole && renderRoleSwitcher(true)}
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggle}
-            aria-label="Toggle theme"
-            className="size-9 text-muted-foreground hover:text-foreground"
-          >
-            {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-          </Button>
-          <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="Open menu"
-                className="size-9 border-border/80"
-              >
-                <Menu className="size-4" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent
-              side="right"
-              className="flex w-[min(20rem,85vw)] flex-col gap-4 overflow-y-auto bg-sidebar p-5 border-l border-sidebar-border"
-            >
-              <SheetHeader className="text-left pb-2 border-b border-sidebar-border">
-                <SheetTitle asChild>
-                  <div className="flex items-center justify-between">
-                    <Wordmark size="sm" />
-                    {renderRoleSwitcher()}
-                  </div>
-                </SheetTitle>
-              </SheetHeader>
-              <GlobalSearch />
-              {nav}
-              <div className="mt-auto pt-4 border-t border-sidebar-border space-y-3">
-                <div className="flex items-center gap-3 rounded-lg border border-border/70 p-2.5">
-                  <Avatar className="size-9">
-                    <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-semibold text-foreground">
-                      {profile?.full_name || "Account"}
-                    </p>
-                    <p className="truncate text-[11px] capitalize text-muted-foreground">
-                      {isOverridden ? `${effectiveRole} (preview)` : role}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full h-9 justify-center gap-2 border-border/80 text-muted-foreground hover:text-destructive hover:border-destructive/40"
-                  onClick={signOut}
-                >
-                  <LogOut className="size-4" /> Sign out
-                </Button>
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
+      <header className="glass sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border px-4 py-2.5 lg:hidden">
+        <Link to="/dashboard" className="flex items-center gap-2">
+          <Wordmark size="sm" />
+        </Link>
+        {canSwitchRole && renderRoleSwitcher(true)}
       </header>
 
-      <main className="min-w-0 px-4 py-6 sm:px-8 lg:py-8">
+      <nav
+        aria-label="Primary"
+        className="glass fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border pb-[env(safe-area-inset-bottom)] lg:hidden"
+      >
+        {BOTTOM_NAV.map(({ to, label, icon: Icon }) => {
+          const active = pathname === to || pathname.startsWith(to + "/");
+          return (
+            <Link
+              key={to}
+              to={to}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors",
+                active ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              <Icon className="size-5" />
+              <span>{label}</span>
+            </Link>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="More"
+          className="flex min-h-14 cursor-pointer flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted-foreground transition-colors"
+        >
+          <Menu className="size-5" />
+          <span>More</span>
+        </button>
+      </nav>
+
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent
+          side="right"
+          className="flex w-[min(20rem,85vw)] flex-col gap-4 overflow-y-auto bg-sidebar p-5 border-l border-sidebar-border"
+        >
+          <SheetHeader className="text-left pb-2 border-b border-sidebar-border">
+            <SheetTitle asChild>
+              <div className="flex items-center justify-between">
+                <Wordmark size="sm" />
+              </div>
+            </SheetTitle>
+          </SheetHeader>
+          <GlobalSearch />
+          {nav}
+          <div className="mt-auto pt-4 border-t border-sidebar-border space-y-3">
+            <div className="flex items-center gap-3 rounded-lg border border-border/70 p-2.5">
+              <Avatar className="size-9">
+                <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold text-foreground">
+                  {profile?.full_name || "Account"}
+                </p>
+                <p className="truncate text-[11px] capitalize text-muted-foreground">
+                  {isOverridden ? `${effectiveRole} (preview)` : role}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 flex-1 justify-center gap-2 border-border/80 text-muted-foreground"
+                onClick={toggle}
+              >
+                {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+                {theme === "dark" ? "Light mode" : "Dark mode"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 justify-center gap-2 border-border/80 text-muted-foreground hover:text-destructive hover:border-destructive/40"
+                onClick={signOut}
+              >
+                <LogOut className="size-4" /> Sign out
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <main className="min-w-0 px-4 pb-24 pt-5 sm:px-8 sm:pt-6 lg:py-8">
         <motion.div
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
@@ -347,8 +373,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                     {effectiveRole}
                   </strong>{" "}
                   — your account's actual role is{" "}
-                  <strong className="capitalize font-semibold text-foreground">{role}</strong>. Real
-                  permissions remain protected by Supabase RLS.
+                  <strong className="capitalize font-semibold text-foreground">{role}</strong>.{" "}
+                  <span className="hidden sm:inline">
+                    Real permissions remain protected by Supabase RLS.
+                  </span>
                 </span>
               </div>
               <motion.button

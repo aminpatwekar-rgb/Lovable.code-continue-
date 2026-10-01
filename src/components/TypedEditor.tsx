@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MathEditor } from "@/components/math/MathEditor";
+import { RenderMathText, containsMath } from "@/components/math/RenderMathText";
 import { ImagePlus, Trash2, ArrowUp, ArrowDown, Mic, ShieldAlert, Sigma } from "lucide-react";
 
 export type ImageBlock = {
@@ -83,6 +84,7 @@ export function TypedEditor({
   const [listening, setListening] = useState(false);
   const [mathOpen, setMathOpen] = useState(false);
   const [equation, setEquation] = useState("");
+  const [equationBlock, setEquationBlock] = useState(false);
 
   function block(kind: string, label: string) {
     toast.warning(`${label} is disabled on this assignment`, {
@@ -233,8 +235,13 @@ export function TypedEditor({
     const latex = equation.trim();
     if (!latex) return;
     const { start, end } = selectionRef.current;
-    const wrapped = `$${latex}$`;
-    const next = value.slice(0, start) + wrapped + value.slice(end);
+    // Block equations go on their own line so they render centered.
+    const before = value.slice(0, start);
+    const after = value.slice(end);
+    const wrapped = equationBlock
+      ? `${before && !before.endsWith("\n") ? "\n" : ""}$$${latex}$$${after.startsWith("\n") ? "" : "\n"}`
+      : `$${latex}$`;
+    const next = before + wrapped + after;
     const caret = start + wrapped.length;
     onChange(next);
     selectionRef.current = { start: caret, end: caret };
@@ -352,6 +359,13 @@ export function TypedEditor({
         className="min-h-[320px] resize-y font-normal leading-7"
       />
 
+      {allowMath && containsMath(value) && (
+        <div className="panel space-y-2 p-4" aria-live="polite">
+          <p className="text-xs font-medium text-muted-foreground">Preview of your answer</p>
+          <RenderMathText text={value} />
+        </div>
+      )}
+
       <Dialog
         open={mathOpen}
         onOpenChange={(open) => {
@@ -362,9 +376,16 @@ export function TypedEditor({
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Insert equation</DialogTitle>
-            <DialogDescription>Build an equation, then insert it into your answer.</DialogDescription>
+            <DialogDescription>
+              Build an equation, then insert it into your answer.
+            </DialogDescription>
           </DialogHeader>
-          <MathEditor value={equation} onChange={setEquation} />
+          <MathEditor
+            value={equation}
+            onChange={setEquation}
+            display={equationBlock}
+            onDisplayChange={setEquationBlock}
+          />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setMathOpen(false)}>
               Cancel

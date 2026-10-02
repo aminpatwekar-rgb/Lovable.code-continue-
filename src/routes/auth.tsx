@@ -155,7 +155,15 @@ function AuthPage() {
         className="panel w-full max-w-md p-7"
       >
         <Link to="/" className="mb-6 flex items-center gap-2">
-          <img src={onyxMark.url} alt="" aria-hidden="true" className="size-8 rounded-full object-cover" />
+          <img
+            src={onyxMark.url}
+            width={32}
+            height={32}
+            decoding="async"
+            alt=""
+            aria-hidden="true"
+            className="size-8 rounded-full object-cover"
+          />
           <span className="font-semibold tracking-tight">ONYX</span>
         </Link>
 

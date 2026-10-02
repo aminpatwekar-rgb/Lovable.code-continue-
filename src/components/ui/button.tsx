@@ -2,12 +2,11 @@ import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Loader2 } from "lucide-react";
-import { motion, useReducedMotion, type HTMLMotionProps } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium cursor-pointer select-none transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -53,52 +52,35 @@ export interface ButtonProps
   loading?: boolean;
 }
 
-const MotionSlot = motion.create(Slot);
-
-const SPRING_TRANSITION = { type: "spring" as const, stiffness: 500, damping: 30 };
-
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   (
     { className, variant, size, asChild = false, loading = false, children, disabled, ...props },
     ref,
   ) => {
-    const shouldReduceMotion = useReducedMotion();
-    const isInteractive = !disabled && !loading && variant !== "link";
-
-    const motionProps =
-      isInteractive && !shouldReduceMotion
-        ? {
-            whileHover: { scale: 1.015 },
-            whileTap: { scale: 0.96 },
-            transition: SPRING_TRANSITION,
-          }
-        : {};
+    const classes = cn(
+      buttonVariants({ variant, size, className }),
+      variant !== "link" && !loading && "press",
+    );
 
     if (asChild) {
       return (
-        <MotionSlot
-          className={cn(buttonVariants({ variant, size, className }))}
-          ref={ref}
-          {...motionProps}
-          {...(props as React.ComponentPropsWithoutRef<typeof MotionSlot>)}
-        >
+        <Slot className={classes} ref={ref} {...props}>
           {children}
-        </MotionSlot>
+        </Slot>
       );
     }
 
     return (
-      <motion.button
-        className={cn(buttonVariants({ variant, size, className }))}
+      <button
+        className={classes}
         ref={ref}
         disabled={disabled || loading}
         {...(loading ? { "aria-busy": true } : {})}
-        {...motionProps}
-        {...(props as HTMLMotionProps<"button">)}
+        {...props}
       >
         {loading && <Loader2 className="size-4 animate-spin" />}
         {children}
-      </motion.button>
+      </button>
     );
   },
 );

@@ -15,6 +15,9 @@ export function Wordmark({
     <div className={cn("flex items-center gap-3", className)}>
       <img
         src={onyxMark.url}
+        width={44}
+        height={44}
+        decoding="async"
         alt=""
         aria-hidden="true"
         className={cn("shrink-0 rounded-full object-cover", box)}

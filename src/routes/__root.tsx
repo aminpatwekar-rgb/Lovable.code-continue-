@@ -4,12 +4,12 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
-import { AnimatePresence } from "framer-motion";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -18,6 +18,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { ViewRoleProvider } from "@/lib/viewRole";
 import { Toaster } from "@/components/ui/sonner";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { cn } from "@/lib/utils";
 
 function NotFoundComponent() {
   return (
@@ -101,11 +102,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      // Fonts are self-hosted (see @font-face in styles.css) so no third-party request blocks first paint.
       {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap",
+        rel: "preload",
+        href: "/fonts/inter-tight-latin-wght-normal.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "preload",
+        href: "/fonts/instrument-serif-latin-400-normal.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "preload",
+        href: "/fonts/instrument-serif-latin-400-italic.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
       },
       { rel: "icon", href: "/favicon.png", type: "image/png" },
     ],
@@ -130,13 +147,37 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+/** Keeps the loader mounted briefly after loading ends so it can fade out. */
+function BootOverlay({ show }: { show: boolean }) {
+  const [mounted, setMounted] = useState(show);
+
+  useEffect(() => {
+    if (show) {
+      setMounted(true);
+      return;
+    }
+    const t = setTimeout(() => setMounted(false), 300);
+    return () => clearTimeout(t);
+  }, [show]);
+
+  if (!mounted) return null;
+  return (
+    <LoadingScreen
+      className={cn("transition-opacity duration-300", !show && "pointer-events-none opacity-0")}
+    />
+  );
+}
+
 function RootContent() {
   const { loading } = useAuth();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // The public landing page does not depend on the session, so it is never hidden behind the loader.
+  const showLoader = loading && pathname !== "/";
 
   return (
     <>
       <Outlet />
-      <AnimatePresence>{loading && <LoadingScreen key="onyx-initial-loader" />}</AnimatePresence>
+      <BootOverlay show={showLoader} />
     </>
   );
 }

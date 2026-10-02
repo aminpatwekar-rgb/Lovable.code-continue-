@@ -17,7 +17,6 @@ type Resource = {
   mime_type: string | null;
   size_bytes: number | null;
   created_at: string;
-  downloadUrl: string;
 };
 
 function formatSize(bytes: number | null) {
@@ -41,16 +40,26 @@ export function ClassResources({ classId, canManage }: { classId: string; canMan
         .eq("class_id", classId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return Promise.all(
-        (data ?? []).map(async (resource) => {
-          const { data: signed, error: signedError } = await supabase.storage
-            .from("class-resources")
-            .createSignedUrl(resource.storage_path, 3600);
-          if (signedError) throw signedError;
-          return { ...resource, downloadUrl: signed.signedUrl } as Resource;
-        }),
-      );
+      return (data ?? []) as Resource[];
     },
+  });
+
+  const download = useMutation({
+    mutationFn: async (resource: Resource) => {
+      const { data, error } = await supabase.storage
+        .from("class-resources")
+        .download(resource.storage_path);
+      if (error) throw error;
+      const url = URL.createObjectURL(data);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = resource.file_name;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const upload = useMutation({
@@ -147,10 +156,13 @@ export function ClassResources({ classId, canManage }: { classId: string; canMan
                     .join(" · ")}
                 </p>
               </div>
-              <Button asChild variant="outline" size="sm">
-                <a href={resource.downloadUrl} download={resource.file_name}>
-                  <Download className="mr-1.5 size-4" /> Download
-                </a>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={download.isPending}
+                onClick={() => download.mutate(resource)}
+              >
+                <Download className="mr-1.5 size-4" /> Download
               </Button>
               {canManage && (
                 <Button

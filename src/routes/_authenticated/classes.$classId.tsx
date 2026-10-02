@@ -124,18 +124,22 @@ function ClassDetail() {
   const bannerPath = klass.data?.banner_url ?? null;
   useEffect(() => {
     let alive = true;
+    let objectUrl: string | null = null;
     if (!bannerPath) {
       setBanner(null);
       return;
     }
     void supabase.storage
       .from("class-banners")
-      .createSignedUrl(bannerPath, 3600)
-      .then(({ data }) => {
-        if (alive) setBanner(data?.signedUrl ?? null);
+      .download(bannerPath)
+      .then(({ data, error }) => {
+        if (error || !data || !alive) return;
+        objectUrl = URL.createObjectURL(data);
+        setBanner(objectUrl);
       });
     return () => {
       alive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [bannerPath]);
 

@@ -1,5 +1,6 @@
 export function escapeCsv(value: unknown): string {
-  const text = value == null ? "" : String(value);
+  const raw = value == null ? "" : String(value);
+  const text = /^[=+\-@]/.test(raw.trimStart()) ? `'${raw}` : raw;
   return /[",\n\r]/.test(text) ? "\"" + text.replace(/"/g, '""') + "\"" : text;
 }
 

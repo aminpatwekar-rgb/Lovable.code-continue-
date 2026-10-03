@@ -31,7 +31,9 @@ export const finalizeQuizAttempt = createServerFn({ method: "POST" })
 
     // An attempt is graded exactly once. Calling this again (double tap, retry, or a student
     // editing answers afterwards) must never re-grade it or award the points a second time.
-    if (attempt.status !== "in_progress") {
+    // max_score is only ever written by this function, so it also catches an attempt a student
+    // tried to re-open by flipping its status back to "in_progress".
+    if (attempt.status !== "in_progress" || attempt.max_score !== null) {
       return {
         score: Number(attempt.score ?? 0),
         max: Number(attempt.max_score ?? 0),
@@ -99,6 +101,7 @@ export const finalizeQuizAttempt = createServerFn({ method: "POST" })
       })
       .eq("id", attempt.id)
       .eq("status", "in_progress")
+      .is("max_score", null)
       .select("id");
     if (!claimed || claimed.length === 0) {
       // A parallel request already graded this attempt; award nothing twice.

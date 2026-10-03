@@ -79,7 +79,6 @@ function Page() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [responses, setResponses] = useState<Record<string, string[]>>({});
-  const [answerIds, setAnswerIds] = useState<Record<string, string>>({});
   const [index, setIndex] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [warnings, setWarnings] = useState(0);
@@ -207,7 +206,6 @@ function Page() {
             ]),
           ),
         );
-        setAnswerIds(Object.fromEntries((saved ?? []).map((a) => [a.question_id, a.id])));
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Could not start this quiz.");
       } finally {
@@ -232,6 +230,8 @@ function Page() {
       submittedRef.current = true;
       setSubmitting(true);
       try {
+        // Make sure the very last answers are stored before the server grades the attempt.
+        await flushSavesRef.current();
         const res = await finalize({ data: { attemptId: attempt.id } });
         toast.success(
           res.needsManual
@@ -318,32 +318,51 @@ function Page() {
     };
   }, [quiz?.lockdown_enabled, attempt, user, quizId, submit]);
 
+  // One upsert per save: rapid changes can no longer collide on the (attempt, question) key.
   async function persist(questionId: string, value: string[]) {
     if (!attempt) return;
-    const existing = answerIds[questionId];
-    if (existing) {
-      await supabase.from("quiz_answers").update({ response: value }).eq("id", existing);
-      return;
-    }
-    const { data, error: insErr } = await supabase
+    await supabase
       .from("quiz_answers")
-      .insert({ attempt_id: attempt.id, question_id: questionId, response: value })
-      .select("id")
-      .single();
-    if (!insErr && data) setAnswerIds((prev) => ({ ...prev, [questionId]: data.id }));
+      .upsert(
+        { attempt_id: attempt.id, question_id: questionId, response: value },
+        { onConflict: "attempt_id,question_id" },
+      );
   }
 
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingValues = useRef<Record<string, string[]>>({});
+  const inflightSaves = useRef(new Set<Promise<void>>());
+  const flushSavesRef = useRef<() => Promise<void>>(async () => {});
+
+  function track(save: Promise<void>) {
+    inflightSaves.current.add(save);
+    void save.finally(() => inflightSaves.current.delete(save));
+  }
+
   function answer(questionId: string, value: string[], debounce = false) {
     setResponses((prev) => ({ ...prev, [questionId]: value }));
     const timers = saveTimers.current;
     if (timers[questionId]) clearTimeout(timers[questionId]);
     if (debounce) {
-      timers[questionId] = setTimeout(() => void persist(questionId, value), 600);
+      pendingValues.current[questionId] = value;
+      timers[questionId] = setTimeout(() => {
+        delete pendingValues.current[questionId];
+        track(persist(questionId, value));
+      }, 600);
     } else {
-      void persist(questionId, value);
+      delete pendingValues.current[questionId];
+      track(persist(questionId, value));
     }
   }
+
+  // Saves anything still waiting on the typing delay, then waits for every save to finish.
+  flushSavesRef.current = async () => {
+    Object.values(saveTimers.current).forEach((t) => clearTimeout(t));
+    const pending = Object.entries(pendingValues.current);
+    pendingValues.current = {};
+    pending.forEach(([questionId, value]) => track(persist(questionId, value)));
+    await Promise.allSettled([...inflightSaves.current]);
+  };
 
   if (loading) {
     return (

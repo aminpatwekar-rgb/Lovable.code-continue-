@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { cn } from "@/lib/utils";
-import onyxMark from "@/assets/onyx-mark.png.asset.json";
 
 const PHRASES = ["Setting things up…", "Loading your workspace…", "Preparing academic hub…"];
+const LETTERS = ["O", "N", "Y", "X"];
 
+/**
+ * Full-screen loader. Pure CSS animation (no animation library) so it paints immediately,
+ * and the brand mark is drawn with CSS instead of downloading the logo image.
+ */
 export function LoadingScreen({ className }: { className?: string }) {
   const [phraseIndex, setPhraseIndex] = useState(0);
 
@@ -15,41 +18,8 @@ export function LoadingScreen({ className }: { className?: string }) {
     return () => clearInterval(interval);
   }, []);
 
-  const letters = ["O", "N", "Y", "X"];
-
-  const wordmarkContainer: Variants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        delayChildren: 0.15,
-        staggerChildren: 0.08,
-      },
-    },
-  };
-
-  const letterItem: Variants = {
-    hidden: { opacity: 0, y: 8 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        type: "spring",
-        stiffness: 400,
-        damping: 24,
-      },
-    },
-  };
-
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{
-        opacity: 0,
-        scale: 0.98,
-        transition: { duration: 0.3, ease: "easeInOut" },
-      }}
+    <div
       className={cn(
         "fixed inset-0 z-50 flex min-h-screen w-full flex-col items-center justify-center bg-background px-4 select-none",
         className,
@@ -58,116 +28,63 @@ export function LoadingScreen({ className }: { className?: string }) {
       role="status"
     >
       {/* Subtle living ambient background veil */}
-      <motion.div
-        className="pointer-events-none absolute inset-0 -z-10 flex items-center justify-center overflow-hidden"
-        animate={{
-          opacity: [0.3, 0.5, 0.3],
-          scale: [0.96, 1.05, 0.96],
-        }}
-        transition={{
-          duration: 4,
-          ease: "easeInOut",
-          repeat: Infinity,
-        }}
-      >
+      <div className="pointer-events-none absolute inset-0 -z-10 flex items-center justify-center overflow-hidden">
         <div
-          className="size-[380px] sm:size-[480px] rounded-full blur-3xl opacity-15"
-          style={{
-            background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)",
-          }}
+          className="onyx-veil size-[380px] rounded-full opacity-15 blur-3xl sm:size-[480px]"
+          style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)" }}
         />
-      </motion.div>
+      </div>
 
       <div className="relative flex flex-col items-center gap-6">
-        {/* Animated Brand "O" mark with orbiting conic-gradient ring */}
+        {/* Brand mark with orbiting conic-gradient ring */}
         <div className="relative flex items-center justify-center">
-          {/* Rotating conic ring */}
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{
-              duration: 2.2,
-              ease: "linear",
-              repeat: Infinity,
-            }}
-            className="absolute -inset-2.5 rounded-2xl opacity-75 blur-[0.5px]"
+          <div
+            className="onyx-spin absolute -inset-2.5 rounded-2xl opacity-75 blur-[0.5px]"
             style={{
               background:
                 "conic-gradient(from 0deg, var(--primary) 0deg, transparent 180deg, var(--primary) 360deg)",
             }}
           />
-
-          {/* Orbiting micro-accent particle */}
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{
-              duration: 2.2,
-              ease: "linear",
-              repeat: Infinity,
-            }}
-            className="absolute -inset-2.5 rounded-2xl flex items-start justify-center pointer-events-none"
-          >
-            <span className="size-2 rounded-full bg-primary shadow-[0_0_10px_var(--primary)] -translate-y-1" />
-          </motion.div>
-
-          {/* Center ONYX mark */}
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{
-              type: "spring",
-              stiffness: 350,
-              damping: 22,
-            }}
-            className="relative z-10 size-12 overflow-hidden rounded-full shadow-md ring-2 ring-background"
-          >
-            <img src={onyxMark.url} alt="" aria-hidden="true" className="size-full object-cover" />
-          </motion.div>
+          <div className="onyx-spin pointer-events-none absolute -inset-2.5 flex items-start justify-center rounded-2xl">
+            <span className="size-2 -translate-y-1 rounded-full bg-primary shadow-[0_0_10px_var(--primary)]" />
+          </div>
+          <div className="brand-gradient relative z-10 flex size-12 items-center justify-center rounded-full text-lg font-bold text-primary-foreground shadow-md ring-2 ring-background">
+            O
+          </div>
         </div>
 
-        {/* Wordmark "ONYX" letter-by-letter reveal */}
-        <motion.div
-          variants={wordmarkContainer}
-          initial="hidden"
-          animate="visible"
+        {/* Wordmark letter-by-letter reveal */}
+        <div
           className="flex items-center gap-1 text-2xl font-bold tracking-tight text-foreground"
+          aria-hidden="true"
         >
-          {letters.map((char, index) => (
-            <motion.span key={index} variants={letterItem}>
+          {LETTERS.map((char, index) => (
+            <span
+              key={char}
+              className="onyx-letter"
+              style={{ animationDelay: `${150 + index * 80}ms` }}
+            >
               {char}
-            </motion.span>
+            </span>
           ))}
-        </motion.div>
+        </div>
 
         {/* Indeterminate moving progress bar */}
         <div className="relative h-1 w-36 overflow-hidden rounded-full bg-muted">
-          <motion.div
-            className="brand-gradient absolute inset-y-0 w-2/5 rounded-full"
-            animate={{ x: ["-100%", "280%"] }}
-            transition={{
-              repeat: Infinity,
-              duration: 1.4,
-              ease: [0.4, 0, 0.2, 1],
-            }}
-          />
+          <div className="onyx-bar brand-gradient absolute inset-y-0 w-2/5 rounded-full" />
         </div>
 
-        {/* Personality rotating status line */}
-        <div className="h-5 flex items-center justify-center">
-          <AnimatePresence mode="wait">
-            <motion.p
-              key={phraseIndex}
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              transition={{ duration: 0.22 }}
-              className="text-xs font-medium text-muted-foreground tracking-wide"
-            >
-              {PHRASES[phraseIndex]}
-            </motion.p>
-          </AnimatePresence>
+        {/* Rotating status line */}
+        <div className="flex h-5 items-center justify-center">
+          <p
+            key={phraseIndex}
+            className="onyx-phrase text-xs font-medium tracking-wide text-muted-foreground"
+          >
+            {PHRASES[phraseIndex]}
+          </p>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 

@@ -71,3 +71,12 @@ USING (
     )
   )
 );
+
+
+DROP POLICY IF EXISTS "att_write" ON public.assignment_attachments;
+CREATE POLICY "att_write" ON public.assignment_attachments FOR INSERT TO authenticated
+  WITH CHECK (public.is_assignment_owner(assignment_id, auth.uid()) OR public.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "att_delete" ON public.assignment_attachments;
+CREATE POLICY "att_delete" ON public.assignment_attachments FOR DELETE TO authenticated
+  USING (public.is_assignment_owner(assignment_id, auth.uid()) OR public.has_role(auth.uid(), 'admin'));

@@ -12,7 +12,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MathEditor } from "@/components/math/MathEditor";
-import { RenderMathText, containsMath } from "@/components/math/RenderMathText";
+import {
+  RichMathEditor,
+  type MathTarget,
+  type RichMathEditorHandle,
+} from "@/components/math/RichMathEditor";
 import { ImagePlus, Trash2, ArrowUp, ArrowDown, Mic, ShieldAlert, Sigma } from "lucide-react";
 
 export type ImageBlock = {
@@ -78,13 +82,15 @@ export function TypedEditor({
   onUploadImage,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const selectionRef = useRef({ start: value.length, end: value.length });
+  const editorRef = useRef<RichMathEditorHandle>(null);
   const [uploading, setUploading] = useState(false);
   const [listening, setListening] = useState(false);
-  const [mathOpen, setMathOpen] = useState(false);
-  const [equation, setEquation] = useState("");
-  const [equationBlock, setEquationBlock] = useState(false);
+  // Equation dialog: inserting a new equation, or editing one the student clicked.
+  const [mathDialog, setMathDialog] = useState<{
+    latex: string;
+    block: boolean;
+    target: MathTarget | null;
+  } | null>(null);
 
   function block(kind: string, label: string) {
     toast.warning(`${label} is disabled on this assignment`, {
@@ -207,47 +213,28 @@ export function TypedEditor({
     }
   }
 
-  function rememberSelection() {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    selectionRef.current = {
-      start: textarea.selectionStart ?? value.length,
-      end: textarea.selectionEnd ?? value.length,
-    };
-  }
-
-  function focusAt(position: number) {
-    requestAnimationFrame(() => {
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-      textarea.focus();
-      textarea.setSelectionRange(position, position);
-    });
-  }
-
   function openMathEditor() {
-    rememberSelection();
-    setEquation("");
-    setMathOpen(true);
+    setMathDialog({ latex: "", block: false, target: null });
   }
 
-  function insertEquation() {
-    const latex = equation.trim();
+  function editMath(target: MathTarget) {
+    if (disabled) return;
+    setMathDialog({ latex: target.latex, block: target.kind === "block", target });
+  }
+
+  function saveEquation() {
+    if (!mathDialog) return;
+    const latex = mathDialog.latex.trim();
     if (!latex) return;
-    const { start, end } = selectionRef.current;
-    // Block equations go on their own line so they render centered.
-    const before = value.slice(0, start);
-    const after = value.slice(end);
-    const wrapped = equationBlock
-      ? `${before && !before.endsWith("\n") ? "\n" : ""}$$${latex}$$${after.startsWith("\n") ? "" : "\n"}`
-      : `$${latex}$`;
-    const next = before + wrapped + after;
-    const caret = start + wrapped.length;
-    onChange(next);
-    selectionRef.current = { start: caret, end: caret };
-    setMathOpen(false);
-    setEquation("");
-    focusAt(caret);
+    const kind = mathDialog.block ? "block" : "inline";
+    if (mathDialog.target) editorRef.current?.updateMath(mathDialog.target, latex, kind);
+    else editorRef.current?.insertMath(latex, kind);
+    setMathDialog(null);
+  }
+
+  function removeEquation() {
+    if (mathDialog?.target) editorRef.current?.deleteMath(mathDialog.target);
+    setMathDialog(null);
   }
 
   return (
@@ -310,89 +297,105 @@ export function TypedEditor({
         onChange={(e) => void handleFiles(e.target.files)}
       />
 
-      <Textarea
-        ref={textareaRef}
-        value={value}
-        disabled={disabled}
-        spellCheck={allowAutocorrect}
-        autoCorrect={allowAutocorrect ? "on" : "off"}
-        autoCapitalize={allowAutocorrect ? "sentences" : "off"}
-        onChange={(e) => onChange(e.target.value)}
-        onPaste={(e) => {
-          e.preventDefault();
-          block("paste", "Pasting");
-        }}
-        onCopy={(e) => {
-          e.preventDefault();
-          block("copy", "Copying");
-        }}
-        onCut={(e) => {
-          e.preventDefault();
-          block("cut", "Cutting");
-        }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          block("contextmenu", "The right-click menu");
-        }}
-        onDragStart={(e) => {
-          e.preventDefault();
-          block("dragstart", "Dragging text");
-        }}
-        onDrop={(e) => {
-          const files = e.dataTransfer.files;
-          if (files?.length && allowImages) {
-            e.preventDefault();
+      {allowMath ? (
+        <RichMathEditor
+          ref={editorRef}
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          allowAutocorrect={allowAutocorrect}
+          placeholder="Write your answer here. Pasting is disabled."
+          onEditMath={editMath}
+          onBlocked={block}
+          onDropFiles={(files) => {
+            if (!allowImages) return false;
             void handleFiles(files);
-            return;
-          }
-          e.preventDefault();
-          block("drop", "Dropping text");
-        }}
-        onKeyDown={(e) => {
-          const mod = e.ctrlKey || e.metaKey;
-          if (mod && ["v", "c", "x"].includes(e.key.toLowerCase())) {
+            return true;
+          }}
+        />
+      ) : (
+        <Textarea
+          value={value}
+          disabled={disabled}
+          spellCheck={allowAutocorrect}
+          autoCorrect={allowAutocorrect ? "on" : "off"}
+          autoCapitalize={allowAutocorrect ? "sentences" : "off"}
+          onChange={(e) => onChange(e.target.value)}
+          onPaste={(e) => {
             e.preventDefault();
-            block(`key-${e.key.toLowerCase()}`, "That shortcut");
-          }
-        }}
-        placeholder="Write your answer here. Pasting is disabled."
-        className="min-h-[320px] resize-y font-normal leading-7"
-      />
-
-      {allowMath && containsMath(value) && (
-        <div className="panel space-y-2 p-4" aria-live="polite">
-          <p className="text-xs font-medium text-muted-foreground">Preview of your answer</p>
-          <RenderMathText text={value} />
-        </div>
+            block("paste", "Pasting");
+          }}
+          onCopy={(e) => {
+            e.preventDefault();
+            block("copy", "Copying");
+          }}
+          onCut={(e) => {
+            e.preventDefault();
+            block("cut", "Cutting");
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            block("contextmenu", "The right-click menu");
+          }}
+          onDragStart={(e) => {
+            e.preventDefault();
+            block("dragstart", "Dragging text");
+          }}
+          onDrop={(e) => {
+            const files = e.dataTransfer.files;
+            if (files?.length && allowImages) {
+              e.preventDefault();
+              void handleFiles(files);
+              return;
+            }
+            e.preventDefault();
+            block("drop", "Dropping text");
+          }}
+          onKeyDown={(e) => {
+            const mod = e.ctrlKey || e.metaKey;
+            if (mod && ["v", "c", "x"].includes(e.key.toLowerCase())) {
+              e.preventDefault();
+              block(`key-${e.key.toLowerCase()}`, "That shortcut");
+            }
+          }}
+          placeholder="Write your answer here. Pasting is disabled."
+          className="min-h-[320px] resize-y font-normal leading-7"
+        />
       )}
 
-      <Dialog
-        open={mathOpen}
-        onOpenChange={(open) => {
-          setMathOpen(open);
-          if (!open) focusAt(selectionRef.current.start);
-        }}
-      >
-        <DialogContent className="max-w-3xl">
+      <Dialog open={mathDialog !== null} onOpenChange={(open) => !open && setMathDialog(null)}>
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Insert equation</DialogTitle>
+            <DialogTitle>{mathDialog?.target ? "Edit equation" : "Insert equation"}</DialogTitle>
             <DialogDescription>
-              Build an equation, then insert it into your answer.
+              Type your equation below. You will see it formatted as you type.
             </DialogDescription>
           </DialogHeader>
-          <MathEditor
-            value={equation}
-            onChange={setEquation}
-            display={equationBlock}
-            onDisplayChange={setEquationBlock}
-          />
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setMathOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="button" disabled={!equation.trim()} onClick={insertEquation}>
-              Insert equation
-            </Button>
+          {mathDialog && (
+            <MathEditor
+              value={mathDialog.latex}
+              onChange={(latex) => setMathDialog((d) => (d ? { ...d, latex } : d))}
+              display={mathDialog.block}
+              onDisplayChange={(block) => setMathDialog((d) => (d ? { ...d, block } : d))}
+              onClipboardBlocked={block}
+            />
+          )}
+          <DialogFooter className="gap-2 sm:justify-between">
+            {mathDialog?.target ? (
+              <Button type="button" variant="ghost" onClick={removeEquation}>
+                <Trash2 className="mr-1.5 size-4 text-destructive" /> Remove
+              </Button>
+            ) : (
+              <span />
+            )}
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => setMathDialog(null)}>
+                Cancel
+              </Button>
+              <Button type="button" disabled={!mathDialog?.latex.trim()} onClick={saveEquation}>
+                {mathDialog?.target ? "Save equation" : "Insert equation"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

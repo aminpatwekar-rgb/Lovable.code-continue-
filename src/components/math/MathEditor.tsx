@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MathPreview } from "@/components/math/MathPreview";
+import { MathField, type MathFieldHandle } from "@/components/math/MathField";
 import { SYMBOL_GROUPS, emptyMatrix, fractionLatex, matrixLatex } from "@/lib/math/symbols";
 import { FORMULA_LIBRARY } from "@/lib/science/formulas";
 
@@ -18,15 +19,21 @@ export function MathEditor({
   onChange,
   display = true,
   onDisplayChange,
+  onClipboardBlocked,
 }: {
   value: string;
   onChange: (v: string) => void;
   /** Preview as a centered block equation (true) or inline with text (false). */
-  display?: boolean;
+  display?: boolean | undefined;
   /** When provided, shows an Inline / Block switch above the preview. */
-  onDisplayChange?: (display: boolean) => void;
+  onDisplayChange?: ((display: boolean) => void) | undefined;
+  /** Block copy/paste inside the editor (paste-protected assignments). */
+  onClipboardBlocked?: ((kind: string, label: string) => void) | undefined;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
+  const fieldRef = useRef<MathFieldHandle>(null);
+  const [visualReady, setVisualReady] = useState(false);
+  const [visualFailed, setVisualFailed] = useState(false);
   const [num, setNum] = useState("");
   const [den, setDen] = useState("");
   const [rows, setRows] = useState(2);
@@ -35,6 +42,7 @@ export function MathEditor({
   const [delim, setDelim] = useState<"p" | "b" | "v" | "B">("b");
 
   function insert(snippet: string) {
+    if (visualReady && fieldRef.current?.insert(snippet)) return;
     const el = ref.current;
     if (!el) {
       onChange(value + snippet);
@@ -88,22 +96,61 @@ export function MathEditor({
           </div>
         </div>
       )}
-      <div className="rounded-lg border border-border bg-card/60 p-4" aria-live="polite">
-        {value.trim() ? (
-          <MathPreview latex={value} display={display} />
-        ) : (
-          <p className="text-sm text-muted-foreground">Your equation will appear here.</p>
-        )}
-      </div>
+      {!visualFailed && (
+        <div className="space-y-1.5">
+          <MathField
+            ref={fieldRef}
+            value={value}
+            onChange={onChange}
+            autoFocus
+            placeholder="Type your equation, e.g. x^2 + 3x - 5"
+            onClipboardBlocked={onClipboardBlocked}
+            onStatus={(ok) => (ok ? setVisualReady(true) : setVisualFailed(true))}
+          />
+          <p className="text-xs text-muted-foreground">
+            Type it the way you would write it: <code>x^2</code> for powers, <code>/</code> for
+            fractions, <code>sqrt</code> for roots. Press the right arrow key to step out of a
+            fraction, power or root. Use the buttons below for symbols.
+          </p>
+        </div>
+      )}
 
-      <Textarea
-        ref={ref}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        spellCheck={false}
-        placeholder="\frac{-b \pm \sqrt{b^2-4ac}}{2a}"
-        className="min-h-20 font-mono text-sm"
-      />
+      {visualFailed && (
+        <div className="rounded-lg border border-border bg-card/60 p-4" aria-live="polite">
+          {value.trim() ? (
+            <MathPreview latex={value} display={display} />
+          ) : (
+            <p className="text-sm text-muted-foreground">Your equation will appear here.</p>
+          )}
+        </div>
+      )}
+
+      <details open={visualFailed} className="group rounded-md border border-border/70 px-3 py-2">
+        <summary className="cursor-pointer text-sm text-muted-foreground">
+          Edit as LaTeX code (advanced)
+        </summary>
+        <Textarea
+          ref={ref}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onPaste={(e) => {
+            if (!onClipboardBlocked) return;
+            e.preventDefault();
+            onClipboardBlocked("paste", "Pasting");
+          }}
+          onDrop={(e) => {
+            if (!onClipboardBlocked) return;
+            e.preventDefault();
+            onClipboardBlocked("drop", "Dropping text");
+          }}
+          spellCheck={false}
+          placeholder="\frac{-b \pm \sqrt{b^2-4ac}}{2a}"
+          className="mt-2 min-h-20 font-mono text-sm"
+        />
+        {visualFailed && display && value.trim() && (
+          <p className="mt-2 text-xs text-muted-foreground">Preview shown above.</p>
+        )}
+      </details>
 
       <Tabs defaultValue="symbols">
         <TabsList>

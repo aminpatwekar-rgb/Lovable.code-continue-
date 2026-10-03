@@ -18,6 +18,8 @@ import {
   ChevronDown,
   ClipboardCheck,
   Calendar,
+  EyeOff,
+  Sparkles,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -44,16 +46,18 @@ import { useAuth } from "@/lib/auth";
 import { useViewRole } from "@/lib/viewRole";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { getPlanSummary } from "@/lib/onyx.features.functions";
+import { useServerFn } from "@tanstack/react-start";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/classes", label: "Classes", icon: GraduationCap },
   { to: "/assignments", label: "Assignments", icon: BookOpen },
   { to: "/quizzes", label: "Quizzes", icon: ClipboardList },
-  { to: "/calendar", label: "Calendar", icon: Calendar },
-  { to: "/attendance", label: "Attendance", icon: ClipboardCheck },
-  { to: "/reports", label: "Reports", icon: ClipboardCheck },
-  { to: "/rubrics", label: "Rubrics", icon: ClipboardCheck },
+  { to: "/calendar", label: "Calendar", icon: Calendar, feature: "calendar" },
+  { to: "/attendance", label: "Attendance", icon: ClipboardCheck, feature: "attendance" },
+  { to: "/reports", label: "Reports", icon: ClipboardCheck, feature: "progress_reports" },
+  { to: "/rubrics", label: "Rubrics", icon: ClipboardCheck, feature: "rubrics" },
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { to: "/achievements", label: "Achievements", icon: Award },
   { to: "/settings", label: "Settings", icon: Settings },
@@ -80,6 +84,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const shouldReduceMotion = useReducedMotion();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const getPlan = useServerFn(getPlanSummary);
+  const planQuery = useQuery({
+    queryKey: ["app-shell-plan", profile?.id],
+    enabled: Boolean(profile?.id),
+    queryFn: () => getPlan(),
+    staleTime: 60_000,
+  });
   const branding = useQuery({
     queryKey: ["onyx-branding", profile?.id],
     enabled: Boolean(profile?.id),
@@ -117,6 +128,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     ? [BOTTOM_NAV[0], BOTTOM_NAV[1], GRADING_NAV, BOTTOM_NAV[2]]
     : BOTTOM_NAV;
   const canSwitchRole = role === "admin" || role === "teacher";
+  const planFeatures = (planQuery.data?.plan?.features ?? {}) as Record<string, boolean>;
+  const isAdmin = role === "admin";
 
   const renderRoleSwitcher = (compact = false) => {
     const roleDotClass =
@@ -198,8 +211,26 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const nav = (
     <nav className="flex flex-col gap-1.5" aria-label="Main Navigation">
-      {items.map(({ to, label, icon: Icon }) => {
+      {items.map(({ to, label, icon: Icon, ...item }) => {
         const active = pathname === to || pathname.startsWith(to + "/");
+        const feature = (item as { feature?: string }).feature;
+        const locked = Boolean(feature) && !isAdmin && planQuery.isSuccess && !planFeatures[feature!];
+
+        if (locked) {
+          return (
+            <div
+              key={to}
+              title="Included in a higher plan"
+              aria-disabled="true"
+              className="group relative flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium text-muted-foreground/50 cursor-not-allowed select-none"
+            >
+              <Icon className="size-4 shrink-0 opacity-60" />
+              <span className="truncate flex-1">{label}</span>
+              <EyeOff className="size-3.5 opacity-70" />
+            </div>
+          );
+        }
+
         return (
           <MotionLink
             key={to}

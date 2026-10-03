@@ -546,6 +546,11 @@ function ClassDetail() {
               <Button variant="ghost" onClick={exportRosterTemplate}>
                 <Download className="mr-1.5 size-4" /> CSV template
               </Button>
+              <Button variant="ghost" asChild>
+                <Link to="/classes/$classId/import" params={{ classId }}>
+                  Import Students
+                </Link>
+              </Button>
             </div>
           )}
           {roster.isLoading ? (

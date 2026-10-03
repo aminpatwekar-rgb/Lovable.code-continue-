@@ -17,6 +17,7 @@ import {
   Check,
   ChevronDown,
   ClipboardCheck,
+  Calendar,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -24,6 +25,7 @@ import { clearSessionConfirmation } from "@/lib/session-confirm";
 import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
 
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { NotificationCenter } from "@/components/NotificationCenter";
 import { Wordmark } from "@/components/Wordmark";
 
 import { Button } from "@/components/ui/button";
@@ -48,6 +50,9 @@ const NAV = [
   { to: "/classes", label: "Classes", icon: GraduationCap },
   { to: "/assignments", label: "Assignments", icon: BookOpen },
   { to: "/quizzes", label: "Quizzes", icon: ClipboardList },
+  { to: "/calendar", label: "Calendar", icon: Calendar },
+  { to: "/attendance", label: "Attendance", icon: ClipboardCheck },
+  { to: "/reports", label: "Reports", icon: ClipboardCheck },
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { to: "/achievements", label: "Achievements", icon: Award },
   { to: "/settings", label: "Settings", icon: Settings },
@@ -225,7 +230,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link to="/dashboard" className="transition-opacity hover:opacity-90">
               <Wordmark size="sm" />
             </Link>
-            {renderRoleSwitcher()}
+            <div className="flex items-center gap-1">
+              <NotificationCenter />
+              {renderRoleSwitcher()}
+            </div>
           </div>
 
           <div className="space-y-4 p-4">
@@ -278,7 +286,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Link to="/dashboard" className="flex items-center gap-2">
           <Wordmark size="sm" />
         </Link>
-        {canSwitchRole && renderRoleSwitcher(true)}
+        <div className="flex items-center gap-1">
+          <NotificationCenter />
+          {canSwitchRole && renderRoleSwitcher(true)}
+        </div>
       </header>
 
       <nav

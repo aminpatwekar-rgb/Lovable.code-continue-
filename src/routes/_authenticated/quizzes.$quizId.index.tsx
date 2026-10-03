@@ -320,7 +320,7 @@ function Page() {
                     ) : quiz.show_results && a.score != null && a.max_score ? (
                       <span className="inline-flex items-center gap-1.5 tabular-nums">
                         <CheckCircle2 className="size-4 text-muted-foreground" />
-                        {a.score}/{a.max_score} · {percent(a.score, a.max_score)}%
+                        {a.score}/{totalMarks} · {percent(a.score, totalMarks)}%
                       </span>
                     ) : (
                       <Badge variant="outline">{a.status.replace("_", " ")}</Badge>

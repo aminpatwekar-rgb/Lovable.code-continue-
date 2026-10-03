@@ -287,10 +287,6 @@ function AdminConsole() {
   });
 
   const aList = assignments.data ?? [];
-  const pendingGrading = (submissions.data ?? []).filter((s) =>
-    ["submitted", "late"].includes(s.status),
-  ).length;
-
   const activity = [
     ...all.slice(0, 10).map((u) => ({
       at: u.created_at,
@@ -583,27 +579,6 @@ function AdminConsole() {
         </TabsContent>
 
         <TabsContent value="assignments" className="mt-5 space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat icon={BookOpen} label="Total" value={aList.length} />
-            <Stat
-              icon={FileClock}
-              label="Pending grading"
-              value={pendingGrading}
-              tone="text-warning"
-            />
-            <Stat
-              icon={BookOpen}
-              label="Published"
-              value={aList.filter((a) => a.published && !a.archived).length}
-              tone="text-success"
-            />
-            <Stat
-              icon={BookOpen}
-              label="Drafts"
-              value={aList.filter((a) => !a.published).length}
-              tone="text-muted-foreground"
-            />
-          </div>
           {aList.length === 0 ? (
             <p className="panel p-6 text-sm text-muted-foreground">No assignments yet.</p>
           ) : (

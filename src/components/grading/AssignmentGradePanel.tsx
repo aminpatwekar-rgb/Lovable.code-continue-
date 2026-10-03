@@ -157,10 +157,10 @@ export function AssignmentGradePanel({
         violationCount={sub.paste_violation_count}
       />
 
-      {(sub.assignments as { rubric_id?: string | null } | null)?.rubric_id && (
+      {((sub as any).assignments as { rubric_id?: string | null } | null)?.rubric_id && (
         <RubricGrader
           submissionId={submissionId}
-          rubricId={(sub.assignments as { rubric_id: string }).rubric_id}
+          rubricId={((sub as any).assignments as { rubric_id: string }).rubric_id}
           onTotalChange={(total) => {
             if (total > 0 && marks.trim() === "") setMarks(String(total));
           }}

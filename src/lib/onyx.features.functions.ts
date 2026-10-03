@@ -159,18 +159,41 @@ export const getPlanSummary = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
-    const [{ data: code, error: codeError }, { data: plans, error: plansError }, { data: storage, error: storageError }] = await Promise.all([
+    const [{ data: code, error: codeError }, { data: plans, error: plansError }, { data: storage, error: storageError }, { data: isAdmin, error: adminError }] = await Promise.all([
       db.rpc("current_plan_code", { _user_id: context.userId }),
       db.from("billing_plans").select("code,name,monthly_price_inr,annual_price_inr,limits,features").order("monthly_price_inr"),
       db.rpc("get_storage_usage", { _user_id: context.userId }),
+      db.rpc("has_role", { _user_id: context.userId, _role: "admin" }),
     ]);
     if (codeError) throw codeError;
     if (plansError) throw plansError;
     if (storageError) throw storageError;
-    const plan = (plans ?? []).find((p) => p.code === code) ?? (plans ?? [])[0];
+    if (adminError) throw adminError;
+
+    const basePlan = (plans ?? []).find((p) => p.code === code) ?? (plans ?? [])[0];
+    const adminPlan = {
+      code: "admin",
+      name: "Admin",
+      monthly_price_inr: 0,
+      annual_price_inr: 0,
+      limits: {
+        max_classes: -1,
+        max_students_per_class: -1,
+        assignments_per_month: -1,
+        quizzes_per_month: -1,
+        ai_questions_per_month: -1,
+        question_bank_total: -1,
+        storage_bytes: -1,
+      },
+      features: Object.fromEntries([
+        "question_bank","advanced_grading","rubrics","attendance","calendar","notifications",
+        "advanced_analytics","csv_import","csv_export","quiz_randomization","time_attempt_controls",
+        "lockdown","progress_reports","remove_branding",
+      ].map((key) => [key, true])),
+    };
     return {
-      code: code ?? "free",
-      plan: plan ?? null,
+      code: isAdmin ? "admin" : (code ?? "free"),
+      plan: isAdmin ? adminPlan : (basePlan ?? null),
       storageUsed: Number(storage ?? 0),
     };
   });

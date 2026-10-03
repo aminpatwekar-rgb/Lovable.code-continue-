@@ -65,6 +65,11 @@ export function ClassResources({ classId, canManage }: { classId: string; canMan
   const upload = useMutation({
     mutationFn: async (files: File[]) => {
       if (!user) throw new Error("Sign in to upload resources");
+      const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+      const quota = await (supabase as any).rpc("assert_storage_available", {
+        _additional_bytes: totalBytes,
+      });
+      if (quota.error) throw quota.error;
       for (const file of files) {
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-");
         const path = `${classId}/${crypto.randomUUID()}-${safeName}`;

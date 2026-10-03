@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +23,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+const db = supabase as any;
+
 export type AssignmentDraft = {
   id: string;
   class_id: string;
@@ -37,6 +39,7 @@ export type AssignmentDraft = {
   allow_autocorrect: boolean;
   allow_voice_typing: boolean;
   published: boolean;
+  rubric_id?: string | null;
 };
 
 function toLocalInput(iso: string | null) {
@@ -74,6 +77,7 @@ export function AssignmentDialog({
   const [allowImages, setAllowImages] = useState(true);
   const [allowAutocorrect, setAllowAutocorrect] = useState(false);
   const [allowVoice, setAllowVoice] = useState(false);
+  const [rubricId, setRubricId] = useState("");
 
   // Callers pass a freshly built object literal on every render, so this effect
   // must key off the dialog opening and the assignment id only — depending on the
@@ -81,6 +85,16 @@ export function AssignmentDialog({
   const latest = useRef(assignment);
   latest.current = assignment;
   const assignmentId = assignment?.id ?? null;
+
+  const rubrics = useQuery({
+    queryKey: ["rubrics", teacherId],
+    enabled: Boolean(open && teacherId),
+    queryFn: async () => {
+      const q = await (supabase as any).from("rubrics").select("id,title").eq("owner_id", teacherId).order("title");
+      if (q.error) throw q.error;
+      return q.data ?? [];
+    },
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -95,6 +109,7 @@ export function AssignmentDialog({
     setAllowImages(a?.allow_images ?? true);
     setAllowAutocorrect(a?.allow_autocorrect ?? false);
     setAllowVoice(a?.allow_voice_typing ?? false);
+    setRubricId(a?.rubric_id ?? "");
   }, [open, assignmentId]);
 
   const save = useMutation({
@@ -114,18 +129,19 @@ export function AssignmentDialog({
         allow_images: allowImages,
         allow_autocorrect: allowAutocorrect,
         allow_voice_typing: allowVoice,
+        rubric_id: rubricId || null,
         published: publish,
       };
       if (assignment) {
-        const { error } = await supabase
+        const { error } = await db
           .from("assignments")
           .update(payload)
           .eq("id", assignment.id);
         if (error) throw error;
         return assignment.id;
       }
-      const { data, error } = await supabase
-        .from("assignments")
+      const { data, error } = await db
+          .from("assignments")
         .insert({ ...payload, class_id: classId, teacher_id: teacherId })
         .select("id")
         .single();
@@ -219,6 +235,21 @@ export function AssignmentDialog({
                 <SelectItem value="either">Student's choice</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Rubric</Label>
+            <Select value={rubricId || "none"} onValueChange={(v) => setRubricId(v === "none" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="No rubric" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No rubric</SelectItem>
+                {(rubrics.data ?? []).map((r: { id: string; title: string }) => (
+                  <SelectItem value={r.id} key={r.id}>{r.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Reuse a saved rubric during grading.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="a-inst">Instructions</Label>

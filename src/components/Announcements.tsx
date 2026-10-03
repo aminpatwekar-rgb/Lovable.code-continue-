@@ -101,6 +101,13 @@ export function Announcements({
     mutationFn: async () => {
       if (!title.trim()) throw new Error("A title is required");
       if (!user) throw new Error("Sign in to publish an announcement");
+      const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+      if (totalBytes > 0) {
+        const quota = await (supabase as any).rpc("assert_storage_available", {
+          _additional_bytes: totalBytes,
+        });
+        if (quota.error) throw quota.error;
+      }
       const { data: announcement, error } = await supabase.from("announcements").insert({
         author_id: user.id,
         class_id: classId ?? null,

@@ -1,27 +1,42 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { QUESTION_TYPES, DIFFICULTIES, type QuestionType, type Difficulty } from "@/lib/quiz/types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-export const Route = createFileRoute("/_authenticated/question-bank")({
-  head: () => ({
-    meta: [
-      { title: "Question bank — ONYX" },
-      { name: "description", content: "Reusable question library in ONYX." },
-      { property: "og:title", content: "Question bank — ONYX" },
-      { property: "og:description", content: "Reusable question library in ONYX." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "robots", content: "noindex" },
-    ],
-  }),
-  component: Page,
+const db = supabase as any;
+type QB = { id:string; type:QuestionType; difficulty:Difficulty; prompt:string; options:string[]; correct:string[]; explanation:string|null; points:number; subject:string|null; tags:string[]; };
+
+export const Route=createFileRoute("/_authenticated/question-bank")({
+  validateSearch:(search:Record<string,unknown>)=>({quizId:typeof search.quizId==="string"?search.quizId:undefined}),
+  head:()=>({meta:[{title:"Question Bank — ONYX"}]}),
+  component:Page,
 });
 
-function Page() {
-  return (
-    <div className="panel space-y-2 p-10 text-center">
-      <h1 className="text-xl font-semibold tracking-tight">Question bank</h1>
-      <p className="text-sm text-muted-foreground">
-        This screen is being built next — the data model behind it is already live.
-      </p>
-    </div>
-  );
+function Page(){
+  const {user}=useAuth(); const search=Route.useSearch(); const navigate=useNavigate(); const qc=useQueryClient();
+  const [query,setQuery]=useState(""); const [type,setType]=useState("all"); const [difficulty,setDifficulty]=useState("all");
+  const [open,setOpen]=useState(false); const [editing,setEditing]=useState<QB|null>(null);
+  const [form,setForm]=useState({type:"mcq",difficulty:"medium",prompt:"",options:"",correct:"",explanation:"",points:"1",subject:"",tags:""});
+  const questions=useQuery({queryKey:["question-bank",user?.id],enabled:Boolean(user),queryFn:async()=>{const q=await db.from("question_bank").select("*").eq("owner_id",user!.id).order("updated_at",{ascending:false});if(q.error)throw q.error;return (q.data??[]) as QB[];}});
+  const filtered=useMemo(()=>{const q=query.trim().toLowerCase();return (questions.data??[]).filter(x=>(!q||x.prompt.toLowerCase().includes(q)||(x.subject??"").toLowerCase().includes(q)||(x.tags??[]).some(t=>t.toLowerCase().includes(q)))&&(type==="all"||x.type===type)&&(difficulty==="all"||x.difficulty===difficulty));},[questions.data,query,type,difficulty]);
+  function reset(q?:QB){setEditing(q??null);setForm(q?{type:q.type,difficulty:q.difficulty,prompt:q.prompt,options:(q.options??[]).join("\n"),correct:(q.correct??[]).join("\n"),explanation:q.explanation??"",points:String(q.points),subject:q.subject??"",tags:(q.tags??[]).join(", ")}:{type:"mcq",difficulty:"medium",prompt:"",options:"",correct:"",explanation:"",points:"1",subject:"",tags:""});setOpen(true);}
+  const save=useMutation({mutationFn:async()=>{if(!form.prompt.trim())throw new Error("Question prompt is required.");const payload={owner_id:user!.id,type:form.type,difficulty:form.difficulty,prompt:form.prompt.trim(),options:form.options.split("\n").map(s=>s.trim()).filter(Boolean),correct:form.correct.split("\n").map(s=>s.trim()).filter(Boolean),explanation:form.explanation.trim()||null,points:Math.max(1,Number(form.points)||1),subject:form.subject.trim()||null,tags:form.tags.split(",").map(s=>s.trim()).filter(Boolean)};const q=editing?await db.from("question_bank").update(payload).eq("id",editing.id):await db.from("question_bank").insert(payload);if(q.error)throw q.error;},onSuccess:async()=>{setOpen(false);setEditing(null);await qc.invalidateQueries({queryKey:["question-bank",user?.id]});}});
+  const remove=useMutation({mutationFn:async(id:string)=>{const q=await db.from("question_bank").delete().eq("id",id);if(q.error)throw q.error;},onSuccess:()=>qc.invalidateQueries({queryKey:["question-bank",user?.id]})});
+  async function addToQuiz(items:QB[]){if(!search.quizId)return;const pos=await db.from("quiz_questions").select("position").eq("quiz_id",search.quizId).order("position",{ascending:false}).limit(1).maybeSingle();if(pos.error)throw pos.error;let next=Number(pos.data?.position??-1)+1;const rows=items.map(q=>({quiz_id:search.quizId,type:q.type,difficulty:q.difficulty,prompt:q.prompt,options:q.options??[],correct:q.correct??[],explanation:q.explanation,points:q.points,position:next++}));const ins=await db.from("quiz_questions").insert(rows);if(ins.error)throw ins.error;await navigate({to:"/quizzes/$quizId/edit",params:{quizId:search.quizId}});}
+  return <div className="space-y-6">
+    <header className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-semibold">Question Bank</h1><p className="text-sm text-muted-foreground">{search.quizId?"Select reusable questions for this quiz.":"Reusable questions you own."}</p></div><Button onClick={()=>reset()}><Plus className="mr-2 size-4"/>New question</Button></header>
+    <div className="flex flex-wrap gap-2"><div className="relative flex-1 min-w-56"><Search className="absolute left-3 top-2.5 size-4 text-muted-foreground"/><Input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search questions, subjects or tags" className="pl-9"/></div><Select value={type} onValueChange={setType}><SelectTrigger className="w-44"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All types</SelectItem>{QUESTION_TYPES.map(t=><SelectItem value={t.value} key={t.value}>{t.label}</SelectItem>)}</SelectContent></Select><Select value={difficulty} onValueChange={setDifficulty}><SelectTrigger className="w-36"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All levels</SelectItem>{DIFFICULTIES.map(d=><SelectItem value={d} key={d}>{d}</SelectItem>)}</SelectContent></Select></div>
+    <div className="grid gap-3">{filtered.map(q=><div className="panel flex flex-wrap items-start gap-4 p-4" key={q.id}><div className="min-w-0 flex-1"><div className="flex flex-wrap gap-2"><Badge variant="secondary">{QUESTION_TYPES.find(t=>t.value===q.type)?.label??q.type}</Badge><Badge variant="outline">{q.difficulty}</Badge>{q.subject&&<Badge variant="outline">{q.subject}</Badge>}</div><p className="mt-3 whitespace-pre-wrap font-medium">{q.prompt}</p><p className="mt-1 text-xs text-muted-foreground">{q.points} mark{q.points===1?"":"s"} · {(q.tags??[]).join(" · ")}</p></div><div className="flex gap-2"><Button size="sm" variant="outline" onClick={()=>reset(q)}><Pencil className="mr-2 size-4"/>Edit</Button>{search.quizId&&<Button size="sm" onClick={()=>addToQuiz([q])}>Add to quiz</Button>}<Button size="icon" variant="ghost" onClick={()=>remove.mutate(q.id)} aria-label="Delete question"><Trash2 className="size-4"/></Button></div></div>)}{!filtered.length&&<div className="panel p-10 text-center text-sm text-muted-foreground">No questions match your filters.</div>}</div>
+    <Dialog open={open} onOpenChange={setOpen}><DialogContent className="max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>{editing?"Edit question":"New question"}</DialogTitle></DialogHeader><div className="space-y-4"><div className="grid gap-3 sm:grid-cols-2"><div><Label>Type</Label><Select value={form.type} onValueChange={v=>setForm(f=>({...f,type:v}))}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{QUESTION_TYPES.map(t=><SelectItem value={t.value} key={t.value}>{t.label}</SelectItem>)}</SelectContent></Select></div><div><Label>Difficulty</Label><Select value={form.difficulty} onValueChange={v=>setForm(f=>({...f,difficulty:v}))}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{DIFFICULTIES.map(d=><SelectItem value={d} key={d}>{d}</SelectItem>)}</SelectContent></Select></div></div><div><Label>Prompt</Label><Textarea value={form.prompt} onChange={e=>setForm(f=>({...f,prompt:e.target.value}))}/></div>{(form.type==="mcq"||form.type==="multi_select"||form.type==="true_false")&&<div><Label>Options (one per line)</Label><Textarea value={form.options} onChange={e=>setForm(f=>({...f,options:e.target.value}))}/></div>}{form.type!=="essay"&&<div><Label>Correct answers (one per line)</Label><Textarea value={form.correct} onChange={e=>setForm(f=>({...f,correct:e.target.value}))}/></div>}<div className="grid gap-3 sm:grid-cols-3"><div><Label>Points</Label><Input type="number" min={1} value={form.points} onChange={e=>setForm(f=>({...f,points:e.target.value}))}/></div><div><Label>Subject</Label><Input value={form.subject} onChange={e=>setForm(f=>({...f,subject:e.target.value}))}/></div><div><Label>Tags</Label><Input value={form.tags} onChange={e=>setForm(f=>({...f,tags:e.target.value}))}/></div></div><div><Label>Explanation</Label><Textarea value={form.explanation} onChange={e=>setForm(f=>({...f,explanation:e.target.value}))}/></div></div><DialogFooter><Button variant="outline" onClick={()=>setOpen(false)}>Cancel</Button><Button onClick={()=>save.mutate()} disabled={save.isPending}>{save.isPending?"Saving…":"Save question"}</Button></DialogFooter></DialogContent></Dialog>
+  </div>;
 }

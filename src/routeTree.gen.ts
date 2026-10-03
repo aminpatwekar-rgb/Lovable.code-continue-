@@ -31,6 +31,12 @@ import { Route as AuthenticatedGradingQuizQuizIdRouteImport } from './routes/_au
 import { Route as AuthenticatedQuizzesQuizIdIndexRouteImport } from './routes/_authenticated/quizzes.$quizId.index'
 import { Route as AuthenticatedQuizzesQuizIdEditRouteImport } from './routes/_authenticated/quizzes.$quizId.edit'
 import { Route as AuthenticatedQuizzesQuizIdTakeRouteImport } from './routes/_authenticated/quizzes.$quizId.take'
+import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authenticated/attendance'
+import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedRubricsRouteImport } from './routes/_authenticated/rubrics'
+import { Route as AuthenticatedClassesClassIdImportRouteImport } from './routes/_authenticated/classes.$classId.import'
+import { Route as AuthenticatedQuizzesQuizIdAnalyticsRouteImport } from './routes/_authenticated/quizzes.$quizId.analytics'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -157,6 +163,37 @@ const AuthenticatedQuizzesQuizIdTakeRoute =
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 
+const AuthenticatedAttendanceRoute = AuthenticatedAttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRubricsRoute = AuthenticatedRubricsRouteImport.update({
+  id: '/rubrics',
+  path: '/rubrics',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedClassesClassIdImportRoute = AuthenticatedClassesClassIdImportRouteImport.update({
+  id: '/classes/$classId/import',
+  path: '/classes/$classId/import',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedQuizzesQuizIdAnalyticsRoute = AuthenticatedQuizzesQuizIdAnalyticsRouteImport.update({
+  id: '/quizzes/$quizId/analytics',
+  path: '/quizzes/$quizId/analytics',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
@@ -179,6 +216,12 @@ export interface FileRoutesByFullPath {
   '/quizzes/$quizId/edit': typeof AuthenticatedQuizzesQuizIdEditRoute
   '/quizzes/$quizId/take': typeof AuthenticatedQuizzesQuizIdTakeRoute
   '/quizzes/$quizId/': typeof AuthenticatedQuizzesQuizIdIndexRoute
+  '/attendance': typeof AuthenticatedAttendanceRoute
+  '/calendar': typeof AuthenticatedCalendarRoute
+  '/reports': typeof AuthenticatedReportsRoute
+  '/rubrics': typeof AuthenticatedRubricsRoute
+  '/classes/$classId/import': typeof AuthenticatedClassesClassIdImportRoute
+  '/quizzes/$quizId/analytics': typeof AuthenticatedQuizzesQuizIdAnalyticsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -202,6 +245,12 @@ export interface FileRoutesByTo {
   '/quizzes/$quizId/edit': typeof AuthenticatedQuizzesQuizIdEditRoute
   '/quizzes/$quizId/take': typeof AuthenticatedQuizzesQuizIdTakeRoute
   '/quizzes/$quizId': typeof AuthenticatedQuizzesQuizIdIndexRoute
+  '/attendance': typeof AuthenticatedAttendanceRoute
+  '/calendar': typeof AuthenticatedCalendarRoute
+  '/reports': typeof AuthenticatedReportsRoute
+  '/rubrics': typeof AuthenticatedRubricsRoute
+  '/classes/$classId/import': typeof AuthenticatedClassesClassIdImportRoute
+  '/quizzes/$quizId/analytics': typeof AuthenticatedQuizzesQuizIdAnalyticsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -227,6 +276,12 @@ export interface FileRoutesById {
   '/_authenticated/quizzes/$quizId/edit': typeof AuthenticatedQuizzesQuizIdEditRoute
   '/_authenticated/quizzes/$quizId/take': typeof AuthenticatedQuizzesQuizIdTakeRoute
   '/_authenticated/quizzes/$quizId/': typeof AuthenticatedQuizzesQuizIdIndexRoute
+  '/_authenticated/attendance': typeof AuthenticatedAttendanceRoute
+  '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/_authenticated/rubrics': typeof AuthenticatedRubricsRoute
+  '/_authenticated/classes/$classId/import': typeof AuthenticatedClassesClassIdImportRoute
+  '/_authenticated/quizzes/$quizId/analytics': typeof AuthenticatedQuizzesQuizIdAnalyticsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -252,6 +307,12 @@ export interface FileRouteTypes {
     | '/quizzes/$quizId/edit'
     | '/quizzes/$quizId/take'
     | '/quizzes/$quizId/'
+    | '/attendance'
+    | '/calendar'
+    | '/reports'
+    | '/rubrics'
+    | '/classes/$classId/import'
+    | '/quizzes/$quizId/analytics'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -275,6 +336,12 @@ export interface FileRouteTypes {
     | '/quizzes/$quizId/edit'
     | '/quizzes/$quizId/take'
     | '/quizzes/$quizId'
+    | '/attendance'
+    | '/calendar'
+    | '/reports'
+    | '/rubrics'
+    | '/classes/$classId/import'
+    | '/quizzes/$quizId/analytics'
   id:
     | '__root__'
     | '/'
@@ -299,6 +366,12 @@ export interface FileRouteTypes {
     | '/_authenticated/quizzes/$quizId/edit'
     | '/_authenticated/quizzes/$quizId/take'
     | '/_authenticated/quizzes/$quizId/'
+    | '/_authenticated/attendance'
+    | '/_authenticated/calendar'
+    | '/_authenticated/reports'
+    | '/_authenticated/rubrics'
+    | '/_authenticated/classes/$classId/import'
+    | '/_authenticated/quizzes/$quizId/analytics'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -450,6 +523,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedQuizzesQuizIdIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/attendance': {
+      id: '/_authenticated/attendance'
+      path: '/attendance'
+      fullPath: '/attendance'
+      preLoaderRoute: typeof AuthenticatedAttendanceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/calendar': {
+      id: '/_authenticated/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof AuthenticatedCalendarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/rubrics': {
+      id: '/_authenticated/rubrics'
+      path: '/rubrics'
+      fullPath: '/rubrics'
+      preLoaderRoute: typeof AuthenticatedRubricsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/classes/$classId/import': {
+      id: '/_authenticated/classes/$classId/import'
+      path: '/classes/$classId/import'
+      fullPath: '/classes/$classId/import'
+      preLoaderRoute: typeof AuthenticatedClassesClassIdImportRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/quizzes/$quizId/analytics': {
+      id: '/_authenticated/quizzes/$quizId/analytics'
+      path: '/quizzes/$quizId/analytics'
+      fullPath: '/quizzes/$quizId/analytics'
+      preLoaderRoute: typeof AuthenticatedQuizzesQuizIdAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/quizzes/$quizId/edit': {
       id: '/_authenticated/quizzes/$quizId/edit'
       path: '/quizzes/$quizId/edit'
@@ -486,6 +601,12 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedQuizzesQuizIdEditRoute: typeof AuthenticatedQuizzesQuizIdEditRoute
   AuthenticatedQuizzesQuizIdTakeRoute: typeof AuthenticatedQuizzesQuizIdTakeRoute
   AuthenticatedQuizzesQuizIdIndexRoute: typeof AuthenticatedQuizzesQuizIdIndexRoute
+  AuthenticatedAttendanceRoute: typeof AuthenticatedAttendanceRoute
+  AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
+  AuthenticatedRubricsRoute: typeof AuthenticatedRubricsRoute
+  AuthenticatedClassesClassIdImportRoute: typeof AuthenticatedClassesClassIdImportRoute
+  AuthenticatedQuizzesQuizIdAnalyticsRoute: typeof AuthenticatedQuizzesQuizIdAnalyticsRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -510,6 +631,12 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedQuizzesQuizIdEditRoute: AuthenticatedQuizzesQuizIdEditRoute,
   AuthenticatedQuizzesQuizIdTakeRoute: AuthenticatedQuizzesQuizIdTakeRoute,
   AuthenticatedQuizzesQuizIdIndexRoute: AuthenticatedQuizzesQuizIdIndexRoute,
+  AuthenticatedAttendanceRoute: AuthenticatedAttendanceRoute,
+  AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
+  AuthenticatedRubricsRoute: AuthenticatedRubricsRoute,
+  AuthenticatedClassesClassIdImportRoute: AuthenticatedClassesClassIdImportRoute,
+  AuthenticatedQuizzesQuizIdAnalyticsRoute: AuthenticatedQuizzesQuizIdAnalyticsRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

@@ -202,18 +202,53 @@ async function callGemini(prompt: string) {
 export const generateQuizQuestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: GenerateInput) => validate(input))
-  .handler(async ({ data }) => {
-    const content = await callGemini(buildPrompt(data));
-    return { questions: parseQuestions(content).slice(0, data.count) };
+  .handler(async ({ data, context }) => {
+    const reservation = await context.supabase.rpc("reserve_ai_questions", { _requested: data.count });
+    if (reservation.error) throw new Error(reservation.error.message);
+    const ledgerId = reservation.data as string;
+    try {
+      const content = await callGemini(buildPrompt(data));
+      const questions = parseQuestions(content).slice(0, data.count);
+      const settled = await context.supabase.rpc("settle_ai_questions", {
+        _ledger_id: ledgerId,
+        _successful: questions.length,
+        _provider: "lovable-ai-gateway",
+        _model: MODEL,
+        _input_tokens: null,
+        _output_tokens: null,
+      });
+      if (settled.error) throw new Error(settled.error.message);
+      return { questions };
+    } catch (error) {
+      await context.supabase.rpc("release_ai_questions", { _ledger_id: ledgerId });
+      throw error;
+    }
   });
 
 /** Regenerates a single question, avoiding everything already in the quiz. */
 export const regenerateQuizQuestion = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: GenerateInput) => validate({ ...input, count: 1 }))
-  .handler(async ({ data }) => {
-    const content = await callGemini(buildPrompt({ ...data, count: 1 }));
-    const [question] = parseQuestions(content);
-    if (!question) throw new Error("Couldn't regenerate that question. Try again.");
-    return { question };
+  .handler(async ({ data, context }) => {
+    const reservation = await context.supabase.rpc("reserve_ai_questions", { _requested: 1 });
+    if (reservation.error) throw new Error(reservation.error.message);
+    const ledgerId = reservation.data as string;
+    try {
+      const content = await callGemini(buildPrompt({ ...data, count: 1 }));
+      const [question] = parseQuestions(content);
+      if (!question) throw new Error("Couldn't regenerate that question. Try again.");
+      const settled = await context.supabase.rpc("settle_ai_questions", {
+        _ledger_id: ledgerId,
+        _successful: 1,
+        _provider: "lovable-ai-gateway",
+        _model: MODEL,
+        _input_tokens: null,
+        _output_tokens: null,
+      });
+      if (settled.error) throw new Error(settled.error.message);
+      return { question };
+    } catch (error) {
+      await context.supabase.rpc("release_ai_questions", { _ledger_id: ledgerId });
+      throw error;
+    }
   });

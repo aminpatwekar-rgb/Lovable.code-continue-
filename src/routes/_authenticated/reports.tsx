@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download, Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +18,7 @@ export const Route=createFileRoute("/_authenticated/reports")({
 });
 
 function Page(){
-  const {user,role}=useAuth();
+  const {user}=useAuth();
   const {effectiveRole}=useViewRole();
   const isTeacher=effectiveRole==="teacher"||effectiveRole==="admin";
   const [classId,setClassId]=useState("");

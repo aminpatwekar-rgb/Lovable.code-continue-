@@ -133,15 +133,15 @@ export function AssignmentDialog({
         published: publish,
       };
       if (assignment) {
-        const { error } = await supabase
+        const { error } = await db
           .from("assignments")
           .update(payload)
           .eq("id", assignment.id);
         if (error) throw error;
         return assignment.id;
       }
-      const { data, error } = await supabase
-        .from("assignments")
+      const { data, error } = await db
+          .from("assignments")
         .insert({ ...payload, class_id: classId, teacher_id: teacherId })
         .select("id")
         .single();

@@ -43,7 +43,7 @@ export function BusinessModelPlans() {
           const isCurrent = current?.code === p.code;
           const limits = p.limits ?? {};
           const features = p.features ?? {};
-          const highlighted = p.code === "professional";
+          const highlighted = p.code === "pro";
           return (
             <Card key={p.code} className={highlighted ? "border-primary/50 shadow-md" : ""}>
               <CardHeader>

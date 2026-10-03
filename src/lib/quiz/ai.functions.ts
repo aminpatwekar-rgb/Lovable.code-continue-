@@ -203,13 +203,14 @@ export const generateQuizQuestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: GenerateInput) => validate(input))
   .handler(async ({ data, context }) => {
-    const reservation = await context.supabase.rpc("reserve_ai_questions", { _requested: data.count });
+    const db = context.supabase as any;
+    const reservation = await db.rpc("reserve_ai_questions", { _requested: data.count });
     if (reservation.error) throw new Error(reservation.error.message);
     const ledgerId = reservation.data as string;
     try {
       const content = await callGemini(buildPrompt(data));
       const questions = parseQuestions(content).slice(0, data.count);
-      const settled = await context.supabase.rpc("settle_ai_questions", {
+      const settled = await db.rpc("settle_ai_questions", {
         _ledger_id: ledgerId,
         _successful: questions.length,
         _provider: "lovable-ai-gateway",

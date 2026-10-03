@@ -221,7 +221,7 @@ export const generateQuizQuestions = createServerFn({ method: "POST" })
       if (settled.error) throw new Error(settled.error.message);
       return { questions };
     } catch (error) {
-      await context.supabase.rpc("release_ai_questions", { _ledger_id: ledgerId });
+      await db.rpc("release_ai_questions", { _ledger_id: ledgerId });
       throw error;
     }
   });

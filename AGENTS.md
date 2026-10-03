@@ -10,3 +10,5 @@
 > the editor, so keep the branch in a working state.
 
 <!-- LOVABLE:END -->
+
+- Razorpay checkout uses authenticated TanStack server functions and direct HTTP calls; the secret key must remain server-only because order creation and signature verification are trust boundaries.

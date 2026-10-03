@@ -20,6 +20,7 @@ import { ProfileSettingsCard } from "@/components/settings/ProfileSettingsCard";
 import { NotificationPreferencesCard } from "@/components/settings/NotificationPreferencesCard";
 import { RolePreferencesCard } from "@/components/settings/RolePreferencesCard";
 import { AccountSettingsCard } from "@/components/settings/AccountSettingsCard";
+import { SubscriptionSettingsCard } from "@/components/settings/SubscriptionSettingsCard";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -254,7 +255,17 @@ function SettingsPage() {
         <RolePreferencesCard />
       </section>
 
-      {/* 5. Account & Security */}
+      {/* 5. Subscription */}
+      <section className="space-y-3">
+        <div className="border-b border-border/60 pb-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Subscription
+          </h2>
+        </div>
+        <SubscriptionSettingsCard />
+      </section>
+
+      {/* 6. Account & Security */}
       <section className="space-y-3">
         <div className="border-b border-border/60 pb-2">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">

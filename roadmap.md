@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Set up secure Razorpay test checkout for the future ONYX subscription
+
 - [x] Replace shared ONYX logo and favicon with the uploaded artwork
 
 - [x] Fix verified admin class-announcement RLS mismatch and validate posting permissions

@@ -23,6 +23,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+const db = supabase as any;
+
 export type AssignmentDraft = {
   id: string;
   class_id: string;

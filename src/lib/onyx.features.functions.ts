@@ -22,6 +22,10 @@ export const importStudentsFromCsv = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    const featureAllowed = await supabaseAdmin.rpc("enforce_csv_import_feature", { _class_id: data.classId });
+    if (featureAllowed.error) throw featureAllowed.error;
+    if (!featureAllowed.data) throw new Error("CSV student import is not included in your current plan.");
+
     const { data: klass, error: classError } = await supabaseAdmin
       .from("classes")
       .select("id, teacher_id, archived")

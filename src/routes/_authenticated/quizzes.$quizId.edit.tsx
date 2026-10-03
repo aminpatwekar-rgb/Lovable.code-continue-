@@ -561,9 +561,16 @@ function Page() {
               onSaveToBank={() => void saveToBank(i)}
             />
           ))}
-          <Button variant="outline" onClick={() => setQuestions((p) => [...p, blankQuestion()])}>
-            <Plus className="mr-2 size-4" /> Add question
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setQuestions((p) => [...p, blankQuestion()])}>
+              <Plus className="mr-2 size-4" /> Add question
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/question-bank" search={{ quizId }}>
+                Add from Question Bank
+              </Link>
+            </Button>
+          </div>
         </TabsContent>
 
         <TabsContent value="attempts" className="mt-4 space-y-4">

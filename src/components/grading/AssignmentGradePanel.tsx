@@ -8,6 +8,7 @@ import { percentOf, quickMarks } from "@/lib/grading/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { SubmissionComments } from "@/components/SubmissionComments";
 import { SubmissionViewer } from "@/components/grading/SubmissionViewer";
+import { RubricGrader } from "@/components/grading/RubricGrader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,7 +52,7 @@ export function AssignmentGradePanel({
     queryFn: async () => {
       const { data: sub, error } = await supabase
         .from("submissions")
-        .select("*")
+        .select("*, assignments(rubric_id)")
         .eq("id", submissionId)
         .maybeSingle();
       if (error) throw error;
@@ -155,6 +156,16 @@ export function AssignmentGradePanel({
         violations={violations}
         violationCount={sub.paste_violation_count}
       />
+
+      {(sub.assignments as { rubric_id?: string | null } | null)?.rubric_id && (
+        <RubricGrader
+          submissionId={submissionId}
+          rubricId={(sub.assignments as { rubric_id: string }).rubric_id}
+          onTotalChange={(total) => {
+            if (total > 0 && marks.trim() === "") setMarks(String(total));
+          }}
+        />
+      )}
 
       <section
         className="panel space-y-5 p-5 sm:p-6"

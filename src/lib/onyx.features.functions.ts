@@ -194,6 +194,7 @@ export const getPlanSummary = createServerFn({ method: "GET" })
     return {
       code: isAdmin ? "admin" : (code ?? "free"),
       plan: isAdmin ? adminPlan : (basePlan ?? null),
+      plans: plans ?? [],
       storageUsed: Number(storage ?? 0),
     };
   });

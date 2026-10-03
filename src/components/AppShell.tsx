@@ -16,6 +16,7 @@ import {
   Eye,
   Check,
   ChevronDown,
+  ClipboardCheck,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -59,6 +60,8 @@ const BOTTOM_NAV = [
   { to: "/quizzes", label: "Quizzes", icon: ClipboardList },
 ] as const;
 
+const GRADING_NAV = { to: "/grading", label: "Grading", icon: ClipboardCheck } as const;
+
 const ADMIN_NAV = [{ to: "/admin", label: "Admin", icon: Shield }] as const;
 
 const MotionLink = motion.create(Link);
@@ -89,7 +92,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     .toUpperCase();
 
   // Navigation items follow effectiveRole for previewing
-  const items = effectiveRole === "admin" ? [...NAV, ...ADMIN_NAV] : NAV;
+  const canGrade = effectiveRole === "teacher" || effectiveRole === "admin";
+  // Teachers and admins get a Grading tab right after Quizzes.
+  const baseNav = canGrade ? [...NAV.slice(0, 4), GRADING_NAV, ...NAV.slice(4)] : [...NAV];
+  const items = effectiveRole === "admin" ? [...baseNav, ...ADMIN_NAV] : baseNav;
+  // Phone tab bar: grading replaces Quizzes for teachers (Quizzes stays in the More menu).
+  const bottomItems = canGrade
+    ? [BOTTOM_NAV[0], BOTTOM_NAV[1], GRADING_NAV, BOTTOM_NAV[2]]
+    : BOTTOM_NAV;
   const canSwitchRole = role === "admin" || role === "teacher";
 
   const renderRoleSwitcher = (compact = false) => {
@@ -275,7 +285,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         aria-label="Primary"
         className="glass fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border pb-[env(safe-area-inset-bottom)] lg:hidden"
       >
-        {BOTTOM_NAV.map(({ to, label, icon: Icon }) => {
+        {bottomItems.map(({ to, label, icon: Icon }) => {
           const active = pathname === to || pathname.startsWith(to + "/");
           return (
             <Link

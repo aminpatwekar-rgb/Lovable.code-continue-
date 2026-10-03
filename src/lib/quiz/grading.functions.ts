@@ -21,13 +21,24 @@ export const finalizeQuizAttempt = createServerFn({ method: "POST" })
     const { data: attempt, error } = await supabase
       .from("quiz_attempts")
       .select(
-        "id, quiz_id, student_id, status, started_at, quizzes(title, class_id, passing_marks)",
+        "id, quiz_id, student_id, status, started_at, score, max_score, needs_manual_grading, quizzes(title, class_id, passing_marks)",
       )
       .eq("id", data.attemptId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!attempt) throw new Error("Attempt not found");
     if (attempt.student_id !== userId) throw new Error("Not your attempt");
+
+    // An attempt is graded exactly once. Calling this again (double tap, retry, or a student
+    // editing answers afterwards) must never re-grade it or award the points a second time.
+    if (attempt.status !== "in_progress") {
+      return {
+        score: Number(attempt.score ?? 0),
+        max: Number(attempt.max_score ?? 0),
+        needsManual: Boolean(attempt.needs_manual_grading),
+        badges: [] as string[],
+      };
+    }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -74,8 +85,9 @@ export const finalizeQuizAttempt = createServerFn({ method: "POST" })
         .eq("id", given.id);
     }
 
+    // Claim the attempt: only one request can move it out of "in_progress".
     const now = new Date().toISOString();
-    await supabaseAdmin
+    const { data: claimed } = await supabaseAdmin
       .from("quiz_attempts")
       .update({
         status: needsManual ? "submitted" : "graded",
@@ -85,7 +97,13 @@ export const finalizeQuizAttempt = createServerFn({ method: "POST" })
         max_score: max,
         needs_manual_grading: needsManual,
       })
-      .eq("id", attempt.id);
+      .eq("id", attempt.id)
+      .eq("status", "in_progress")
+      .select("id");
+    if (!claimed || claimed.length === 0) {
+      // A parallel request already graded this attempt; award nothing twice.
+      return { score, max, needsManual, badges: [] as string[] };
+    }
 
     const quiz = attempt.quizzes as { class_id: string; title: string } | null;
 

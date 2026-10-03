@@ -371,6 +371,10 @@ function StudentSubmission({
   }
 
   async function uploadFile(file: File, kind: "page" | "inline_image", order: number) {
+    const quota = await (supabase as any).rpc("assert_storage_available", {
+      _additional_bytes: file.size,
+    });
+    if (quota.error) throw quota.error;
     const submissionId = await ensureSubmission();
     const ext = file.name.split(".").pop() ?? "bin";
     const path = `${assignment.id}/${userId}/${crypto.randomUUID()}.${ext}`;

@@ -103,6 +103,12 @@ export function AssignmentActions({
 
   const remove = useMutation({
     mutationFn: async () => {
+      const { data: attachments, error: listError } = await supabase.from("assignment_attachments").select("storage_path").eq("assignment_id", assignment.id);
+      if (listError) throw listError;
+      if (attachments?.length) {
+        const { error: storageError } = await supabase.storage.from("assignment-attachments").remove(attachments.map((x) => x.storage_path));
+        if (storageError) throw storageError;
+      }
       const { error } = await supabase.from("assignments").delete().eq("id", assignment.id);
       if (error) throw error;
     },

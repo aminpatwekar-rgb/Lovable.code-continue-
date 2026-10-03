@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useViewRole } from "@/lib/viewRole";
 import { Button } from "@/components/ui/button";
+import { PlanGate } from "@/components/PlanGate";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -76,14 +77,14 @@ function Page() {
   }
 
   if(!isTeacher) return (
-    <div className="space-y-6">
+    <PlanGate feature="attendance"><div className="space-y-6">
       <header><h1 className="text-2xl font-semibold">Attendance</h1><p className="text-sm text-muted-foreground">Your attendance history across classes.</p></header>
       <div className="grid gap-3">{(records.data ?? []).map((r:any)=><div className="panel flex items-center justify-between p-4" key={r.attendance_date+r.class_id}><div><p className="font-medium">{r.classes?.name ?? "Class"}</p><p className="text-xs text-muted-foreground">{r.attendance_date}</p></div><Badge>{r.status}</Badge></div>)}</div>
-    </div>
+    </div></PlanGate>
   );
 
   return (
-    <div className="space-y-6">
+    <PlanGate feature="attendance"><div className="space-y-6">
       <header><h1 className="text-2xl font-semibold">Attendance</h1><p className="text-sm text-muted-foreground">Mark and review attendance from the real class roster.</p></header>
       <div className="flex flex-wrap gap-3">
         <Select value={classId} onValueChange={v=>{setClassId(v);setDraft({});}}>
@@ -103,6 +104,6 @@ function Page() {
           {values[s.student_id] === "present" && <Check className="size-4 text-success"/>}
         </div>)}
       </div>}
-    </div>
+    </div></PlanGate>
   );
 }

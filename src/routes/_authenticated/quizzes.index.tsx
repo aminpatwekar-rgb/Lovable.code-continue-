@@ -396,8 +396,21 @@ function StudentQuizzes() {
         .select("id, quiz_id, status, score, max_score, attempt_no, submitted_at")
         .eq("student_id", user!.id)
         .order("attempt_no", { ascending: false });
+
+      // Use the quiz's actual question points as the display denominator.
+      // This keeps the student-facing percentage aligned with the full quiz marks.
+      const { data: questionMarks } = await supabase
+        .from("quiz_questions")
+        .select("quiz_id, points")
+        .in("quiz_id", (quizzes ?? []).map((x) => x.id));
+
+      const totalMarks = new Map<string, number>();
+      for (const q of questionMarks ?? []) {
+        totalMarks.set(q.quiz_id, (totalMarks.get(q.quiz_id) ?? 0) + (Number(q.points) || 0));
+      }
+
       const counts = await fetchQuestionCounts((quizzes ?? []).map((x) => x.id));
-      return { quizzes: quizzes ?? [], attempts: attempts ?? [], counts };
+      return { quizzes: quizzes ?? [], attempts: attempts ?? [], counts, totalMarks };
     },
   });
 
@@ -410,6 +423,7 @@ function StudentQuizzes() {
     );
 
   const counts = q.data?.counts ?? new Map<string, number>();
+  const totalMarks = q.data?.totalMarks ?? new Map<string, number>();
   const attempts = q.data?.attempts ?? [];
   const best = new Map<string, (typeof attempts)[number]>();
   for (const a of attempts) if (!best.has(a.quiz_id)) best.set(a.quiz_id, a);
@@ -463,7 +477,9 @@ function StudentQuizzes() {
             </Badge>
           )}
           {a?.status === "graded" && a.max_score ? (
-            <Badge>{percent(a.score ?? 0, a.max_score)}%</Badge>
+            <Badge>
+              {percent(a.score ?? 0, totalMarks.get(x.id) || a.max_score)}%
+            </Badge>
           ) : a?.status === "submitted" ? (
             <Badge variant="secondary">Awaiting grading</Badge>
           ) : null}

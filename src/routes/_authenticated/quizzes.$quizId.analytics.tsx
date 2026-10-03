@@ -1,11 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, CheckCircle2, Clock3, Users } from "lucide-react";
 import { fetchQuizAnalytics } from "@/lib/quiz/analytics";
 import { useViewRole } from "@/lib/viewRole";
 import { Button } from "@/components/ui/button";
 import { PlanGate } from "@/components/PlanGate";
-import { Link } from "@tanstack/react-router";
 
 export const Route=createFileRoute("/_authenticated/quizzes/$quizId/analytics")({
   head:()=>({meta:[{title:"Quiz Analytics — ONYX"}]}),

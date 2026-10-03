@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Paperclip, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,6 +78,9 @@ export function AssignmentDialog({
   const [allowAutocorrect, setAllowAutocorrect] = useState(false);
   const [allowVoice, setAllowVoice] = useState(false);
   const [rubricId, setRubricId] = useState("");
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<Array<{ id: string; file_name: string; size_bytes: number | null; storage_path: string }>>([]);
+  const [uploadingAttachments, setUploadingAttachments] = useState(false);
 
   // Callers pass a freshly built object literal on every render, so this effect
   // must key off the dialog opening and the assignment id only — depending on the
@@ -110,11 +113,14 @@ export function AssignmentDialog({
     setAllowAutocorrect(a?.allow_autocorrect ?? false);
     setAllowVoice(a?.allow_voice_typing ?? false);
     setRubricId(a?.rubric_id ?? "");
+    setAttachmentFiles([]);
+    if (a?.id) { void (async () => { const { data } = await db.from("assignment_attachments").select("id,file_name,size_bytes,storage_path").eq("assignment_id", a.id).order("created_at", { ascending: true }); setExistingAttachments(data ?? []); })(); } else setExistingAttachments([]);
   }, [open, assignmentId]);
 
   const save = useMutation({
     mutationFn: async (publish: boolean) => {
       if (!title.trim()) throw new Error("Title is required");
+      if (!editing && !rubricId) throw new Error("A rubric is required when creating an assignment");
       const marks = Number(maxMarks);
       if (!Number.isFinite(marks) || marks <= 0 || marks > 1000)
         throw new Error("Max marks must be between 1 and 1000");
@@ -132,21 +138,35 @@ export function AssignmentDialog({
         rubric_id: rubricId || null,
         published: publish,
       };
+      let id: string;
       if (assignment) {
-        const { error } = await db
-          .from("assignments")
-          .update(payload)
-          .eq("id", assignment.id);
+        const { error } = await db.from("assignments").update(payload).eq("id", assignment.id);
         if (error) throw error;
-        return assignment.id;
+        id = assignment.id;
+      } else {
+        const { data, error } = await db.from("assignments").insert({ ...payload, class_id: classId, teacher_id: teacherId }).select("id").single();
+        if (error) throw error;
+        id = data.id;
       }
-      const { data, error } = await db
-          .from("assignments")
-        .insert({ ...payload, class_id: classId, teacher_id: teacherId })
-        .select("id")
-        .single();
-      if (error) throw error;
-      return data.id;
+      if (attachmentFiles.length) {
+        setUploadingAttachments(true);
+        try {
+          const allowed = new Set(["application/pdf","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.ms-powerpoint","application/vnd.openxmlformats-officedocument.presentationml.presentation","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","image/jpeg","image/png","application/zip"]);
+          for (const file of attachmentFiles) {
+            if (!allowed.has(file.type)) throw new Error(`Unsupported file type: ${file.name}`);
+            if (file.size > 25 * 1024 * 1024) throw new Error(`${file.name} is larger than 25MB`);
+            const quota = await db.rpc("assert_storage_available", { _additional_bytes: file.size });
+            if (quota.error) throw quota.error;
+            const ext = file.name.includes(".") ? file.name.split(".").pop() : "bin";
+            const path = `${id}/${crypto.randomUUID()}.${ext}`;
+            const { data: row, error: rowError } = await db.from("assignment_attachments").insert({ assignment_id: id, storage_path: path, file_name: file.name.slice(0, 160), mime_type: file.type || "application/octet-stream", size_bytes: file.size }).select("id").single();
+            if (rowError) throw rowError;
+            const { error: uploadError } = await supabase.storage.from("assignment-attachments").upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
+            if (uploadError) { await db.from("assignment_attachments").delete().eq("id", row.id); throw uploadError; }
+          }
+        } finally { setUploadingAttachments(false); }
+      }
+      return id;
     },
     onSuccess: (id) => {
       toast.success(editing ? "Assignment updated" : "Assignment created");
@@ -251,6 +271,17 @@ export function AssignmentDialog({
               Reuse a saved rubric during grading.
             </p>
           </div>
+          <div className="space-y-2 rounded-lg border border-border p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div><Label>Attachments</Label><p className="text-xs text-muted-foreground">PDF, Word, PowerPoint, Excel, images or ZIP · max 25MB each</p></div>
+              <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById("assignment-attachments-input")?.click()} disabled={uploadingAttachments}><Paperclip className="mr-1.5 size-4" /> Add files</Button>
+              <input id="assignment-attachments-input" type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.zip" className="hidden" onChange={(e) => setAttachmentFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])])} />
+            </div>
+            {(existingAttachments.length > 0 || attachmentFiles.length > 0) && <div className="space-y-1.5">
+              {existingAttachments.map((file) => <div key={file.id} className="flex items-center gap-2 rounded-md bg-muted/40 px-2.5 py-2 text-sm"><Paperclip className="size-4 shrink-0 text-muted-foreground" /><span className="min-w-0 flex-1 truncate">{file.file_name}</span><button type="button" className="text-muted-foreground hover:text-destructive" aria-label={`Remove ${file.file_name}`} onClick={async () => { const { error } = await db.from("assignment_attachments").delete().eq("id", file.id); if (!error) { await supabase.storage.from("assignment-attachments").remove([file.storage_path]); setExistingAttachments((prev) => prev.filter((x) => x.id !== file.id)); } else toast.error(error.message); }}><X className="size-4" /></button></div>)}
+              {attachmentFiles.map((file, index) => <div key={`${file.name}-${file.size}-${index}`} className="flex items-center gap-2 rounded-md bg-muted/40 px-2.5 py-2 text-sm"><Paperclip className="size-4 shrink-0 text-muted-foreground" /><span className="min-w-0 flex-1 truncate">{file.name}</span><span className="text-xs text-muted-foreground">{Math.max(1, Math.round(file.size / 1024))} KB</span><button type="button" className="text-muted-foreground hover:text-destructive" aria-label={`Remove ${file.name}`} onClick={() => setAttachmentFiles((prev) => prev.filter((_, i) => i !== index))}><X className="size-4" /></button></div>)}
+            </div>}
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="a-inst">Instructions</Label>
             <Textarea
@@ -277,7 +308,7 @@ export function AssignmentDialog({
           </div>
         </div>
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={() => save.mutate(false)} disabled={save.isPending}>
+          <Button variant="outline" onClick={() => save.mutate(false)} disabled={save.isPending || uploadingAttachments}>
             {save.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
             {editing ? "Save as draft" : "Save draft"}
           </Button>

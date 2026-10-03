@@ -10,6 +10,7 @@ import { useViewRole } from "@/lib/viewRole";
 import { daysLate, formatDue, type SubmissionStatus } from "@/lib/assignments";
 import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
 import { StatusBadge } from "@/components/StatusBadge";
+import { AssignmentAttachments } from "@/components/AssignmentAttachments";
 import { TypedEditor, type ImageBlock } from "@/components/TypedEditor";
 import { RenderMathText } from "@/components/math/RenderMathText";
 import { AssignmentActions, type AssignmentRow } from "@/components/AssignmentActions";
@@ -143,6 +144,8 @@ function AssignmentPage() {
           )}
         </p>
       </header>
+
+      <AssignmentAttachments assignmentId={a.id} />
 
       {a.instructions && (
         <section className="panel p-5">

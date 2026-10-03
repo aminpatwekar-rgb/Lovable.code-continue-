@@ -52,7 +52,7 @@ function Page() {
 
   const records = useQuery({
     queryKey:["attendance-records",classId,date,user?.id,isTeacher],
-    enabled:Boolean(classId && user),
+    enabled:Boolean(user),
     queryFn:async()=>{
       const q=isTeacher
         ? await db.from("attendance_records").select("student_id,status,note").eq("class_id",classId).eq("attendance_date",date)

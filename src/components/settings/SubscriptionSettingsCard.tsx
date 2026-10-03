@@ -90,8 +90,8 @@ export function SubscriptionSettingsCard() {
         description: "Subscription checkout test",
         order_id: orderId,
         prefill: {
-          name: profile?.full_name || undefined,
-          email: user?.email || undefined,
+          ...(profile?.full_name ? { name: profile.full_name } : {}),
+          ...(user?.email ? { email: user.email } : {}),
         },
         theme: { color: "#111111" },
         modal: { ondismiss: () => setLoading(false) },

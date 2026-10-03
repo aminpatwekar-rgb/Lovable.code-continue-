@@ -158,10 +158,11 @@ export const getPlanSummary = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = supabaseAdmin as any;
     const [{ data: code, error: codeError }, { data: plans, error: plansError }, { data: storage, error: storageError }] = await Promise.all([
-      supabaseAdmin.rpc("current_plan_code", { _user_id: context.userId }),
-      supabaseAdmin.from("billing_plans").select("code,name,monthly_price_inr,annual_price_inr,limits,features").order("monthly_price_inr"),
-      supabaseAdmin.rpc("get_storage_usage", { _user_id: context.userId }),
+      db.rpc("current_plan_code", { _user_id: context.userId }),
+      db.from("billing_plans").select("code,name,monthly_price_inr,annual_price_inr,limits,features").order("monthly_price_inr"),
+      db.rpc("get_storage_usage", { _user_id: context.userId }),
     ]);
     if (codeError) throw codeError;
     if (plansError) throw plansError;

@@ -9,6 +9,7 @@ import {
   PlayCircle,
   ShieldAlert,
   Users,
+  BarChart3,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -183,6 +184,11 @@ function Page() {
               <Button asChild>
                 <Link to="/quizzes/$quizId/edit" params={{ quizId }}>
                   <Pencil className="mr-2 size-4" /> Edit quiz
+                </Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/quizzes/$quizId/analytics" params={{ quizId }}>
+                  <BarChart3 className="mr-2 size-4" /> Analytics
                 </Link>
               </Button>
               <DeleteQuizButton

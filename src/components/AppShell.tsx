@@ -20,7 +20,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { clearSessionConfirmation } from "@/lib/session-confirm";
 import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
 
@@ -53,6 +53,7 @@ const NAV = [
   { to: "/calendar", label: "Calendar", icon: Calendar },
   { to: "/attendance", label: "Attendance", icon: ClipboardCheck },
   { to: "/reports", label: "Reports", icon: ClipboardCheck },
+  { to: "/rubrics", label: "Rubrics", icon: ClipboardCheck },
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { to: "/achievements", label: "Achievements", icon: Award },
   { to: "/settings", label: "Settings", icon: Settings },
@@ -79,6 +80,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const shouldReduceMotion = useReducedMotion();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const branding = useQuery({
+    queryKey: ["onyx-branding", profile?.id],
+    enabled: Boolean(profile?.id),
+    queryFn: async () => {
+      const r = await (supabase as any).rpc("plan_remove_branding", { _user_id: profile!.id });
+      if (r.error) throw r.error;
+      return Boolean(r.data);
+    },
+    staleTime: 60_000,
+  });
   const [open, setOpen] = useState(false);
 
   async function signOut() {
@@ -228,7 +239,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex flex-col">
           <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
             <Link to="/dashboard" className="transition-opacity hover:opacity-90">
-              <Wordmark size="sm" />
+              {branding.data ? <span className="text-sm font-semibold">Workspace</span> : <Wordmark size="sm" />}
             </Link>
             <div className="flex items-center gap-1">
               <NotificationCenter />
@@ -284,7 +295,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <header className="glass sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border px-4 py-2.5 lg:hidden">
         <Link to="/dashboard" className="flex items-center gap-2">
-          <Wordmark size="sm" />
+          {branding.data ? <span className="text-sm font-semibold">Workspace</span> : <Wordmark size="sm" />}
         </Link>
         <div className="flex items-center gap-1">
           <NotificationCenter />

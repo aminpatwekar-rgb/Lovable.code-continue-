@@ -44,14 +44,47 @@ function Stat({
   label,
   value,
   tone = "text-primary bg-primary/10 border-primary/20",
+  to,
+  search,
 }: {
   icon: typeof GraduationCap;
   label: string;
   value: number | string;
   tone?: string;
+  to?: string;
+  search?: Record<string, string>;
 }) {
+  const content = (
+    <>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground sm:uppercase sm:tracking-wider">
+          {label}
+        </span>
+        <div className={`hidden rounded-lg border p-2 sm:block ${tone}`}>
+          <Icon className="size-4" />
+        </div>
+      </div>
+      <p className="mt-1.5 text-2xl font-bold tracking-tight text-foreground tabular-nums sm:mt-4 sm:text-3xl">
+        {value}
+      </p>
+    </>
+  );
+
+  if (!to) {
+    return <div className="panel relative overflow-hidden bg-card p-3.5 sm:p-5">{content}</div>;
+  }
+
   return (
-    <div className="panel relative overflow-hidden bg-card p-3.5 sm:p-5">
+    <Link
+      to={to as never}
+      search={search as never}
+      className="panel relative block overflow-hidden bg-card p-3.5 sm:p-5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      aria-label={`${label}: ${value}`}
+    >
+      {content}
+    </Link>
+  );
+}
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground sm:uppercase sm:tracking-wider">
           {label}
@@ -203,24 +236,30 @@ function Dashboard() {
               label="Active Classes"
               value={d?.classes ?? 0}
               tone="text-primary bg-primary/10 border-primary/20"
+              to="/classes"
             />
             <Stat
               icon={Users}
               label="Enrolled Students"
               value={d?.students ?? 0}
               tone="text-info bg-info/10 border-info/20"
+              to="/classes"
             />
             <Stat
               icon={BookOpen}
               label="Active Assignments"
               value={d?.assignments.length ?? 0}
               tone="text-success bg-success/10 border-success/20"
+              to="/assignments"
+              search={{ tab: "all" }}
             />
             <Stat
               icon={FileClock}
               label="Pending Review"
               value={d?.pending ?? 0}
               tone="text-warning bg-warning/10 border-warning/20"
+              to="/assignments"
+              search={{ tab: "review" }}
             />
           </div>
         )}
@@ -365,24 +404,31 @@ function Dashboard() {
               label="Pending Work"
               value={list.length - done}
               tone="text-warning bg-warning/10 border-warning/20"
+              to="/assignments"
+              search={{ tab: "upcoming" }}
             />
             <Stat
               icon={AlertTriangle}
               label="Overdue"
               value={overdue}
               tone="text-destructive bg-destructive/10 border-destructive/20"
+              to="/assignments"
+              search={{ tab: "overdue" }}
             />
             <Stat
               icon={CheckCircle2}
               label="Completed"
               value={done}
               tone="text-success bg-success/10 border-success/20"
+              to="/assignments"
+              search={{ tab: "done" }}
             />
             <Stat
               icon={GraduationCap}
               label="Enrolled Classes"
               value={student.data?.classes ?? 0}
               tone="text-info bg-info/10 border-info/20"
+              to="/classes"
             />
           </div>
 

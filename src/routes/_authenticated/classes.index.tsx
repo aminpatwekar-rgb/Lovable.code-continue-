@@ -87,7 +87,7 @@ function Classes() {
         if (!joinedIds.length) return ownedRows;
         const { data: joined, error: joinedError } = await supabase
           .from("classes")
-          .select("id, name, subject, section, join_code, description, class_members(count)")
+          .select("id, name, subject, section, join_code, description, teacher_id, class_members(count)")
           .in("id", joinedIds)
           .order("created_at", { ascending: false });
         if (joinedError) throw joinedError;

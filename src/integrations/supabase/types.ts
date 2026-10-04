@@ -639,30 +639,39 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           email: string | null
+          er_no: string | null
           full_name: string
           id: string
           institution: string | null
           is_active: boolean
+          roll_no: string | null
+          sr_no: string | null
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
           email?: string | null
+          er_no?: string | null
           full_name?: string
           id: string
           institution?: string | null
           is_active?: boolean
+          roll_no?: string | null
+          sr_no?: string | null
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
           email?: string | null
+          er_no?: string | null
           full_name?: string
           id?: string
           institution?: string | null
           is_active?: boolean
+          roll_no?: string | null
+          sr_no?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1356,6 +1365,15 @@ export type Database = {
           email: string
           id: string
         }[]
+      }
+      update_student_identifiers: {
+        Args: {
+          _er_no: string
+          _full_name: string
+          _roll_no: string
+          _sr_no: string
+        }
+        Returns: undefined
       }
       get_quiz_explanations: {
         Args: { _attempt_id: string }

@@ -198,7 +198,7 @@ function Classes() {
           <h1 className="text-2xl sm:text-3xl font-semibold">Classes</h1>
           <p className="mt-1 text-muted-foreground">
             {isTeacher
-              ? "Create a class and share the join code with your students."
+              ? "Create classes, join as a co-teacher, and manage your class roster."
               : "Classes you've joined."}
           </p>
         </div>
@@ -418,6 +418,11 @@ function Classes() {
                   <p className="mt-0.5 text-sm text-muted-foreground">
                     {[c.subject, c.section].filter(Boolean).join(" · ") || "No subject"}
                   </p>
+                  {isTeacher && c.teacher_id !== user?.id && (
+                    <span className="mt-2 inline-flex w-fit items-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                      Co-teacher
+                    </span>
+                  )}
                   <div className="mt-4 flex items-center justify-between text-sm">
                     <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                       <Users className="size-3.5" />

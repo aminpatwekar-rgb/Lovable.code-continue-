@@ -85,20 +85,6 @@ function Stat({
     </Link>
   );
 }
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground sm:uppercase sm:tracking-wider">
-          {label}
-        </span>
-        <div className={`hidden rounded-lg border p-2 sm:block ${tone}`}>
-          <Icon className="size-4" />
-        </div>
-      </div>
-      <p className="mt-1.5 text-2xl font-bold tracking-tight text-foreground tabular-nums sm:mt-4 sm:text-3xl">
-        {value}
-      </p>
-    </div>
-  );
-}
 
 function Dashboard() {
   const { profile, role, user } = useAuth();

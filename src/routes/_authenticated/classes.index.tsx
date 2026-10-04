@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { ChevronRight, Copy, LogOut, Plus, Users } from "lucide-react";
@@ -57,6 +57,15 @@ function Classes() {
   const [srNo, setSrNo] = useState("");
 
   const isTeacher = effectiveRole === "teacher" || effectiveRole === "admin";
+
+  // Reuse the student's saved academic identifiers when opening the join dialog.
+  useEffect(() => {
+    if (!joinOpen || isTeacher) return;
+    setStudentName(profile?.full_name ?? "");
+    setRollNo(profile?.roll_no ?? "");
+    setErNo(profile?.er_no ?? "");
+    setSrNo(profile?.sr_no ?? "");
+  }, [joinOpen, isTeacher, profile]);
 
   const classes = useQuery({
     queryKey: ["classes", user?.id, effectiveRole],

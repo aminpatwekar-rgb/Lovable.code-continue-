@@ -1813,6 +1813,10 @@ export type Database = {
           id: string
         }[]
       }
+      get_progress_report: {
+        Args: { _class_id?: string; _student_id: string }
+        Returns: Json
+      }
       get_quiz_explanations: {
         Args: { _attempt_id: string }
         Returns: {

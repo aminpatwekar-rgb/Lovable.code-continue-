@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
-import { ChevronRight, Copy, LogOut, Plus, Users } from "lucide-react";
+import { ChevronRight, Copy, Plus, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useViewRole } from "@/lib/viewRole";
@@ -58,50 +58,18 @@ function Classes() {
 
   const isTeacher = effectiveRole === "teacher" || effectiveRole === "admin";
 
-  // Reuse the student's saved academic identifiers when opening the join dialog.
-  useEffect(() => {
-    if (!joinOpen || isTeacher) return;
-    setStudentName(profile?.full_name ?? "");
-    setRollNo(profile?.roll_no ?? "");
-    setErNo(profile?.er_no ?? "");
-    setSrNo(profile?.sr_no ?? "");
-  }, [joinOpen, isTeacher, profile]);
-
   const classes = useQuery({
     queryKey: ["classes", user?.id, effectiveRole],
     enabled: Boolean(user && effectiveRole),
     queryFn: async () => {
       if (isTeacher) {
-        const [{ data: owned, error: ownedError }, { data: memberships, error: membershipError }] =
-          await Promise.all([
-            supabase
-              .from("classes")
-              .select("id, name, subject, section, join_code, description, teacher_id, class_members(count)")
-              .eq("teacher_id", user!.id)
-              .order("created_at", { ascending: false }),
-            supabase
-              .from("class_members")
-              .select("class_id")
-              .eq("student_id", user!.id)
-              .eq("member_role", "teacher"),
-          ]);
-        if (ownedError) throw ownedError;
-        if (membershipError) throw membershipError;
-
-        const ownedRows = owned ?? [];
-        const joinedIds = (memberships ?? [])
-          .map((m) => m.class_id)
-          .filter((id) => !ownedRows.some((c) => c.id === id));
-
-        if (!joinedIds.length) return ownedRows;
-        const { data: joined, error: joinedError } = await supabase
+        const { data, error } = await supabase
           .from("classes")
-          .select("id, name, subject, section, join_code, description, teacher_id, class_members(count)")
-          .in("id", joinedIds)
+          .select("id, name, subject, section, join_code, description, class_members(count)")
+          .eq("teacher_id", user!.id)
           .order("created_at", { ascending: false });
-        if (joinedError) throw joinedError;
-
-        return [...ownedRows, ...(joined ?? [])];
+        if (error) throw error;
+        return data ?? [];
       }
       const { data: m, error: membershipError } = await supabase
         .from("class_members")
@@ -146,22 +114,19 @@ function Classes() {
 
   const join = useMutation({
     mutationFn: async () => {
-      if (!code.trim()) throw new Error("Enter the join code");
-
       const identity = {
         _full_name: studentName.trim() || profile?.full_name?.trim() || "",
         _roll_no: rollNo.trim(),
         _er_no: erNo.trim(),
         _sr_no: srNo.trim(),
       };
-
-      if (!isTeacher) {
-        if (!identity._full_name) throw new Error("Full name is required");
-        if (!identity._roll_no && !identity._er_no && !identity._sr_no) {
-          throw new Error("Enter at least one of Roll No., ER No., or Sr No.");
-        }
-      }
-
+      if (!code.trim()) throw new Error("Enter the join code");
+      if (!identity._full_name) throw new Error("Full name is required");
+      if (!identity._roll_no) throw new Error("Roll No. is required");
+      if (!identity._er_no) throw new Error("ER No. is required");
+      if (!identity._sr_no) throw new Error("Sr No. is required");
+      // The database owns the duplicate check, so two simultaneous joins with
+      // the same Roll/ER/Sr No. still cannot both succeed.
       const { data, error } = await supabase.rpc("join_class_by_code", {
         _code: code.trim().toUpperCase(),
         ...identity,
@@ -171,30 +136,12 @@ function Classes() {
       return data;
     },
     onSuccess: () => {
-      toast.success(isTeacher ? "You've joined the class as a co-teacher" : "You've joined the class");
+      toast.success("You've joined the class");
       setJoinOpen(false);
       setCode("");
-      setStudentName("");
       setRollNo("");
       setErNo("");
       setSrNo("");
-      void qc.invalidateQueries({ queryKey: ["classes"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const leave = useMutation({
-    mutationFn: async (classId: string) => {
-      const { error } = await supabase
-        .from("class_members")
-        .delete()
-        .eq("class_id", classId)
-        .eq("student_id", user!.id)
-        .eq("member_role", "teacher");
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("You've left the class");
       void qc.invalidateQueries({ queryKey: ["classes"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -207,12 +154,11 @@ function Classes() {
           <h1 className="text-2xl sm:text-3xl font-semibold">Classes</h1>
           <p className="mt-1 text-muted-foreground">
             {isTeacher
-              ? "Create classes, join as a co-teacher, and manage your class roster."
+              ? "Create a class and share the join code with your students."
               : "Classes you've joined."}
           </p>
         </div>
         {isTeacher ? (
-          <>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -271,40 +217,6 @@ function Classes() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <Dialog open={joinOpen} onOpenChange={setJoinOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Users className="mr-1.5 size-4" /> Join class
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Join as a co-teacher</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="teacher-code">Class join code</Label>
-                  <Input
-                    id="teacher-code"
-                    maxLength={6}
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.toUpperCase())}
-                    placeholder="AB12CD"
-                    className="font-mono tracking-[0.3em] uppercase"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Enter only the class code. You will be added as a co-teacher; student identifiers are not required.
-                </p>
-              </div>
-              <DialogFooter>
-                <Button onClick={() => join.mutate()} disabled={join.isPending}>
-                  {join.isPending ? "Joining…" : "Join as co-teacher"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          </>
         ) : (
           <Dialog open={joinOpen} onOpenChange={setJoinOpen}>
             <DialogTrigger asChild>
@@ -427,11 +339,6 @@ function Classes() {
                   <p className="mt-0.5 text-sm text-muted-foreground">
                     {[c.subject, c.section].filter(Boolean).join(" · ") || "No subject"}
                   </p>
-                  {isTeacher && c.teacher_id !== user?.id && (
-                    <span className="mt-2 inline-flex w-fit items-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-                      Co-teacher
-                    </span>
-                  )}
                   <div className="mt-4 flex items-center justify-between text-sm">
                     <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                       <Users className="size-3.5" />
@@ -439,37 +346,19 @@ function Classes() {
                       students
                     </span>
                     {isTeacher && (
-                      <div className="flex items-center gap-2">
-                        <motion.button
-                          type="button"
-                          {...getPressProps(shouldReduceMotion, { hoverScale: 1.05, tapScale: 0.95 })}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            void navigator.clipboard.writeText(c.join_code);
-                            toast.success("Join code copied");
-                          }}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 font-mono text-xs tracking-widest cursor-pointer hover:bg-muted"
-                        >
-                          {c.join_code}
-                          <Copy className="size-3" />
-                        </motion.button>
-                        {c.teacher_id !== user?.id && (
-                          <motion.button
-                            type="button"
-                            {...getPressProps(shouldReduceMotion, { hoverScale: 1.05, tapScale: 0.95 })}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              if (window.confirm("Leave this class as a co-teacher?")) leave.mutate(c.id);
-                            }}
-                            disabled={leave.isPending}
-                            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-destructive hover:border-destructive/40"
-                            aria-label="Leave class"
-                          >
-                            <LogOut className="size-3" /> Leave
-                          </motion.button>
-                        )}
-                      </div>
+                      <motion.button
+                        type="button"
+                        {...getPressProps(shouldReduceMotion, { hoverScale: 1.05, tapScale: 0.95 })}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          void navigator.clipboard.writeText(c.join_code);
+                          toast.success("Join code copied");
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 font-mono text-xs tracking-widest cursor-pointer hover:bg-muted"
+                      >
+                        {c.join_code}
+                        <Copy className="size-3" />
+                      </motion.button>
                     )}
                   </div>
                 </Link>

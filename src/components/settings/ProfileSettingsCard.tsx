@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Building, IdCard, Loader2, User } from "lucide-react";
+import { Loader2, User, Building } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,18 +13,14 @@ export function ProfileSettingsCard() {
   const { user, profile, role, refresh } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name ?? "");
   const [institution, setInstitution] = useState(profile?.institution ?? "");
-  const [rollNo, setRollNo] = useState(profile?.roll_no ?? "");
-  const [erNo, setErNo] = useState(profile?.er_no ?? "");
-  const [srNo, setSrNo] = useState(profile?.sr_no ?? "");
   const [saving, setSaving] = useState(false);
 
+  // Sync state when profile loads or updates
   useEffect(() => {
-    if (!profile) return;
-    setFullName(profile.full_name ?? "");
-    setInstitution(profile.institution ?? "");
-    setRollNo(profile.roll_no ?? "");
-    setErNo(profile.er_no ?? "");
-    setSrNo(profile.sr_no ?? "");
+    if (profile) {
+      setFullName(profile.full_name ?? "");
+      setInstitution(profile.institution ?? "");
+    }
   }, [profile]);
 
   const initials = (profile?.full_name || profile?.email || "U")
@@ -35,7 +31,6 @@ export function ProfileSettingsCard() {
     .toUpperCase();
 
   const isTeacherOrAdmin = role === "teacher" || role === "admin";
-  const isStudent = role === "student";
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -47,36 +42,24 @@ export function ProfileSettingsCard() {
       return;
     }
 
-    if (isStudent && !rollNo.trim() && !erNo.trim() && !srNo.trim()) {
-      toast.error("Enter at least one of Roll No., ER No., or Sr No.");
-      return;
-    }
-
     setSaving(true);
     try {
-      if (isStudent) {
-        const { error } = await supabase.rpc("update_student_identifiers", {
-          _full_name: trimmedName,
-          _roll_no: rollNo.trim(),
-          _er_no: erNo.trim(),
-          _sr_no: srNo.trim(),
-        });
-        if (error) throw error;
-      } else {
-        const updatePayload: { full_name: string; institution?: string | null } = {
-          full_name: trimmedName,
-        };
+      const updatePayload: { full_name: string; institution?: string | null } = {
+        full_name: trimmedName,
+      };
 
-        if (isTeacherOrAdmin) {
-          updatePayload.institution = institution.trim() ? institution.trim() : null;
-        }
-
-        const { error } = await supabase.from("profiles").update(updatePayload).eq("id", user.id);
-        if (error) throw error;
+      if (isTeacherOrAdmin) {
+        updatePayload.institution = institution.trim() ? institution.trim() : null;
       }
 
-      await refresh();
-      toast.success(isStudent ? "Profile & academic IDs updated" : "Profile updated successfully");
+      const { error } = await supabase.from("profiles").update(updatePayload).eq("id", user.id);
+
+      if (error) {
+        toast.error(error.message || "Failed to update profile");
+      } else {
+        await refresh();
+        toast.success("Profile updated successfully");
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
@@ -88,14 +71,11 @@ export function ProfileSettingsCard() {
     <Card className="lift transition-colors duration-200 hover:lift-hover">
       <CardHeader>
         <CardTitle>Profile Details</CardTitle>
-        <CardDescription>
-          {isStudent
-            ? "Manage your name and academic identifiers. Changes update your class rosters too."
-            : "Update your display name and academic affiliation."}
-        </CardDescription>
+        <CardDescription>Update your display name and academic affiliation.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSave} className="space-y-6">
+          {/* Avatar and Info Header */}
           <div className="flex items-center gap-4">
             <Avatar className="size-16 border border-border/60">
               <AvatarFallback className="bg-primary/10 text-base font-semibold text-primary">
@@ -152,59 +132,6 @@ export function ProfileSettingsCard() {
               </div>
             )}
           </div>
-
-          {isStudent && (
-            <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <IdCard className="size-4 text-primary" />
-                  <p className="text-sm font-semibold">Academic Identifiers</p>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  These are reused when you join a class and are shown to teachers in the class roster.
-                </p>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="profile-roll">Roll No.</Label>
-                  <Input
-                    id="profile-roll"
-                    maxLength={40}
-                    value={rollNo}
-                    onChange={(e) => setRollNo(e.target.value)}
-                    placeholder="e.g. 23"
-                    disabled={saving}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="profile-er">ER No.</Label>
-                  <Input
-                    id="profile-er"
-                    maxLength={40}
-                    value={erNo}
-                    onChange={(e) => setErNo(e.target.value)}
-                    placeholder="e.g. ER12345"
-                    disabled={saving}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="profile-sr">Sr No.</Label>
-                  <Input
-                    id="profile-sr"
-                    maxLength={40}
-                    value={srNo}
-                    onChange={(e) => setSrNo(e.target.value)}
-                    placeholder="e.g. 15"
-                    disabled={saving}
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                At least one identifier is required for students. You can leave the other fields blank.
-              </p>
-            </div>
-          )}
 
           <div className="flex justify-end">
             <Button type="submit" disabled={saving} className="gap-2">

@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage_ledger: {
+        Row: {
+          created_at: string
+          id: string
+          input_tokens: number | null
+          model: string | null
+          output_tokens: number | null
+          period_start: string
+          provider: string | null
+          requested_questions: number
+          settled_at: string | null
+          status: string
+          successful_questions: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          input_tokens?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          period_start: string
+          provider?: string | null
+          requested_questions: number
+          settled_at?: string | null
+          status: string
+          successful_questions?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          input_tokens?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          period_start?: string
+          provider?: string | null
+          requested_questions?: number
+          settled_at?: string | null
+          status?: string
+          successful_questions?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_usage_periods: {
+        Row: {
+          period_start: string
+          reserved_questions: number
+          updated_at: string
+          used_questions: number
+          user_id: string
+        }
+        Insert: {
+          period_start: string
+          reserved_questions?: number
+          updated_at?: string
+          used_questions?: number
+          user_id: string
+        }
+        Update: {
+          period_start?: string
+          reserved_questions?: number
+          updated_at?: string
+          used_questions?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       annotations: {
         Row: {
           author_id: string
@@ -206,6 +275,7 @@ export type Database = {
           published: boolean
           reference_links: Json
           rubric: Json | null
+          rubric_id: string | null
           subject: string | null
           submission_type: Database["public"]["Enums"]["submission_type"]
           teacher_id: string
@@ -230,6 +300,7 @@ export type Database = {
           published?: boolean
           reference_links?: Json
           rubric?: Json | null
+          rubric_id?: string | null
           subject?: string | null
           submission_type?: Database["public"]["Enums"]["submission_type"]
           teacher_id: string
@@ -254,6 +325,7 @@ export type Database = {
           published?: boolean
           reference_links?: Json
           rubric?: Json | null
+          rubric_id?: string | null
           subject?: string | null
           submission_type?: Database["public"]["Enums"]["submission_type"]
           teacher_id?: string
@@ -263,6 +335,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "assignments_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_rubric_id_fkey"
+            columns: ["rubric_id"]
+            isOneToOne: false
+            referencedRelation: "rubrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_records: {
+        Row: {
+          attendance_date: string
+          class_id: string
+          created_at: string
+          id: string
+          marked_by: string
+          note: string | null
+          status: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          attendance_date: string
+          class_id: string
+          created_at?: string
+          id?: string
+          marked_by: string
+          note?: string | null
+          status: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          attendance_date?: string
+          class_id?: string
+          created_at?: string
+          id?: string
+          marked_by?: string
+          note?: string | null
+          status?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_records_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
             referencedRelation: "classes"
@@ -313,6 +436,95 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_plans: {
+        Row: {
+          active: boolean
+          annual_price_inr: number | null
+          code: string
+          created_at: string
+          features: Json
+          id: string
+          limits: Json
+          monthly_price_inr: number
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          annual_price_inr?: number | null
+          code: string
+          created_at?: string
+          features?: Json
+          id?: string
+          limits?: Json
+          monthly_price_inr?: number
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          annual_price_inr?: number | null
+          code?: string
+          created_at?: string
+          features?: Json
+          id?: string
+          limits?: Json
+          monthly_price_inr?: number
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      calendar_events: {
+        Row: {
+          all_day: boolean
+          class_id: string | null
+          created_at: string
+          description: string | null
+          ends_at: string | null
+          event_type: string
+          id: string
+          owner_id: string
+          starts_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          all_day?: boolean
+          class_id?: string | null
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          event_type?: string
+          id?: string
+          owner_id: string
+          starts_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          all_day?: boolean
+          class_id?: string | null
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          event_type?: string
+          id?: string
+          owner_id?: string
+          starts_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
             referencedColumns: ["id"]
           },
         ]
@@ -541,6 +753,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_preferences: {
+        Row: {
+          announcements: boolean
+          deadline_reminders: boolean
+          email_enabled: boolean
+          grading: boolean
+          new_assignments: boolean
+          submissions: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          announcements?: boolean
+          deadline_reminders?: boolean
+          email_enabled?: boolean
+          grading?: boolean
+          new_assignments?: boolean
+          submissions?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          announcements?: boolean
+          deadline_reminders?: boolean
+          email_enabled?: boolean
+          grading?: boolean
+          new_assignments?: boolean
+          submissions?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -1050,6 +1295,161 @@ export type Database = {
           },
         ]
       }
+      rubric_criteria: {
+        Row: {
+          description: string | null
+          id: string
+          max_points: number
+          position: number
+          rubric_id: string
+          title: string
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          max_points?: number
+          position?: number
+          rubric_id: string
+          title: string
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          max_points?: number
+          position?: number
+          rubric_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rubric_criteria_rubric_id_fkey"
+            columns: ["rubric_id"]
+            isOneToOne: false
+            referencedRelation: "rubrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rubric_grades: {
+        Row: {
+          awarded_points: number
+          created_at: string
+          criterion_id: string
+          feedback: string | null
+          graded_by: string
+          id: string
+          level_id: string | null
+          submission_id: string
+          updated_at: string
+        }
+        Insert: {
+          awarded_points?: number
+          created_at?: string
+          criterion_id: string
+          feedback?: string | null
+          graded_by: string
+          id?: string
+          level_id?: string | null
+          submission_id: string
+          updated_at?: string
+        }
+        Update: {
+          awarded_points?: number
+          created_at?: string
+          criterion_id?: string
+          feedback?: string | null
+          graded_by?: string
+          id?: string
+          level_id?: string | null
+          submission_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rubric_grades_criterion_id_fkey"
+            columns: ["criterion_id"]
+            isOneToOne: false
+            referencedRelation: "rubric_criteria"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rubric_grades_level_id_fkey"
+            columns: ["level_id"]
+            isOneToOne: false
+            referencedRelation: "rubric_levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rubric_grades_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rubric_levels: {
+        Row: {
+          criterion_id: string
+          description: string | null
+          id: string
+          label: string
+          points: number
+          position: number
+        }
+        Insert: {
+          criterion_id: string
+          description?: string | null
+          id?: string
+          label: string
+          points?: number
+          position?: number
+        }
+        Update: {
+          criterion_id?: string
+          description?: string | null
+          id?: string
+          label?: string
+          points?: number
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rubric_levels_criterion_id_fkey"
+            columns: ["criterion_id"]
+            isOneToOne: false
+            referencedRelation: "rubric_criteria"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rubrics: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          owner_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          owner_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          owner_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       student_badges: {
         Row: {
           awarded_at: string
@@ -1279,6 +1679,53 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          plan_id: string
+          provider: string | null
+          provider_subscription_id: string | null
+          started_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          plan_id: string
+          provider?: string | null
+          provider_subscription_id?: string | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          plan_id?: string
+          provider?: string | null
+          provider_subscription_id?: string | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "billing_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1320,6 +1767,10 @@ export type Database = {
         Args: { _class_id: string; _new_teacher: string }
         Returns: undefined
       }
+      assert_storage_available: {
+        Args: { _additional_bytes: number }
+        Returns: boolean
+      }
       bootstrap_first_admin: { Args: never; Returns: boolean }
       can_view_announcement: {
         Args: { _announcement_id: string; _user_id: string }
@@ -1335,6 +1786,11 @@ export type Database = {
       }
       can_view_submission: {
         Args: { _submission_id: string; _user_id: string }
+        Returns: boolean
+      }
+      current_plan_code: { Args: { _user_id: string }; Returns: string }
+      enforce_csv_import_feature: {
+        Args: { _class_id: string }
         Returns: boolean
       }
       get_class_roster: {
@@ -1385,6 +1841,7 @@ export type Database = {
           type: Database["public"]["Enums"]["quiz_question_type"]
         }[]
       }
+      get_storage_usage: { Args: { _user_id?: string }; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1431,6 +1888,14 @@ export type Database = {
         Args: { _assignment_id: string; _user_id: string }
         Returns: boolean
       }
+      plan_has_feature: {
+        Args: { _key: string; _user_id: string }
+        Returns: boolean
+      }
+      plan_limit: { Args: { _key: string; _user_id: string }; Returns: number }
+      plan_remove_branding: { Args: { _user_id: string }; Returns: boolean }
+      release_ai_questions: { Args: { _ledger_id: string }; Returns: undefined }
+      reserve_ai_questions: { Args: { _requested: number }; Returns: string }
       reviews_attempt: {
         Args: { _attempt_id: string; _user_id: string }
         Returns: boolean
@@ -1439,7 +1904,19 @@ export type Database = {
         Args: { _submission_id: string; _user_id: string }
         Returns: boolean
       }
+      settle_ai_questions: {
+        Args: {
+          _input_tokens: number
+          _ledger_id: string
+          _model: string
+          _output_tokens: number
+          _provider: string
+          _successful: number
+        }
+        Returns: undefined
+      }
       shares_class_with: { Args: { _a: string; _b: string }; Returns: boolean }
+      user_has_feature: { Args: { _feature: string }; Returns: boolean }
     }
     Enums: {
       app_role: "student" | "teacher" | "admin"

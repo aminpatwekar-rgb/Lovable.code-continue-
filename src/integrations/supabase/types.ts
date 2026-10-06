@@ -1793,6 +1793,7 @@ export type Database = {
         Args: { _class_id: string }
         Returns: boolean
       }
+      generate_due_reminders: { Args: never; Returns: number }
       get_class_roster: {
         Args: { _class_id: string }
         Returns: {

@@ -68,9 +68,7 @@ function buildPrompt(input: GenerateInput) {
       ? "Mix easy, medium and hard difficulty."
       : `Every question must be ${input.difficulty} difficulty.`,
     input.topic ? `Focus on the topic: ${input.topic}.` : "",
-    input.withExplanations
-      ? "Include a one or two sentence explanation of why the answer is right."
-      : "Leave explanation as an empty string.",
+    "Do not generate an answer explanation. Leave explanation as an empty string because the teacher must choose the answer first.",
     input.avoid?.length
       ? `Do NOT repeat or paraphrase these existing questions:\n- ${input.avoid.join("\n- ")}`
       : "",
@@ -129,7 +127,7 @@ function parseQuestions(raw: string): GeneratedQuestion[] {
         prompt: String(item["prompt"] ?? "").trim(),
         options,
         correct,
-        explanation: String(item["explanation"] ?? "").trim(),
+        explanation: "",
         points: Number(item["points"]) > 0 ? Number(item["points"]) : 1,
       };
     })
@@ -155,7 +153,7 @@ async function callGemini(prompt: string) {
           {
             role: "system",
             content:
-              "You are an experienced examiner. You are an experienced examiner. You write precise, unambiguous assessment questions grounded only in the supplied material. Generate questions and plausible options, but NEVER choose, reveal, or infer the correct answer. The teacher must set the answer key. Always reply with valid JSON.",
+              "You are an experienced examiner. You write precise, unambiguous assessment questions grounded only in the supplied material. Generate questions and plausible options, but NEVER choose, reveal, or infer the correct answer. The teacher must set the answer key. Always reply with valid JSON.",
           },
           { role: "user", content: prompt },
         ],

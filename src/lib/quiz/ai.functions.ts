@@ -15,7 +15,7 @@ export type GeneratedQuestion = {
   difficulty: string;
   prompt: string;
   options: string[];
-  correct: string[];
+  correct: string[]; // Intentionally empty: the teacher supplies the answer key.
   explanation: string;
   points: number;
 };
@@ -78,11 +78,11 @@ function buildPrompt(input: GenerateInput) {
     "Rules:",
     "- Never invent facts that are not supported by the material.",
     "- No duplicate or near-duplicate questions.",
-    '- "mcq": exactly 4 options, exactly 1 entry in correct (matching an option verbatim).',
-    '- "multi_select": 4-5 options, 2 or more entries in correct (each matching an option verbatim).',
-    '- "true_false": options ["True","False"], correct is one of them.',
-    '- "fill_blank": use ____ in the prompt, options [], correct holds accepted answers.',
-    '- "short_answer": options [], correct holds 1-3 acceptable short answers.',
+    '- "mcq": exactly 4 options. Do NOT provide a correct answer; correct must be [].',
+    '- "multi_select": 4-5 options. Do NOT provide correct answers; correct must be [].',
+    '- "true_false": options ["True","False"]. Do NOT decide which is correct; correct must be [].',
+    '- "fill_blank": use ____ in the prompt, options [], correct must be [].',
+    '- "short_answer": options [], correct must be [].',
     '- "essay": options [], correct [].',
     "- points: 1 for easy, 2 for medium, 3 for hard.",
     "",
@@ -119,11 +119,7 @@ function parseQuestions(raw: string): GeneratedQuestion[] {
       const item = q as Record<string, unknown>;
       const type = ALLOWED_TYPES.includes(String(item["type"])) ? String(item["type"]) : "mcq";
       const options = Array.isArray(item["options"]) ? item["options"].map((o) => String(o)) : [];
-      const correct = Array.isArray(item["correct"])
-        ? item["correct"].map((o) => String(o))
-        : item["correct"] != null
-          ? [String(item["correct"])]
-          : [];
+      const correct: string[] = []; // Never trust or persist an AI-supplied answer key.
       const difficulty = ["easy", "medium", "hard"].includes(String(item["difficulty"]))
         ? String(item["difficulty"])
         : "medium";
@@ -159,7 +155,7 @@ async function callGemini(prompt: string) {
           {
             role: "system",
             content:
-              "You are an experienced examiner. You write precise, unambiguous assessment questions grounded only in the supplied material, and you always reply with valid JSON.",
+              "You are an experienced examiner. You are an experienced examiner. You write precise, unambiguous assessment questions grounded only in the supplied material. Generate questions and plausible options, but NEVER choose, reveal, or infer the correct answer. The teacher must set the answer key. Always reply with valid JSON.",
           },
           { role: "user", content: prompt },
         ],

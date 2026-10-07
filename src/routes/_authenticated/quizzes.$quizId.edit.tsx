@@ -270,7 +270,7 @@ function Page() {
       if (!isAutoGraded(q.type)) continue;
       const correct = q.correct.filter(Boolean);
       if (!correct.length) {
-        throw new Error("Question " + (i + 1) + " needs a teacher-selected correct answer before the quiz can be saved or published.");
+        throw new Error("Question " + (i + 1) + " needs a valid correct answer before the quiz can be saved or published.");
       }
       if (q.type === "multi_select" && correct.length < 2) {
         throw new Error("Question " + (i + 1) + " is Multiple correct and needs at least two correct options.");

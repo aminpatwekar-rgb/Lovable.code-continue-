@@ -84,8 +84,8 @@ export function AiGeneratorPanel({
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
-        <p className="font-medium">AI creates the questions — you choose the answers.</p>
-        <p className="mt-1 text-xs text-muted-foreground">Generated questions never receive an AI answer key. Review each question and mark the correct answer yourself before saving or publishing.</p>
+        <p className="font-medium">AI creates the questions and selects answers from your study material.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Answers are generated from the supplied material. Review them before publishing; you can edit any answer in the question editor.</p>
       </div>
       <div
         onDragOver={(e) => e.preventDefault()}

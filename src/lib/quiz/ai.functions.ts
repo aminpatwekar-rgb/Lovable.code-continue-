@@ -15,7 +15,7 @@ export type GeneratedQuestion = {
   difficulty: string;
   prompt: string;
   options: string[];
-  correct: string[]; // Intentionally empty: the teacher supplies the answer key.
+  correct: string[]; // AI-selected answer key, grounded in the supplied study material.
   explanation: string;
   points: number;
 };
@@ -68,7 +68,7 @@ function buildPrompt(input: GenerateInput) {
       ? "Mix easy, medium and hard difficulty."
       : `Every question must be ${input.difficulty} difficulty.`,
     input.topic ? `Focus on the topic: ${input.topic}.` : "",
-    "Do not generate an answer explanation. Leave explanation as an empty string because the teacher must choose the answer first.",
+    "For every question, select the correct answer strictly from the supplied study material. Include a concise explanation grounded in that material.",
     input.avoid?.length
       ? `Do NOT repeat or paraphrase these existing questions:\n- ${input.avoid.join("\n- ")}`
       : "",
@@ -76,11 +76,11 @@ function buildPrompt(input: GenerateInput) {
     "Rules:",
     "- Never invent facts that are not supported by the material.",
     "- No duplicate or near-duplicate questions.",
-    '- "mcq": exactly 4 options. Do NOT provide a correct answer; correct must be [].',
-    '- "multi_select": 4-5 options. Do NOT provide correct answers; correct must be [].',
-    '- "true_false": options ["True","False"]. Do NOT decide which is correct; correct must be [].',
-    '- "fill_blank": use ____ in the prompt, options [], correct must be [].',
-    '- "short_answer": options [], correct must be [].',
+    '- "mcq": exactly 4 options and exactly 1 correct entry matching an option verbatim.',
+    '- "multi_select": 4-5 options and 2 or more correct entries, each matching an option verbatim.',
+    '- "true_false": options ["True","False"] and exactly 1 correct entry.',
+    '- "fill_blank": use ____ in the prompt, options [], and correct must contain the accepted answer(s) supported by the material.',
+    '- "short_answer": options [], and correct must contain the expected answer(s) supported by the material.',
     '- "essay": options [], correct [].',
     "- points: 1 for easy, 2 for medium, 3 for hard.",
     "",
@@ -117,7 +117,7 @@ function parseQuestions(raw: string): GeneratedQuestion[] {
       const item = q as Record<string, unknown>;
       const type = ALLOWED_TYPES.includes(String(item["type"])) ? String(item["type"]) : "mcq";
       const options = Array.isArray(item["options"]) ? item["options"].map((o) => String(o)) : [];
-      const correct: string[] = []; // Never trust or persist an AI-supplied answer key.
+      const correct = Array.isArray(item["correct"]) ? item["correct"].map(String).filter(Boolean) : [];
       const difficulty = ["easy", "medium", "hard"].includes(String(item["difficulty"]))
         ? String(item["difficulty"])
         : "medium";
@@ -127,7 +127,7 @@ function parseQuestions(raw: string): GeneratedQuestion[] {
         prompt: String(item["prompt"] ?? "").trim(),
         options,
         correct,
-        explanation: "",
+        explanation: String(item["explanation"] ?? "").trim(),
         points: Number(item["points"]) > 0 ? Number(item["points"]) : 1,
       };
     })
@@ -153,7 +153,7 @@ async function callGemini(prompt: string) {
           {
             role: "system",
             content:
-              "You are an experienced examiner. You write precise, unambiguous assessment questions grounded only in the supplied material. Generate questions and plausible options, but NEVER choose, reveal, or infer the correct answer. The teacher must set the answer key. Always reply with valid JSON.",
+              "You are an experienced examiner. You are an experienced examiner. Generate precise, unambiguous assessment questions grounded ONLY in the supplied study material. You MUST select the correct answer using the material, not unsupported general knowledge. For each question, verify that the selected answer is supported by the material and provide a concise explanation based on the material. Never invent facts. Always reply with valid JSON.",
           },
           { role: "user", content: prompt },
         ],

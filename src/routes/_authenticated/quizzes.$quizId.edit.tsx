@@ -263,6 +263,27 @@ function Page() {
     [questions],
   );
 
+  function validateAnswerKeys(items: QuestionDraft[]) {
+    for (let i = 0; i < items.length; i += 1) {
+      const q = items[i]!;
+      if (!q.prompt.trim()) throw new Error("Question " + (i + 1) + " is missing its question text.");
+      if (!isAutoGraded(q.type)) continue;
+      const correct = q.correct.filter(Boolean);
+      if (!correct.length) {
+        throw new Error("Question " + (i + 1) + " needs a teacher-selected correct answer before the quiz can be saved or published.");
+      }
+      if (q.type === "multi_select" && correct.length < 2) {
+        throw new Error("Question " + (i + 1) + " is Multiple correct and needs at least two correct options.");
+      }
+      if (
+        (q.type === "mcq" || q.type === "multi_select" || q.type === "true_false") &&
+        correct.some((answer) => !q.options.includes(answer))
+      ) {
+        throw new Error("Question " + (i + 1) + " has a correct answer that is not one of its options.");
+      }
+    }
+  }
+
   const attempts = useQuery({
     queryKey: ["quiz-review-attempts", quizId],
     enabled: Boolean(user),
@@ -273,6 +294,7 @@ function Page() {
   const save = useMutation({
     mutationFn: async () => {
       if (!settings) return;
+      validateAnswerKeys(questions);
       const { error } = await supabase
         .from("quizzes")
         .update({
@@ -346,6 +368,7 @@ function Page() {
 
   const publish = useMutation({
     mutationFn: async (published: boolean) => {
+      if (published) validateAnswerKeys(questions);
       const { error } = await supabase.from("quizzes").update({ published }).eq("id", quizId);
       if (error) throw error;
       return published;
@@ -435,6 +458,10 @@ function Page() {
   async function saveToBank(index: number) {
     const q = questions[index];
     if (!q || !user) return;
+    if (isAutoGraded(q.type) && q.correct.length === 0) {
+      toast.error("Select the correct answer before saving this question to the question bank.");
+      return;
+    }
     const { error } = await supabase.from("question_bank").insert({
       owner_id: user.id,
       class_id: quiz.data?.quiz.class_id ?? null,

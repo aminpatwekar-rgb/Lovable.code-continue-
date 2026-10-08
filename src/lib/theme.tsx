@@ -41,7 +41,7 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: "light",
-  mode: "system",
+  mode: "light",
   setMode: () => {},
   toggle: () => {},
   accent: null,
@@ -55,7 +55,7 @@ function systemTheme(): Theme {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>("system");
+  const [mode, setModeState] = useState<ThemeMode>("light");
   const [theme, setTheme] = useState<Theme>("light");
   const [accent, setAccentState] = useState<Accent | null>(null);
   const [themeStyle, setThemeStyleState] = useState<ThemeStyle>("default");
@@ -65,7 +65,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const initialMode: ThemeMode =
       storedMode === "light" || storedMode === "dark" || storedMode === "system"
         ? storedMode
-        : "system";
+        : "light"; // new visitors start in light mode (they can still pick Dark or System)
     setModeState(initialMode);
     setTheme(initialMode === "system" ? systemTheme() : initialMode);
 

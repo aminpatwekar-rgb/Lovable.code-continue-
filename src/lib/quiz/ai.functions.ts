@@ -6,11 +6,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  * request is proxied through this handler.
  */
 
-// Gemini is called directly from the server using the Google AI Studio secret.
-// Never expose GEMINI_API_KEY to browser/client code.
-const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const MODEL = "gemini-3.8-flash";
-const FALLBACK_MODELS = ["gemini-3.5-flash-lite"];
+const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const MODEL = "google/gemini-3.5-flash";
+const FALLBACK_MODELS = ["google/gemini-2.5-flash"];
 const TIMEOUT_MS = 90_000;
 
 export type GeneratedQuestion = {
@@ -329,63 +327,52 @@ function parseAndCleanQuestions(raw: string, input: GenerateInput) {
 // Model call
 // ---------------------------------------------------------------------------
 
-async function callModel(
-  model: string,
-  prompt: string,
-): Promise<{ ok: true; content: string } | { ok: false; status: number; message: string }> {
-  // Explicitly read the Google AI Studio secret. Do not rely on SDK auto-detection.
-  const key = process.env["GEMINI_API_KEY"];
-  if (!key) throw new Error("Gemini AI is not configured. Add GEMINI_API_KEY to the server secrets.");
+async function callModel(model: string, prompt: string): Promise<{ ok: true; content: string } | { ok: false; status: number; message: string }> {
+  const key = process.env["LOVABLE_API_KEY"];
+  if (!key) throw new Error("AI is not configured for this workspace.");
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   let res: Response;
-
   try {
-    res = await fetch(
-      `${GEMINI_API_BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
-      {
-        method: "POST",
-        signal: controller.signal,
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: "application/json" },
-        }),
-      },
-    );
+    res = await fetch(GATEWAY, {
+      method: "POST",
+      signal: controller.signal,
+      headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: prompt },
+        ],
+        response_format: { type: "json_object" },
+      }),
+    });
   } catch (err) {
     clearTimeout(timer);
     if ((err as Error)?.name === "AbortError") {
       throw new Error("The AI took too long to respond. Try fewer questions or less material.");
     }
-    throw new Error("Could not reach the Gemini API. Check your connection and try again.");
+    throw new Error("Could not reach the AI service. Check your connection and try again.");
   }
   clearTimeout(timer);
 
-  if (res.status === 429) {
-    throw new Error("Gemini rate limit reached. Please wait a moment and try again.");
+  if (res.status === 429) throw new Error("AI rate limit reached. Please wait a moment and try again.");
+  if (res.status === 402) {
+    throw new Error("AI credits are exhausted. Add credits in your workspace billing settings.");
   }
   if (res.status === 401 || res.status === 403) {
-    throw new Error("The Gemini API key was rejected. Check the GEMINI_API_KEY server secret.");
+    throw new Error("The AI credentials were rejected. Contact your administrator.");
   }
   if (!res.ok) {
     const body = await res.text();
-    console.error(`Gemini API error [${res.status}] model=${model}: ${body}`);
-    return { ok: false, status: res.status, message: `The Gemini API failed (${res.status}).` };
+    console.error(`AI gateway error [${res.status}] model=${model}: ${body}`);
+    return { ok: false, status: res.status, message: `The AI service failed (${res.status}).` };
   }
 
-  const json = (await res.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-
-  const content =
-    json.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("").trim() ?? "";
-
-  if (!content) {
-    return { ok: false, status: 200, message: "Gemini returned an empty response." };
-  }
+  const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  const content = json.choices?.[0]?.message?.content ?? "";
+  if (!content) return { ok: false, status: 200, message: "The AI returned an empty response." };
   return { ok: true, content };
 }
 
@@ -463,7 +450,7 @@ export const generateQuizQuestions = createServerFn({ method: "POST" })
       const settled = await db.rpc("settle_ai_questions", {
         _ledger_id: ledgerId,
         _successful: questions.length,
-        _provider: "google-gemini-api",
+        _provider: "lovable-ai-gateway",
         _model: MODEL,
         _input_tokens: null,
         _output_tokens: null,

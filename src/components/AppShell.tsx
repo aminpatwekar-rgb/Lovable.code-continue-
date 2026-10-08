@@ -19,8 +19,10 @@ import {
   ClipboardCheck,
   Calendar,
   EyeOff,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { clearSessionConfirmation } from "@/lib/session-confirm";
 import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
@@ -101,6 +103,45 @@ export function AppShell({ children }: { children: ReactNode }) {
     staleTime: 60_000,
   });
   const [open, setOpen] = useState(false);
+
+  // Desktop sidebar: can be slid away to give content the full width.
+  const [sidebarHidden, setSidebarHidden] = useState(false);
+  useEffect(() => {
+    try {
+      setSidebarHidden(localStorage.getItem("onyx.sidebar.hidden") === "1");
+    } catch {
+      /* storage unavailable */
+    }
+  }, []);
+  function setSidebar(hidden: boolean) {
+    setSidebarHidden(hidden);
+    try {
+      localStorage.setItem("onyx.sidebar.hidden", hidden ? "1" : "0");
+    } catch {
+      /* storage unavailable */
+    }
+  }
+  useEffect(() => {
+    // Ctrl/Cmd + B toggles the sidebar (desktop).
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+        const el = e.target as HTMLElement | null;
+        if (el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))) return;
+        e.preventDefault();
+        setSidebarHidden((h) => {
+          const next = !h;
+          try {
+            localStorage.setItem("onyx.sidebar.hidden", next ? "1" : "0");
+          } catch {
+            /* storage unavailable */
+          }
+          return next;
+        });
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -264,9 +305,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[16.5rem_1fr] bg-background">
-      <aside className="sticky top-0 z-30 hidden h-screen flex-col justify-between border-r border-sidebar-border bg-sidebar/95 backdrop-blur-xl lg:flex">
-        <div className="flex flex-col">
+    <div
+      className={cn(
+        "min-h-screen bg-background lg:grid lg:transition-[grid-template-columns] lg:duration-300 lg:ease-out",
+        sidebarHidden ? "lg:grid-cols-[0rem_1fr]" : "lg:grid-cols-[16.5rem_1fr]",
+      )}
+    >
+      <aside
+        aria-hidden={sidebarHidden}
+        className={cn(
+          "sticky top-0 z-30 hidden h-screen flex-col justify-between overflow-hidden bg-sidebar/95 backdrop-blur-xl lg:flex",
+          sidebarHidden ? "pointer-events-none border-r-0 opacity-0" : "border-r border-sidebar-border",
+        )}
+      >
+        <div className="flex w-[16.5rem] shrink-0 flex-col">
           <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
             <Link to="/dashboard" className="transition-opacity hover:opacity-90">
               {branding.data ? <span className="text-sm font-semibold">Workspace</span> : <Wordmark size="sm" />}
@@ -274,6 +326,18 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-1">
               <NotificationCenter />
               {renderRoleSwitcher()}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8 text-muted-foreground hover:text-foreground"
+                onClick={() => setSidebar(true)}
+                title="Hide sidebar (Ctrl+B)"
+                aria-label="Hide sidebar"
+                tabIndex={sidebarHidden ? -1 : 0}
+              >
+                <PanelLeftClose className="size-4" />
+              </Button>
             </div>
           </div>
 
@@ -283,7 +347,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <div className="space-y-3 border-t border-sidebar-border p-4 bg-sidebar/40">
+        <div className="w-[16.5rem] shrink-0 space-y-3 border-t border-sidebar-border p-4 bg-sidebar/40">
           <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-card/60 p-2.5 shadow-2xs transition-colors hover:border-border">
             <Avatar className="size-9 border border-border/50">
               <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
@@ -418,7 +482,26 @@ export function AppShell({ children }: { children: ReactNode }) {
         </SheetContent>
       </Sheet>
 
-      <main className="min-w-0 px-4 pb-24 pt-5 sm:px-8 sm:pt-6 lg:py-8">
+      {sidebarHidden && (
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="fixed left-3 top-3 z-40 hidden size-9 bg-background/90 shadow-sm backdrop-blur lg:inline-flex"
+          onClick={() => setSidebar(false)}
+          title="Show sidebar (Ctrl+B)"
+          aria-label="Show sidebar"
+        >
+          <PanelLeftOpen className="size-4" />
+        </Button>
+      )}
+
+      <main
+        className={cn(
+          "min-w-0 px-4 pb-24 pt-5 sm:px-8 sm:pt-6 lg:py-8",
+          sidebarHidden && "lg:pl-16",
+        )}
+      >
         <motion.div
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}

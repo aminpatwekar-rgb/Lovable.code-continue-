@@ -479,7 +479,3 @@ function Landing() {
     </div>
   );
 }
-
-    </div>
-  );
-}

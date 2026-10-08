@@ -249,8 +249,11 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   };
 
-  const nav = (
-    <nav className="flex flex-col gap-1.5" aria-label="Main Navigation">
+  const renderNav = (compact: boolean) => (
+    <nav
+      className={cn("flex flex-col gap-1.5", compact && "items-center")}
+      aria-label="Main Navigation"
+    >
       {items.map(({ to, label, icon: Icon, ...item }) => {
         const active = pathname === to || pathname.startsWith(to + "/");
         const feature = (item as { feature?: string }).feature;
@@ -260,13 +263,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           return (
             <div
               key={to}
-              title="Included in a higher plan"
+              title={compact ? `${label} (included in a higher plan)` : "Included in a higher plan"}
               aria-disabled="true"
-              className="group relative flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium text-muted-foreground/50 cursor-not-allowed select-none"
+              className={cn(
+                "group relative flex items-center gap-3 rounded-lg text-sm font-medium text-muted-foreground/50 cursor-not-allowed select-none",
+                compact ? "size-10 justify-center" : "px-3.5 py-2.5",
+              )}
             >
               <Icon className="size-4 shrink-0 opacity-60" />
-              <span className="truncate flex-1">{label}</span>
-              <EyeOff className="size-3.5 opacity-70" />
+              {!compact && <span className="truncate flex-1">{label}</span>}
+              {!compact && <EyeOff className="size-3.5 opacity-70" />}
             </div>
           );
         }
@@ -276,9 +282,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             key={to}
             to={to}
             onClick={() => setOpen(false)}
-            {...getPressProps(shouldReduceMotion, { xHover: 2, tapScale: 0.98 })}
+            title={compact ? label : undefined}
+            aria-label={compact ? label : undefined}
+            {...getPressProps(shouldReduceMotion, { xHover: compact ? 0 : 2, tapScale: 0.98 })}
             className={cn(
-              "group relative flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors duration-150 ease-out",
+              "group relative flex items-center gap-3 rounded-lg text-sm font-medium transition-colors duration-150 ease-out",
+              compact ? "size-10 justify-center" : "px-3.5 py-2.5",
               active
                 ? "bg-primary/10 text-primary shadow-xs font-semibold"
                 : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
@@ -286,7 +295,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             {active && (
               <motion.span
-                layoutId="nav-active"
+                layoutId={compact ? "nav-active-rail" : "nav-active"}
                 className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-primary"
                 transition={{ type: "spring", stiffness: 350, damping: 30 }}
               />
@@ -297,27 +306,79 @@ export function AppShell({ children }: { children: ReactNode }) {
                 active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
               )}
             />
-            <span className="truncate">{label}</span>
+            {!compact && <span className="truncate">{label}</span>}
           </MotionLink>
         );
       })}
     </nav>
   );
+  const nav = renderNav(false);
+  const railNav = renderNav(true);
 
   return (
     <div
       className={cn(
         "min-h-screen bg-background lg:grid lg:transition-[grid-template-columns] lg:duration-300 lg:ease-out",
-        sidebarHidden ? "lg:grid-cols-[0rem_1fr]" : "lg:grid-cols-[16.5rem_1fr]",
+        sidebarHidden ? "lg:grid-cols-[4.25rem_1fr]" : "lg:grid-cols-[16.5rem_1fr]",
       )}
     >
       <aside
-        aria-hidden={sidebarHidden}
-        className={cn(
-          "sticky top-0 z-30 hidden h-screen flex-col justify-between overflow-hidden bg-sidebar/95 backdrop-blur-xl lg:flex",
-          sidebarHidden ? "pointer-events-none border-r-0 opacity-0" : "border-r border-sidebar-border",
-        )}
+        className="sticky top-0 z-30 hidden h-screen flex-col justify-between overflow-hidden border-r border-sidebar-border bg-sidebar/95 backdrop-blur-xl lg:flex"
       >
+        {sidebarHidden ? (
+          <>
+            <div className="flex w-[4.25rem] shrink-0 flex-col items-center">
+              <div className="flex h-16 w-full items-center justify-center border-b border-sidebar-border">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-9 text-muted-foreground hover:text-foreground"
+                  onClick={() => setSidebar(false)}
+                  title="Expand sidebar (Ctrl+B)"
+                  aria-label="Expand sidebar"
+                >
+                  <PanelLeftOpen className="size-4" />
+                </Button>
+              </div>
+              <div className="flex flex-col items-center gap-3 py-4">
+                <NotificationCenter />
+                {railNav}
+              </div>
+            </div>
+            <div className="flex w-[4.25rem] shrink-0 flex-col items-center gap-2 border-t border-sidebar-border bg-sidebar/40 py-3">
+              <Avatar
+                className="size-9 border border-border/50"
+                title={profile?.full_name || "Account"}
+              >
+                <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-9 text-muted-foreground hover:text-foreground"
+                onClick={toggle}
+                title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-9 text-muted-foreground hover:text-destructive"
+                onClick={signOut}
+                title="Sign out"
+                aria-label="Sign out"
+              >
+                <LogOut className="size-4" />
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
         <div className="flex w-[16.5rem] shrink-0 flex-col">
           <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
             <Link to="/dashboard" className="transition-opacity hover:opacity-90">
@@ -332,9 +393,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 size="icon"
                 className="size-8 text-muted-foreground hover:text-foreground"
                 onClick={() => setSidebar(true)}
-                title="Hide sidebar (Ctrl+B)"
-                aria-label="Hide sidebar"
-                tabIndex={sidebarHidden ? -1 : 0}
+                title="Collapse sidebar (Ctrl+B)"
+                aria-label="Collapse sidebar"
               >
                 <PanelLeftClose className="size-4" />
               </Button>
@@ -385,6 +445,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Button>
           </div>
         </div>
+          </>
+        )}
       </aside>
 
       <header className="glass sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border px-4 py-2.5 lg:hidden">
@@ -482,26 +544,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </SheetContent>
       </Sheet>
 
-      {sidebarHidden && (
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="fixed left-3 top-3 z-40 hidden size-9 bg-background/90 shadow-sm backdrop-blur lg:inline-flex"
-          onClick={() => setSidebar(false)}
-          title="Show sidebar (Ctrl+B)"
-          aria-label="Show sidebar"
-        >
-          <PanelLeftOpen className="size-4" />
-        </Button>
-      )}
-
-      <main
-        className={cn(
-          "min-w-0 px-4 pb-24 pt-5 sm:px-8 sm:pt-6 lg:py-8",
-          sidebarHidden && "lg:pl-16",
-        )}
-      >
+      <main className="min-w-0 px-4 pb-24 pt-5 sm:px-8 sm:pt-6 lg:py-8">
         <motion.div
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}

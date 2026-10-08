@@ -259,6 +259,7 @@ function ClassDetail() {
 
   // Only the class owner and platform admins may edit or delete a class.
   const canManage = role === "admin" || klass.data.teacher_id === user?.id;
+  const isCoTeacher = isTeacher && !canManage && klass.data.teacher_id !== user?.id;
   const rosterRows = roster.data ?? [];
   const rosterPageSize = 20;
   const rosterPageCount = Math.max(1, Math.ceil(rosterRows.length / rosterPageSize));
@@ -342,7 +343,7 @@ function ClassDetail() {
             {[klass.data.subject, klass.data.section].filter(Boolean).join(" · ") || "No subject"}
           </p>
         </div>
-        {!isTeacher && (
+        {(!isTeacher || isCoTeacher) && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline">

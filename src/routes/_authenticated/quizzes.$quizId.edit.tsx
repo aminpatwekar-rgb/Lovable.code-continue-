@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import {
   blankQuestion,
+  isAutoGraded,
   KIND_LABEL,
   type Difficulty,
   type QuestionDraft,

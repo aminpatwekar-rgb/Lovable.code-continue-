@@ -1906,7 +1906,9 @@ export type Database = {
         }
         Returns: string
       }
+      get_co_teacher_code: { Args: { _class_id: string }; Returns: string }
       leave_class: { Args: { _class_id: string }; Returns: undefined }
+      regenerate_co_teacher_code: { Args: { _class_id: string }; Returns: string }
       request_co_teacher_access: {
         Args: { _code: string; _full_name: string }
         Returns: string

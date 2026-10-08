@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 import { useAuth } from "@/lib/auth";
 import { CoTeacherRequests } from "@/components/CoTeacherRequests";
+import { CoTeacherCode } from "@/components/CoTeacherCode";
 import { downloadCsv, toCsv } from "@/lib/csv";
 import { Pagination } from "@/components/Pagination";
 import { useViewRole } from "@/lib/viewRole";
@@ -387,6 +388,7 @@ function ClassDetail() {
               {klass.data.join_code}
               <Copy className="size-3.5" />
             </button>
+            <CoTeacherCode classId={classId} />
             <Button
               variant="outline"
               className="hidden sm:inline-flex"

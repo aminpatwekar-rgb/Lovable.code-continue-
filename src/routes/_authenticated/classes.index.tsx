@@ -137,7 +137,7 @@ function Classes() {
   const [coCode, setCoCode] = useState("");
   const joinAsCoTeacher = useMutation({
     mutationFn: async () => {
-      if (!coCode.trim()) throw new Error("Enter the join code");
+      if (!coCode.trim()) throw new Error("Enter the co-teacher code");
       const { data, error } = await supabase.rpc("request_co_teacher_access", {
         _code: coCode.trim().toUpperCase(),
         _full_name: profile?.full_name?.trim() || "",
@@ -215,7 +215,7 @@ function Classes() {
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="cocode">Join code</Label>
+                  <Label htmlFor="cocode">Co-teacher code</Label>
                   <Input
                     id="cocode"
                     maxLength={6}
@@ -226,7 +226,7 @@ function Classes() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Ask the class owner for their join code. Your request goes to the owner, and you
+                  Ask the class owner for the class&apos;s co-teacher code (it is different from the student join code). Your request goes to the owner, and you
                   only get access once they approve it. As a co-teacher you can then view the
                   roster, take attendance, grade submissions and add your own assignments and
                   quizzes. Only the owner can edit or delete the class.

@@ -9,8 +9,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 // Gemini is called directly from the server using the Google AI Studio secret.
 // Never expose GEMINI_API_KEY to browser/client code.
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const MODEL = "gemini-2.5-flash";
-const FALLBACK_MODELS = ["gemini-2.5-flash-lite"];
+const MODEL = "gemini-3.8-flash";
+const FALLBACK_MODELS = ["gemini-3.5-flash-lite"];
 const TIMEOUT_MS = 90_000;
 
 export type GeneratedQuestion = {

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Check, Save } from "lucide-react";
+import { CalendarDays, Check, Clock3, Save, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useViewRole } from "@/lib/viewRole";
@@ -98,10 +98,26 @@ function Page() {
       <div className="panel divide-y divide-border">
         {(roster.data ?? []).map((s:any)=><div key={s.student_id} className="flex flex-wrap items-center gap-3 p-4">
           <div className="min-w-0 flex-1"><p className="font-medium">{s.full_name || "Student"}</p><p className="text-xs text-muted-foreground">{[s.roll_no&&`Roll ${s.roll_no}`,s.er_no&&`ER ${s.er_no}`,s.sr_no&&`Sr ${s.sr_no}`].filter(Boolean).join(" · ")}</p></div>
-          <Select value={values[s.student_id] ?? "present"} onValueChange={v=>setDraft(d=>({...d,[s.student_id]:v as Status}))}>
-            <SelectTrigger className="w-36"><SelectValue/></SelectTrigger><SelectContent>{STATUSES.map(v=><SelectItem value={v} key={v}>{v[0].toUpperCase()+v.slice(1)}</SelectItem>)}</SelectContent>
-          </Select>
-          {values[s.student_id] === "present" && <Check className="size-4 text-success"/>}
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label={`Attendance status for ${s.full_name || "student"}`}>
+            {STATUSES.map(v => {
+              const selected = (values[s.student_id] ?? "present") === v;
+              const Icon = v === "present" ? Check : v === "absent" ? X : v === "late" ? Clock3 : null;
+              return (
+                <Button
+                  key={v}
+                  type="button"
+                  size="sm"
+                  variant={selected ? "default" : "outline"}
+                  aria-pressed={selected}
+                  onClick={() => setDraft(d => ({ ...d, [s.student_id]: v }))}
+                  className="min-w-[78px]"
+                >
+                  {Icon ? <Icon className="size-4" /> : null}
+                  {v[0].toUpperCase() + v.slice(1)}
+                </Button>
+              );
+            })}
+          </div>
         </div>)}
       </div>}
     </div></PlanGate>

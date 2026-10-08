@@ -60,36 +60,68 @@ function validate(input: GenerateInput): GenerateInput {
   };
 }
 
+const GENERATOR_SYSTEM_PROMPT = [
+  "You are a veteran teacher and professional exam writer with decades of experience writing fair, rigorous assessments.",
+  "You write questions that measure real understanding of the material, not trivia or guessing skill.",
+  "Every question must be answerable from the supplied study material alone, and must have exactly one defensible answer.",
+  "You never invent facts, never use outside knowledge, and never write filler questions.",
+  "In this stage you write ONLY the questions; the answer key is produced and verified in a separate stage, so leave correct as [] and explanation as an empty string.",
+  "Always reply with valid JSON only.",
+].join(" ");
+
+const ANSWER_KEY_SYSTEM_PROMPT =
+  "You are a meticulous answer-key verifier for academic quizzes. Use ONLY the supplied study material, never outside knowledge, and never guess. Always reply with valid JSON only.";
+
 function buildPrompt(input: GenerateInput) {
-  return [
-    `Generate exactly ${input.count} exam question(s) strictly from the STUDY MATERIAL below.`,
-    `Allowed question types: ${input.types.join(", ")}. Spread them across the allowed types.`,
+  const difficultyGuide =
     input.difficulty === "mixed"
-      ? "Mix easy, medium and hard difficulty."
-      : `Every question must be ${input.difficulty} difficulty.`,
-    input.topic ? `Focus on the topic: ${input.topic}.` : "",
-    "Generate the questions only in this first stage. Leave correct as [] and explanation as empty. A separate verification stage will select the answer key from the supplied study material.",
+      ? "Use a balanced mix of difficulties (roughly 30% easy, 40% medium, 30% hard)."
+      : `Every question must be ${input.difficulty} difficulty.`;
+
+  return [
+    `Write exactly ${input.count} high-quality exam question(s) from the STUDY MATERIAL at the bottom.`,
+    `Allowed question types: ${input.types.join(", ")}. Use every allowed type at least once when the count allows, and spread them evenly.`,
+    difficultyGuide,
+    input.topic ? `Focus on this topic: ${input.topic}.` : "",
     input.avoid?.length
-      ? `Do NOT repeat or paraphrase these existing questions:\n- ${input.avoid.join("\n- ")}`
+      ? `Do NOT repeat, rephrase, or test the same fact as any of these existing questions:\n- ${input.avoid.join("\n- ")}`
       : "",
     "",
-    "Rules:",
-    "- Never invent facts that are not supported by the material.",
-    "- No duplicate or near-duplicate questions.",
-    '- "mcq": exactly 4 options. In this stage, correct must be [].',
-    '- "multi_select": 4-5 options. In this stage, correct must be [].',
-    '- "true_false": options ["True","False"]. In this stage, correct must be [].',
-    '- "fill_blank": use ____ in the prompt, options [], correct must be [].',
-    '- "short_answer": options [], correct must be [].',
-    '- "essay": options [], correct [].',
+    "HOW TO PICK WHAT TO ASK",
+    "- Test the most important ideas, definitions, relationships, causes, processes, formulas and conclusions in the material. Skip trivia such as names, page details, dates or numbers that don't matter.",
+    "- Cover DIFFERENT parts of the material. Do not ask two questions about the same fact, and do not cluster questions on one paragraph.",
+    "- Cognitive level: easy = recall or recognise a key fact/definition; medium = explain, compare, or apply an idea to a short example; hard = analyse, reason through multiple steps, apply to a new situation, or spot a misconception. Hard questions must still be answerable from the material.",
+    "- For maths, science and numerical material, prefer questions that need a calculation or application of a formula. Make sure every number given is consistent and the result is exactly derivable from the material.",
+    "",
+    "QUALITY RULES FOR EVERY QUESTION",
+    "- The prompt must be clear, self-contained and unambiguous. A student must understand it without seeing the material. Never write \"according to the passage/text/material\", \"as mentioned above\", or refer to figures that are not included.",
+    "- Exactly one answer must be defensible. No trick wording, no double negatives, no opinion-based questions.",
+    "- Use plain, precise language at the level of the material. Keep prompts concise.",
+    "- Never include the answer, or a clue that gives it away, in the prompt or in other questions.",
+    "- Do not number the questions or prefix them with 'Q1:' etc.",
+    "",
+    "FORMAT RULES PER TYPE",
+    '- "mcq": exactly 4 options. One is correct; the other three are plausible distractors built from realistic student mistakes, common misconceptions, or closely related concepts from the material. Distractors must be clearly wrong to someone who knows the material, but not silly or obviously absurd. Make all options similar in length, style and grammar so the right answer cannot be guessed from its shape. Vary which position holds the correct option. Never use "All of the above", "None of the above", or "Both A and B". Do not prefix options with A), B) etc.',
+    '- "multi_select": 4-5 options, with 2 or 3 correct. The prompt must say "Select all that apply". Each option must be independently and clearly true or false based on the material.',
+    '- "true_false": options exactly ["True","False"]. The statement must be clearly and fully true or fully false, not partly true. Avoid absolute words like "always" or "never" unless the material states them. Roughly balance true and false statements across the quiz.',
+    '- "fill_blank": use exactly one ____ in the prompt. The blank must be a key term or value with a single short, unambiguous answer (one to three words, or a number). The sentence around the blank must give enough context that only that answer fits. options [].',
+    '- "short_answer": a focused question answerable in one to two sentences, or a short calculation with a definite result. State exactly what is being asked for. options [].',
+    '- "essay": an open question that requires explanation, comparison or argument built from the material, and states what a strong answer should cover (for example "Explain X and discuss Y"). options [].',
+    "- In this stage correct must always be [] and explanation must be \"\".",
     "- points: 1 for easy, 2 for medium, 3 for hard.",
+    "",
+    "MATH AND SCIENCE FORMATTING",
+    "- Write every formula, equation, variable with a subscript or superscript, and chemical formula in LaTeX: inline as $...$ and display as $$...$$ (for example $x^2 + 5x + 6 = 0$, $\\frac{a}{b}$, $\\mathrm{H_2O}$).",
+    "- Escape backslashes correctly so the JSON stays valid.",
+    "",
+    "BEFORE YOU ANSWER, silently check each question: Is it clear? Is there exactly one right answer supported by the material? Are the distractors plausible? Is it different from every other question? Fix or replace any question that fails.",
     "",
     'Reply with JSON only, shaped { "questions": [ { "type", "difficulty", "prompt", "options", "correct", "explanation", "points" } ] }.',
     "",
     "STUDY MATERIAL:",
     input.material,
   ]
-    .filter(Boolean)
+    .filter((line, i, arr) => line !== "" || (arr[i - 1] ?? "") !== "")
     .join("\n");
 }
 
@@ -134,7 +166,7 @@ function parseQuestions(raw: string): GeneratedQuestion[] {
     .filter((q) => q.prompt.length > 0);
 }
 
-async function callGemini(prompt: string) {
+async function callGemini(prompt: string, system: string, temperature: number) {
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("AI is not configured for this workspace.");
 
@@ -150,13 +182,10 @@ async function callGemini(prompt: string) {
       body: JSON.stringify({
         model: MODEL,
         messages: [
-          {
-            role: "system",
-            content:
-              "You are an experienced assessment-question generator. Generate precise, unambiguous questions grounded ONLY in the supplied study material. Do not select or reveal answer keys in this stage. Never invent facts. Always reply with valid JSON.",
-          },
+          { role: "system", content: system },
           { role: "user", content: prompt },
         ],
+        temperature,
         response_format: { type: "json_object" },
       }),
     });
@@ -327,7 +356,11 @@ async function applyAndVerifyAnswerKeys(
   questions: GeneratedQuestion[],
   withExplanations: boolean,
 ) {
-  const content = await callGemini(buildAnswerKeyPrompt(material, questions, withExplanations));
+  const content = await callGemini(
+    buildAnswerKeyPrompt(material, questions, withExplanations),
+    ANSWER_KEY_SYSTEM_PROMPT,
+    0.1,
+  );
   const answers = parseGroundedAnswers(content);
 
   if (answers.length !== questions.length) {
@@ -385,7 +418,7 @@ export const generateQuizQuestions = createServerFn({ method: "POST" })
 
       for (let attempt = 0; attempt < 2 && !questions; attempt += 1) {
         try {
-          const content = await callGemini(buildPrompt(data));
+          const content = await callGemini(buildPrompt(data), GENERATOR_SYSTEM_PROMPT, 0.6);
           const candidate = parseQuestions(content).slice(0, data.count);
           if (candidate.length !== data.count) {
             throw new Error("The AI generated " + candidate.length + " of " + data.count + " requested questions. Please try again.");
@@ -432,7 +465,7 @@ export const regenerateQuizQuestion = createServerFn({ method: "POST" })
 
       for (let attempt = 0; attempt < 2 && !question; attempt += 1) {
         try {
-          const content = await callGemini(buildPrompt({ ...data, count: 1 }));
+          const content = await callGemini(buildPrompt({ ...data, count: 1 }), GENERATOR_SYSTEM_PROMPT, 0.7);
           const [candidate] = parseQuestions(content);
           if (!candidate) throw new Error("Couldn't regenerate that question. Try again.");
           const verified = await applyAndVerifyAnswerKeys(data.material, [candidate], data.withExplanations);

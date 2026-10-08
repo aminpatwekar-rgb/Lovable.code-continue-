@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, Download, FileUp, Loader2, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Download, FileText, FileUp, Loader2, Trash2, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useViewRole } from "@/lib/viewRole";
@@ -40,6 +40,15 @@ type Page = {
   file_name: string;
   url: string;
   page_order: number;
+};
+
+type SubmissionAttachment = {
+  id: string;
+  storage_path: string;
+  file_name: string;
+  url: string;
+  mime_type: string | null;
+  size_bytes: number | null;
 };
 
 function AssignmentPage() {
@@ -298,9 +307,11 @@ function StudentSubmission({
   const [text, setText] = useState("");
   const [blocks, setBlocks] = useState<ImageBlock[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
+  const [attachments, setAttachments] = useState<SubmissionAttachment[]>([]);
   const [violations, setViolations] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const attachmentRef = useRef<HTMLInputElement>(null);
 
   const submission = useQuery({
     queryKey: ["my-submission", assignment.id, userId],
@@ -314,7 +325,7 @@ function StudentSubmission({
       if (!sub) return null;
       const { data: files } = await supabase
         .from("submission_files")
-        .select("id, storage_path, file_name, page_order, kind, caption")
+        .select("id, storage_path, file_name, page_order, kind, caption, mime_type, size_bytes")
         .eq("submission_id", sub.id)
         .order("page_order", { ascending: true });
       const signed = await Promise.all(
@@ -340,6 +351,18 @@ function StudentSubmission({
         .map((f) => ({ id: f.id, path: f.storage_path, url: f.url, caption: f.caption ?? "" })),
     );
     setPages(files.filter((f) => f.kind === "page") as Page[]);
+    setAttachments(
+      files
+        .filter((f) => f.kind === "attachment")
+        .map((f) => ({
+          id: f.id,
+          storage_path: f.storage_path,
+          file_name: f.file_name,
+          url: f.url,
+          mime_type: f.mime_type ?? null,
+          size_bytes: f.size_bytes ?? null,
+        })),
+    );
     setHydrated(true);
   }, [submission.data, hydrated]);
 
@@ -443,6 +466,61 @@ function StudentSubmission({
     await supabase.from("submission_files").delete().eq("id", p.id);
     await supabase.storage.from("submissions").remove([p.storage_path]);
     setPages((prev) => prev.filter((x) => x.id !== p.id));
+  }
+
+  function isAllowedAttachment(file: File) {
+    const extension = file.name.toLowerCase().split(".").pop() ?? "";
+    return (
+      file.type.startsWith("image/") ||
+      ["pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "txt", "csv"].includes(extension)
+    );
+  }
+
+  function formatFileSize(bytes: number | null) {
+    if (!bytes) return "";
+    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  async function handleAttachments(files: FileList | null) {
+    if (!files?.length) return;
+    setUploading(true);
+    try {
+      const added: SubmissionAttachment[] = [];
+      let order = pages.length + attachments.length;
+      for (const file of Array.from(files)) {
+        if (!isAllowedAttachment(file)) {
+          toast.error(`${file.name} is not a supported file type`);
+          continue;
+        }
+        if (file.size > 15 * 1024 * 1024) {
+          toast.error(`${file.name} is larger than 15MB`);
+          continue;
+        }
+        const r = await uploadFile(file, "attachment", order);
+        added.push({
+          id: r.id,
+          storage_path: r.path,
+          file_name: r.file_name,
+          url: r.url,
+          mime_type: file.type || null,
+          size_bytes: file.size,
+        });
+        order += 1;
+      }
+      setAttachments((prev) => [...prev, ...added]);
+      if (added.length) toast.success(`${added.length} file(s) attached`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "File upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function removeAttachment(file: SubmissionAttachment) {
+    await supabase.from("submission_files").delete().eq("id", file.id);
+    await supabase.storage.from("submissions").remove([file.storage_path]);
+    setAttachments((prev) => prev.filter((x) => x.id !== file.id));
   }
 
   async function logViolation(kind: string) {
@@ -565,6 +643,30 @@ function StudentSubmission({
             </div>
           )}
           {sub?.typed_content && <RenderMathText text={sub.typed_content} className="mt-4" />}
+          {attachments.length > 0 && (
+            <div className="mt-5 space-y-2">
+              <p className="text-sm font-medium">Attached files</p>
+              <div className="divide-y divide-border rounded-lg border border-border">
+                {attachments.map((file) => (
+                  <a
+                    key={file.id}
+                    href={file.url || undefined}
+                    target="_blank"
+                    rel="noreferrer"
+                    download={file.file_name}
+                    className="flex items-center gap-3 p-3 transition-colors hover:bg-muted/40"
+                  >
+                    <FileText className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate text-sm">{file.file_name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {formatFileSize(file.size_bytes)}
+                    </span>
+                    <Download className="size-4 shrink-0 text-muted-foreground" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <Tabs value={activeMode} onValueChange={(v) => setChoice(v as "handwritten" | "typed")}>
@@ -664,6 +766,71 @@ function StudentSubmission({
               }}
             />
           </TabsContent>
+
+          <section
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              void handleAttachments(e.dataTransfer.files);
+            }}
+            className="panel border-dashed p-5"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold">Additional files</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Attach PDFs, Word, PowerPoint, Excel, text, CSV, or image files to this submission.
+                  Maximum 15MB per file.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => attachmentRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2 className="mr-1.5 size-4 animate-spin" />
+                ) : (
+                  <Upload className="mr-1.5 size-4" />
+                )}
+                Upload files
+              </Button>
+              <input
+                ref={attachmentRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => void handleAttachments(e.target.files)}
+              />
+            </div>
+
+            {attachments.length > 0 && (
+              <div className="mt-4 divide-y divide-border rounded-lg border border-border">
+                {attachments.map((file) => (
+                  <div key={file.id} className="flex items-center gap-3 p-3">
+                    <FileText className="size-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{file.file_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {file.mime_type || "File"}
+                        {file.size_bytes ? ` · ${formatFileSize(file.size_bytes)}` : ""}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => void removeAttachment(file)}
+                      aria-label={`Remove ${file.file_name}`}
+                    >
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
 
           <div className="mt-6 flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => save.mutate(false)} disabled={save.isPending}>

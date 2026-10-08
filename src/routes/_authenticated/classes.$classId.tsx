@@ -17,6 +17,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 
 import { useAuth } from "@/lib/auth";
+import { CoTeacherRequests } from "@/components/CoTeacherRequests";
 import { downloadCsv, toCsv } from "@/lib/csv";
 import { Pagination } from "@/components/Pagination";
 import { useViewRole } from "@/lib/viewRole";
@@ -498,6 +499,8 @@ function ClassDetail() {
           </div>
         )}
       </header>
+
+      {canManage && <CoTeacherRequests classId={classId} />}
 
       <Tabs defaultValue="assignments">
         <TabsList>

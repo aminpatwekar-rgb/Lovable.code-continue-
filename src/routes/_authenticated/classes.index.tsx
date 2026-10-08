@@ -138,19 +138,16 @@ function Classes() {
   const joinAsCoTeacher = useMutation({
     mutationFn: async () => {
       if (!coCode.trim()) throw new Error("Enter the join code");
-      const { data, error } = await supabase.rpc("join_class_by_code", {
+      const { data, error } = await supabase.rpc("request_co_teacher_access", {
         _code: coCode.trim().toUpperCase(),
         _full_name: profile?.full_name?.trim() || "",
-        _roll_no: "",
-        _er_no: "",
-        _sr_no: "",
       });
       if (error) throw error;
-      if (!data) throw new Error("No class found with that code");
-      return data;
+      return data as string;
     },
-    onSuccess: () => {
-      toast.success("You've joined the class as a co-teacher");
+    onSuccess: (status) => {
+      if (status === "member") toast.success("You're already a co-teacher in this class");
+      else toast.success("Request sent. The class owner must approve it before you get access.");
       setCoOpen(false);
       setCoCode("");
       void qc.invalidateQueries({ queryKey: ["classes"] });
@@ -209,12 +206,12 @@ function Classes() {
           <Dialog open={coOpen} onOpenChange={setCoOpen}>
             <DialogTrigger asChild>
               <Button variant="outline">
-                <Users className="mr-1.5 size-4" /> Join as co-teacher
+                <Users className="mr-1.5 size-4" /> Request co-teacher access
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Join a class as co-teacher</DialogTitle>
+                <DialogTitle>Request to co-teach a class</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-1.5">
@@ -229,14 +226,15 @@ function Classes() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Ask the class owner for their join code. As a co-teacher you can view the
+                  Ask the class owner for their join code. Your request goes to the owner, and you
+                  only get access once they approve it. As a co-teacher you can then view the
                   roster, take attendance, grade submissions and add your own assignments and
                   quizzes. Only the owner can edit or delete the class.
                 </p>
               </div>
               <DialogFooter>
                 <Button onClick={() => joinAsCoTeacher.mutate()} disabled={joinAsCoTeacher.isPending}>
-                  {joinAsCoTeacher.isPending ? "Joining…" : "Join class"}
+                  {joinAsCoTeacher.isPending ? "Sending…" : "Send request"}
                 </Button>
               </DialogFooter>
             </DialogContent>

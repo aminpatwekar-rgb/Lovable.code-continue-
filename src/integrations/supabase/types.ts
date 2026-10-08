@@ -581,6 +581,36 @@ export type Database = {
           },
         ]
       }
+      class_co_teacher_requests: {
+        Row: {
+          class_id: string
+          created_at: string
+          decided_at: string | null
+          full_name: string | null
+          id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          decided_at?: string | null
+          full_name?: string | null
+          id?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          decided_at?: string | null
+          full_name?: string | null
+          id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       class_members: {
         Row: {
           class_id: string
@@ -1877,6 +1907,14 @@ export type Database = {
         Returns: string
       }
       leave_class: { Args: { _class_id: string }; Returns: undefined }
+      request_co_teacher_access: {
+        Args: { _code: string; _full_name: string }
+        Returns: string
+      }
+      respond_co_teacher_request: {
+        Args: { _approve: boolean; _request_id: string }
+        Returns: undefined
+      }
       owns_attempt: {
         Args: { _attempt_id: string; _user_id: string }
         Returns: boolean

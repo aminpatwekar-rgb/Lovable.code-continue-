@@ -166,7 +166,7 @@ function parseQuestions(raw: string): GeneratedQuestion[] {
     .filter((q) => q.prompt.length > 0);
 }
 
-async function callGemini(prompt: string, system: string, temperature: number) {
+async function callGemini(prompt: string, system: string) {
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("AI is not configured for this workspace.");
 
@@ -185,7 +185,6 @@ async function callGemini(prompt: string, system: string, temperature: number) {
           { role: "system", content: system },
           { role: "user", content: prompt },
         ],
-        temperature,
         response_format: { type: "json_object" },
       }),
     });
@@ -351,58 +350,97 @@ function parseGroundedAnswers(raw: string): GroundedAnswer[] {
   });
 }
 
+/**
+ * Verifies each question's answer key against the study material. Questions
+ * whose answer cannot be verified are DROPPED (not fatal), so one bad question
+ * never throws away the whole batch.
+ */
 async function applyAndVerifyAnswerKeys(
   material: string,
   questions: GeneratedQuestion[],
   withExplanations: boolean,
-) {
+): Promise<GeneratedQuestion[]> {
   const content = await callGemini(
     buildAnswerKeyPrompt(material, questions, withExplanations),
     ANSWER_KEY_SYSTEM_PROMPT,
-    0.1,
   );
   const answers = parseGroundedAnswers(content);
 
-  if (answers.length !== questions.length) {
-    throw new Error("The AI returned an incomplete answer key. Please try generating again.");
-  }
-
   const byIndex = new Map<number, GroundedAnswer>();
   for (const answer of answers) {
-    if (!Number.isInteger(answer.index) || answer.index < 0 || answer.index >= questions.length) {
-      throw new Error("The AI returned an invalid answer-key index. Please try again.");
+    if (Number.isInteger(answer.index) && answer.index >= 0 && answer.index < questions.length) {
+      if (!byIndex.has(answer.index)) byIndex.set(answer.index, answer);
     }
-    if (byIndex.has(answer.index)) {
-      throw new Error("The AI returned a duplicate answer-key entry. Please try again.");
-    }
-    byIndex.set(answer.index, answer);
   }
 
   const normalizedMaterial = normalizeGroundingText(material);
-  const grounded = questions.map((question, index) => {
+  const verified: GeneratedQuestion[] = [];
+
+  questions.forEach((question, index) => {
     const answer = byIndex.get(index);
-    if (!answer) throw new Error("Question " + (index + 1) + " is missing an answer key.");
+    if (!answer) return;
 
     if (question.type !== "essay") {
-      if (!answer.sourceEvidence) {
-        throw new Error("Question " + (index + 1) + " has no source evidence for its answer.");
-      }
+      if (!answer.sourceEvidence) return;
       const evidence = normalizeGroundingText(answer.sourceEvidence);
-      if (evidence.length < 8 || !normalizedMaterial.includes(evidence)) {
-        throw new Error("Question " + (index + 1) + " has an answer that could not be verified against the supplied material.");
-      }
+      if (evidence.length < 8 || !normalizedMaterial.includes(evidence)) return;
     }
 
-    return {
+    const candidate: GeneratedQuestion = {
       ...question,
       correct: answer.correct,
       explanation: withExplanations ? answer.explanation : "",
     };
+    try {
+      validateQuestionShape([candidate]);
+    } catch {
+      return;
+    }
+    verified.push(candidate);
   });
 
-  validateQuestionShape(grounded);
-  return grounded;
+  return verified;
 }
+
+/** Generates + verifies questions, topping up across attempts until `count` is reached. */
+async function generateVerified(data: GenerateInput): Promise<GeneratedQuestion[]> {
+  const collected: GeneratedQuestion[] = [];
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < 3 && collected.length < data.count; attempt += 1) {
+    const needed = data.count - collected.length;
+    try {
+      const content = await callGemini(
+        buildPrompt({
+          ...data,
+          count: needed,
+          avoid: [...(data.avoid ?? []), ...collected.map((q) => q.prompt)].slice(0, 60),
+        }),
+        GENERATOR_SYSTEM_PROMPT,
+      );
+      const candidate = parseQuestions(content).slice(0, needed);
+      const verified = await applyAndVerifyAnswerKeys(
+        data.material,
+        candidate,
+        data.withExplanations,
+      );
+      collected.push(...verified);
+    } catch (error) {
+      console.error(`AI quiz generation attempt ${attempt + 1} failed:`, error);
+      lastError = error;
+    }
+  }
+
+  if (!collected.length) {
+    throw lastError instanceof Error
+      ? lastError
+      : new Error(
+          "The AI could not produce questions it could verify from your material. Add more detailed study material and try again.",
+        );
+  }
+  return collected.slice(0, data.count);
+}
+
 /** Generates a batch of questions from study material. */
 export const generateQuizQuestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -413,27 +451,7 @@ export const generateQuizQuestions = createServerFn({ method: "POST" })
     if (reservation.error) throw new Error(reservation.error.message);
     const ledgerId = reservation.data as string;
     try {
-      let questions: GeneratedQuestion[] | null = null;
-      let lastError: unknown = null;
-
-      for (let attempt = 0; attempt < 2 && !questions; attempt += 1) {
-        try {
-          const content = await callGemini(buildPrompt(data), GENERATOR_SYSTEM_PROMPT, 0.6);
-          const candidate = parseQuestions(content).slice(0, data.count);
-          if (candidate.length !== data.count) {
-            throw new Error("The AI generated " + candidate.length + " of " + data.count + " requested questions. Please try again.");
-          }
-          questions = await applyAndVerifyAnswerKeys(data.material, candidate, data.withExplanations);
-        } catch (error) {
-          lastError = error;
-        }
-      }
-
-      if (!questions) {
-        throw lastError instanceof Error
-          ? lastError
-          : new Error("The AI could not create a verified quiz. Please try again.");
-      }
+      const questions = await generateVerified(data);
 
       const settled = await db.rpc("settle_ai_questions", {
         _ledger_id: ledgerId,
@@ -460,26 +478,8 @@ export const regenerateQuizQuestion = createServerFn({ method: "POST" })
     if (reservation.error) throw new Error(reservation.error.message);
     const ledgerId = reservation.data as string;
     try {
-      let question: GeneratedQuestion | null = null;
-      let lastError: unknown = null;
-
-      for (let attempt = 0; attempt < 2 && !question; attempt += 1) {
-        try {
-          const content = await callGemini(buildPrompt({ ...data, count: 1 }), GENERATOR_SYSTEM_PROMPT, 0.7);
-          const [candidate] = parseQuestions(content);
-          if (!candidate) throw new Error("Couldn't regenerate that question. Try again.");
-          const verified = await applyAndVerifyAnswerKeys(data.material, [candidate], data.withExplanations);
-          question = verified[0] ?? null;
-        } catch (error) {
-          lastError = error;
-        }
-      }
-
-      if (!question) {
-        throw lastError instanceof Error
-          ? lastError
-          : new Error("Couldn't regenerate that question. Try again.");
-      }
+      const [question] = await generateVerified({ ...data, count: 1 });
+      if (!question) throw new Error("Couldn't regenerate that question. Try again.");
 
       const settled = await context.supabase.rpc("settle_ai_questions", {
         _ledger_id: ledgerId,

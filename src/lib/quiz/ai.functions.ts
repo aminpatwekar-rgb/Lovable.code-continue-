@@ -97,7 +97,7 @@ function buildPrompt(input: GenerateInput) {
     "- Do not number the questions or prefix them with 'Q1:'.",
     "",
     "FORMAT RULES PER TYPE",
-    '- "mcq": exactly 4 options, exactly one correct. The other three are plausible distractors based on realistic student mistakes or closely related concepts from the material - wrong, but not silly. Make all options similar in length and style so the answer cannot be guessed from its shape. Vary which position holds the correct option. Never use "All of the above", "None of the above" or "Both A and B". Do not prefix options with A), B). "correct" is an array holding the correct option text, copied EXACTLY from options.',
+    '- "mcq": exactly 4 options, exactly one correct. The other three are plausible distractors based on realistic student mistakes or closely related concepts from the material - wrong, but not silly. Make all options similar in length and style so the answer cannot be guessed from its shape. The correct option\u2019s position will be randomised afterwards, so do not worry about its position, but NEVER put it first by habit. Never use "All of the above", "None of the above" or "Both A and B". Do not prefix options with A), B). "correct" is an array holding the correct option text, copied EXACTLY from options.',
     '- "multi_select": 4-5 options with 2 or 3 correct. The prompt must say "Select all that apply". "correct" lists every correct option text, copied EXACTLY from options.',
     '- "true_false": options exactly ["True","False"]. The statement must be fully true or fully false, not partly true. Balance true and false statements across the quiz. "correct" is ["True"] or ["False"].',
     '- "fill_blank": use exactly one ____ in the prompt. The blank is a key term or value with one short unambiguous answer (one to three words, or a number). options []. "correct" holds the answer, e.g. ["photosynthesis"].',
@@ -191,6 +191,16 @@ function matchOption(answer: string, options: string[]): string | null {
   return null;
 }
 
+/** Fisher-Yates shuffle (returns a new array). */
+function shuffled<T>(items: T[]): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  return out;
+}
+
 function stripOptionPrefix(option: string) {
   return option.replace(/^\s*\(?[A-Ea-e][).:]\s+/, "").trim();
 }
@@ -246,6 +256,9 @@ function cleanQuestion(item: Record<string, unknown>, input: GenerateInput): Cle
     correct = [...new Set(mapped as string[])];
     if (type === "mcq" && correct.length !== 1) return { reject: "mcq needs one answer" };
     if (type === "multi_select" && correct.length < 2) return { reject: "multi_select needs 2+ answers" };
+    // The AI tends to put the right answer first. Shuffle in code so the position is random.
+    // `correct` holds option TEXT, so the answer key follows the shuffle automatically.
+    options = shuffled(options);
   } else if (type === "true_false") {
     options = ["True", "False"];
     const first = (correct[0] ?? "").trim().toLowerCase();

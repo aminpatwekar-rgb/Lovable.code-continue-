@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Download, FileText, Loader2, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchProfileEmails } from "@/lib/profile-emails";
 
@@ -65,7 +65,7 @@ function ReviewSubmission() {
 
       const { data: files } = await supabase
         .from("submission_files")
-        .select("id, storage_path, file_name, kind, caption, page_order")
+        .select("id, storage_path, file_name, kind, caption, page_order, mime_type, size_bytes")
         .eq("submission_id", submissionId)
         .order("page_order", { ascending: true });
       const signed = await Promise.all(
@@ -136,6 +136,13 @@ function ReviewSubmission() {
   } | null;
   const pages = files.filter((f) => f.kind === "page");
   const inline = files.filter((f) => f.kind === "inline_image");
+  const attachments = files.filter((f) => f.kind === "attachment");
+
+  function formatFileSize(bytes: number | null) {
+    if (!bytes) return "";
+    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
 
   return (
     <div className="space-y-8">
@@ -188,6 +195,34 @@ function ReviewSubmission() {
                   Page {i + 1} · {p.file_name}
                 </figcaption>
               </figure>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {attachments.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Attached files</h2>
+          <div className="panel divide-y divide-border">
+            {attachments.map((file) => (
+              <a
+                key={file.id}
+                href={file.url || undefined}
+                target="_blank"
+                rel="noreferrer"
+                download={file.file_name}
+                className="flex items-center gap-3 p-4 transition-colors hover:bg-muted/40"
+              >
+                <FileText className="size-5 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{file.file_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {file.mime_type || "File"}
+                    {file.size_bytes ? ` · ${formatFileSize(file.size_bytes)}` : ""}
+                  </p>
+                </div>
+                <Download className="size-4 shrink-0 text-muted-foreground" />
+              </a>
             ))}
           </div>
         </section>

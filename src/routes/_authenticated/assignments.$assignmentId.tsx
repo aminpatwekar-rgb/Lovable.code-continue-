@@ -396,7 +396,7 @@ function StudentSubmission({
     return data.id;
   }
 
-  async function uploadFile(file: File, kind: "page" | "inline_image", order: number) {
+  async function uploadFile(file: File, kind: "page" | "inline_image" | "attachment", order: number) {
     const quota = await (supabase as any).rpc("assert_storage_available", {
       _additional_bytes: file.size,
     });

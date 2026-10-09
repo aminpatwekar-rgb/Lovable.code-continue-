@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Download, FileText, FileUp, Loader2, Trash2, Upload } from "lucide-react";
@@ -15,6 +15,16 @@ import { TypedEditor, type ImageBlock } from "@/components/TypedEditor";
 import { RenderMathText } from "@/components/math/RenderMathText";
 import { AssignmentActions, type AssignmentRow } from "@/components/AssignmentActions";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -311,7 +321,16 @@ function StudentSubmission({
   const [violations, setViolations] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [draftSaveState, setDraftSaveState] = useState<"idle" | "pending" | "saving" | "saved" | "error">("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
   const attachmentRef = useRef<HTMLInputElement>(null);
+  const lastSavedSnapshot = useRef<string | null>(null);
+  const latestAutosaveSnapshot = useRef("");
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosavePromise = useRef<Promise<void> | null>(null);
+  const submissionIdRef = useRef<string | null>(null);
+  const ensureSubmissionPromise = useRef<Promise<string> | null>(null);
 
   const submission = useQuery({
     queryKey: ["my-submission", assignment.id, userId],
@@ -341,9 +360,16 @@ function StudentSubmission({
   });
 
   useEffect(() => {
-    if (hydrated || !submission.data) return;
+    if (hydrated || submission.isLoading || submission.isError) return;
+    if (!submission.data) {
+      lastSavedSnapshot.current = JSON.stringify([mode, ""]);
+      setHydrated(true);
+      return;
+    }
     const { sub, files } = submission.data;
     setText(sub.typed_content ?? "");
+    lastSavedSnapshot.current = JSON.stringify([sub.mode ?? mode, sub.typed_content ?? ""]);
+    setChoice(sub.mode === "typed" ? "typed" : "handwritten");
     setViolations(sub.paste_violation_count ?? 0);
     setBlocks(
       files
@@ -364,7 +390,7 @@ function StudentSubmission({
         })),
     );
     setHydrated(true);
-  }, [submission.data, hydrated]);
+  }, [submission.data, submission.isLoading, submission.isError, hydrated, mode]);
 
   const locked = ["submitted", "reviewed", "completed", "late"].includes(
     submission.data?.sub.status ?? "",
@@ -378,23 +404,105 @@ function StudentSubmission({
         : ((submission.data?.sub.mode as "handwritten" | "typed") ?? "handwritten");
   const [choice, setChoice] = useState<"handwritten" | "typed">(mode);
   const activeMode = assignment.submission_type === "either" ? choice : mode;
+  const draftSnapshot = JSON.stringify([activeMode, text]);
+  latestAutosaveSnapshot.current = draftSnapshot;
+  const existingSubmissionId = submission.data?.sub?.id ?? null;
 
-  async function ensureSubmission() {
-    if (submission.data?.sub) return submission.data.sub.id;
-    const { data, error } = await supabase
-      .from("submissions")
-      .insert({
-        assignment_id: assignment.id,
-        student_id: userId,
-        status: "in_progress",
-        mode: activeMode,
-      })
-      .select("id")
-      .single();
-    if (error) throw error;
-    await qc.invalidateQueries({ queryKey: ["my-submission"] });
-    return data.id;
-  }
+  const ensureSubmission = useCallback(async () => {
+    if (submissionIdRef.current) return submissionIdRef.current;
+    if (existingSubmissionId) {
+      submissionIdRef.current = existingSubmissionId;
+      return existingSubmissionId;
+    }
+    if (ensureSubmissionPromise.current) return ensureSubmissionPromise.current;
+
+    const createPromise = (async () => {
+      const { data, error } = await supabase
+        .from("submissions")
+        .insert({
+          assignment_id: assignment.id,
+          student_id: userId,
+          status: "in_progress",
+          mode: activeMode,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      submissionIdRef.current = data.id;
+      await qc.invalidateQueries({ queryKey: ["my-submission", assignment.id, userId] });
+      return data.id;
+    })();
+
+    ensureSubmissionPromise.current = createPromise;
+    try {
+      return await createPromise;
+    } finally {
+      if (ensureSubmissionPromise.current === createPromise) ensureSubmissionPromise.current = null;
+    }
+  }, [activeMode, assignment.id, existingSubmissionId, qc, userId]);
+
+  useEffect(() => {
+    if (!hydrated || submission.isLoading || submission.isError || locked || activeMode !== "typed") return;
+    if (draftSnapshot === lastSavedSnapshot.current) return;
+    if (!text.trim() && !existingSubmissionId && !submissionIdRef.current) {
+      setDraftSaveState("idle");
+      return;
+    }
+
+    setDraftSaveState("pending");
+    const snapshot = draftSnapshot;
+    const textToSave = text;
+    const modeToSave = activeMode;
+    const timer = setTimeout(() => {
+      if (autosaveTimer.current === timer) autosaveTimer.current = null;
+      const job = (async () => {
+        const inFlight = autosavePromise.current;
+        if (inFlight) await inFlight.catch(() => undefined);
+        if (latestAutosaveSnapshot.current !== snapshot) return;
+
+        setDraftSaveState("saving");
+        try {
+          const submissionId = await ensureSubmission();
+          const { error } = await supabase
+            .from("submissions")
+            .update({ typed_content: textToSave, mode: modeToSave })
+            .eq("id", submissionId);
+          if (error) throw error;
+          if (latestAutosaveSnapshot.current === snapshot) {
+            lastSavedSnapshot.current = snapshot;
+            setDraftSaveState("saved");
+            setLastSavedAt(new Date());
+            void qc.invalidateQueries({ queryKey: ["my-submission", assignment.id, userId] });
+          }
+        } catch {
+          if (latestAutosaveSnapshot.current === snapshot) setDraftSaveState("error");
+        }
+      })();
+      autosavePromise.current = job;
+      void job.finally(() => {
+        if (autosavePromise.current === job) autosavePromise.current = null;
+      });
+    }, 1000);
+    autosaveTimer.current = timer;
+
+    return () => {
+      clearTimeout(timer);
+      if (autosaveTimer.current === timer) autosaveTimer.current = null;
+    };
+  }, [
+    activeMode,
+    assignment.id,
+    draftSnapshot,
+    ensureSubmission,
+    existingSubmissionId,
+    hydrated,
+    locked,
+    qc,
+    submission.isError,
+    submission.isLoading,
+    text,
+    userId,
+  ]);
 
   async function uploadFile(file: File, kind: "page" | "inline_image" | "attachment", order: number) {
     const quota = await (supabase as any).rpc("assert_storage_available", {
@@ -541,6 +649,9 @@ function StudentSubmission({
 
   const save = useMutation({
     mutationFn: async (submit: boolean) => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+      autosaveTimer.current = null;
+      if (autosavePromise.current) await autosavePromise.current.catch(() => undefined);
       const submissionId = await ensureSubmission();
       if (submit) {
         if (activeMode === "handwritten" && pages.length === 0)
@@ -575,6 +686,9 @@ function StudentSubmission({
       return submit;
     },
     onSuccess: (submitted) => {
+      lastSavedSnapshot.current = JSON.stringify([activeMode, text]);
+      setDraftSaveState("saved");
+      setLastSavedAt(new Date());
       toast.success(submitted ? "Submitted" : "Draft saved");
       onSaved();
       void qc.invalidateQueries({ queryKey: ["my-submission"] });
@@ -589,7 +703,22 @@ function StudentSubmission({
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Your submission</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-lg font-semibold">Your submission</h2>
+          {!locked && activeMode === "typed" && hydrated && (
+            <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
+              {draftSaveState === "pending"
+                ? "Unsaved changes"
+                : draftSaveState === "saving"
+                  ? "Saving draft…"
+                  : draftSaveState === "saved"
+                    ? `Draft saved${lastSavedAt ? ` at ${lastSavedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}`
+                    : draftSaveState === "error"
+                      ? "Autosave failed — use Save draft to retry"
+                      : "Draft saves automatically"}
+            </p>
+          )}
+        </div>
         <StatusBadge
           status={(sub?.is_late ? "late" : (sub?.status ?? "not_started")) as SubmissionStatus}
         />
@@ -621,6 +750,11 @@ function StudentSubmission({
       {sub?.reviewed_at && !sub.grade_released && (
         <p className="panel p-4 text-sm text-muted-foreground">
           Your teacher hasn&apos;t released your grade yet.
+        </p>
+      )}
+      {sub?.status === "returned" && (
+        <p className="panel border-warning/40 bg-warning/5 p-4 text-sm">
+          Your teacher returned this submission for changes. Update your work, then submit it again when ready.
         </p>
       )}
 
@@ -833,14 +967,47 @@ function StudentSubmission({
           </section>
 
           <div className="mt-6 flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => save.mutate(false)} disabled={save.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => save.mutate(false)}
+              disabled={save.isPending || uploading}
+            >
               Save draft
             </Button>
-            <Button onClick={() => save.mutate(true)} disabled={save.isPending}>
+            <Button
+              onClick={() => {
+                if (activeMode === "handwritten" && pages.length === 0) {
+                  toast.error("Upload at least one page before submitting");
+                  return;
+                }
+                if (activeMode === "typed" && text.trim().length < 10) {
+                  toast.error("Write at least 10 characters before submitting");
+                  return;
+                }
+                setConfirmSubmitOpen(true);
+              }}
+              disabled={save.isPending || uploading}
+            >
               {save.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
               Submit assignment
             </Button>
           </div>
+          <AlertDialog open={confirmSubmitOpen} onOpenChange={setConfirmSubmitOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Submit this assignment?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Check your answer and attached files before continuing. After submission, you cannot edit your work unless your teacher returns it for changes.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Continue editing</AlertDialogCancel>
+                <AlertDialogAction onClick={() => save.mutate(true)} disabled={save.isPending}>
+                  Submit final answer
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </Tabs>
       )}
     </section>

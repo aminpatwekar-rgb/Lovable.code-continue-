@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Download, FileText, Loader2, ShieldAlert } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, FileText, Loader2, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchProfileEmails } from "@/lib/profile-emails";
 
@@ -85,6 +85,24 @@ function ReviewSubmission() {
     },
   });
 
+  const navigationAssignmentId = q.data?.sub?.assignments
+    ? (q.data.sub.assignments as unknown as { id: string }).id
+    : null;
+  const navigation = useQuery({
+    queryKey: ["assignment-submission-navigation", navigationAssignmentId],
+    enabled: isTeacher && Boolean(navigationAssignmentId),
+    queryFn: async () => {
+      if (!navigationAssignmentId) return [];
+      const { data, error } = await supabase
+        .from("submissions")
+        .select("id, submitted_at")
+        .eq("assignment_id", navigationAssignmentId)
+        .order("submitted_at", { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   useEffect(() => {
     if (hydrated || !q.data) return;
     setMarks(q.data.sub.marks_awarded?.toString() ?? "");
@@ -137,6 +155,14 @@ function ReviewSubmission() {
   const pages = files.filter((f) => f.kind === "page");
   const inline = files.filter((f) => f.kind === "inline_image");
   const attachments = files.filter((f) => f.kind === "attachment");
+  const navigationRows = navigation.data ?? [];
+  const currentSubmissionIndex = navigationRows.findIndex((row) => row.id === submissionId);
+  const previousSubmission = currentSubmissionIndex > 0
+    ? navigationRows[currentSubmissionIndex - 1]
+    : null;
+  const nextSubmission = currentSubmissionIndex >= 0 && currentSubmissionIndex < navigationRows.length - 1
+    ? navigationRows[currentSubmissionIndex + 1]
+    : null;
 
   function formatFileSize(bytes: number | null) {
     if (!bytes) return "";
@@ -166,6 +192,38 @@ function ReviewSubmission() {
         </div>
         <StatusBadge status={(sub.is_late ? "late" : sub.status) as SubmissionStatus} />
       </header>
+
+      {isTeacher && currentSubmissionIndex >= 0 && navigationRows.length > 1 && (
+        <nav aria-label="Submission navigation" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3">
+          <p className="text-sm text-muted-foreground">
+            Submission {currentSubmissionIndex + 1} of {navigationRows.length}
+          </p>
+          <div className="flex gap-2">
+            {previousSubmission ? (
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/submissions/$submissionId" params={{ submissionId: previousSubmission.id }}>
+                  <ChevronLeft className="mr-1 size-4" /> Previous
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
+                <ChevronLeft className="mr-1 size-4" /> Previous
+              </Button>
+            )}
+            {nextSubmission ? (
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/submissions/$submissionId" params={{ submissionId: nextSubmission.id }}>
+                  Next <ChevronRight className="ml-1 size-4" />
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
+                Next <ChevronRight className="ml-1 size-4" />
+              </Button>
+            )}
+          </div>
+        </nav>
+      )}
 
       {sub.paste_violation_count > 0 && (
         <div className="panel border-destructive/40 bg-destructive/5 p-4">

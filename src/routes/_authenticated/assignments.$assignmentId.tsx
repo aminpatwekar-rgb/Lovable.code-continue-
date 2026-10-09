@@ -459,7 +459,10 @@ function StudentSubmission({
       const job = (async () => {
         const inFlight = autosavePromise.current;
         if (inFlight) await inFlight.catch(() => undefined);
-        if (latestAutosaveSnapshot.current !== snapshot) return;
+        if (
+          latestAutosaveSnapshot.current !== snapshot ||
+          lastSavedSnapshot.current === snapshot
+        ) return;
 
         setDraftSaveState("saving");
         try {

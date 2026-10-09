@@ -359,6 +359,13 @@ function StudentSubmission({
     },
   });
 
+  const mode: "handwritten" | "typed" =
+    assignment.submission_type === "typed"
+      ? "typed"
+      : assignment.submission_type === "handwritten"
+        ? "handwritten"
+        : ((submission.data?.sub.mode as "handwritten" | "typed") ?? "handwritten");
+
   useEffect(() => {
     if (hydrated || submission.isLoading || submission.isError) return;
     if (!submission.data) {
@@ -396,12 +403,6 @@ function StudentSubmission({
     submission.data?.sub.status ?? "",
   );
 
-  const mode: "handwritten" | "typed" =
-    assignment.submission_type === "typed"
-      ? "typed"
-      : assignment.submission_type === "handwritten"
-        ? "handwritten"
-        : ((submission.data?.sub.mode as "handwritten" | "typed") ?? "handwritten");
   const [choice, setChoice] = useState<"handwritten" | "typed">(mode);
   const activeMode = assignment.submission_type === "either" ? choice : mode;
   const draftSnapshot = JSON.stringify([activeMode, text]);

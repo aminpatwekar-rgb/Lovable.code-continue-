@@ -463,6 +463,7 @@ function StudentSubmission({
         setDraftSaveState("saving");
         try {
           const submissionId = await ensureSubmission();
+          if (latestAutosaveSnapshot.current !== snapshot) return;
           const { error } = await supabase
             .from("submissions")
             .update({ typed_content: textToSave, mode: modeToSave })

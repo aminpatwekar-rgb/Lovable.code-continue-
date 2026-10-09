@@ -327,7 +327,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         {sidebarHidden ? (
           <>
-            <div className="flex w-[4.25rem] shrink-0 flex-col items-center">
+            <div className="flex min-h-0 w-[4.25rem] min-w-0 flex-1 flex-col items-center">
               <div className="flex h-16 w-full items-center justify-center border-b border-sidebar-border">
                 <Button
                   type="button"
@@ -341,7 +341,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <PanelLeftOpen className="size-4" />
                 </Button>
               </div>
-              <div className="flex flex-col items-center gap-3 py-4">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain flex flex-col items-center gap-3 py-4">
                 <NotificationCenter />
                 {railNav}
               </div>
@@ -379,7 +379,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </>
         ) : (
           <>
-        <div className="flex w-[16.5rem] shrink-0 flex-col">
+        <div className="flex min-h-0 w-[16.5rem] min-w-0 flex-1 flex-col">
           <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
             <Link to="/dashboard" className="transition-opacity hover:opacity-90">
               {branding.data ? <span className="text-sm font-semibold">Workspace</span> : <Wordmark size="sm" />}
@@ -401,7 +401,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <div className="space-y-4 p-4">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4">
             <GlobalSearch />
             <div className="pt-1">{nav}</div>
           </div>
@@ -437,11 +437,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Button
               variant="outline"
               size="sm"
-              className="h-9 px-3 border-border/80 text-muted-foreground hover:text-destructive hover:border-destructive/40 shadow-2xs"
+              className="h-9 flex-1 justify-center gap-1.5 px-2 border-border/80 text-muted-foreground hover:text-destructive hover:border-destructive/40 shadow-2xs"
               onClick={signOut}
               title="Sign out"
             >
               <LogOut className="size-4" />
+              <span className="text-xs">Sign out</span>
             </Button>
           </div>
         </div>

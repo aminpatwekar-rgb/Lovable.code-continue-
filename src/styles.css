@@ -798,62 +798,6 @@
   letter-spacing: -0.01em;
 }
 
-@keyframes landing-hero-enter {
-  /* No opacity fade: the hero text is the page's largest paint and must be visible at once. */
-  from {
-    transform: translate3d(0, 10px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes landing-feature-enter {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 14px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-.landing-hero-reveal {
-  animation: landing-hero-enter 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.landing-feature-reveal {
-  animation: landing-feature-enter 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.landing-feature-reveal:nth-child(2) {
-  animation-delay: 60ms;
-}
-
-.landing-feature-reveal:nth-child(3) {
-  animation-delay: 120ms;
-}
-
-.landing-feature-reveal:nth-child(4) {
-  animation-delay: 180ms;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .landing-hero-reveal,
-  .landing-feature-reveal {
-    animation: none;
-  }
-}
-
-@media (max-width: 640px) {
-  .landing-feature-reveal {
-    content-visibility: auto;
-    contain-intrinsic-size: 180px;
-  }
-}
-
 @utility no-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -1921,5 +1865,25 @@ html[data-intro="playing"] .lp-score {
   }
   .lp-tilt {
     transform: none;
+  }
+}
+
+/* Paste-lock demo (components/landing/PasteDemo.tsx) */
+@keyframes lp-pop {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.lp-pop {
+  animation: lp-pop 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-pop {
+    animation: none;
   }
 }

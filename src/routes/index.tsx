@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/lib/theme";
 import { OnyxIntro, ONYX_INTRO_HEAD_SCRIPT } from "@/components/landing/OnyxIntro";
+import { PasteDemo } from "@/components/landing/PasteDemo";
 import { AuroraBackdrop, HeroPreview, Reveal, SpotlightCard } from "@/components/landing/LandingFx";
 
 export const Route = createFileRoute("/")({
@@ -161,6 +162,23 @@ function Landing() {
           </div>
 
           <HeroPreview />
+        </section>
+
+        <section className="pb-24">
+          <Reveal>
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
+                Go on — <span className="text-display lp-aurora-text">try to paste.</span>
+              </h2>
+              <p className="mt-3 text-muted-foreground">
+                This is the editor students write in. See what happens when they try to bring in
+                text from somewhere else.
+              </p>
+            </div>
+            <div className="mt-8">
+              <PasteDemo />
+            </div>
+          </Reveal>
         </section>
 
         <section className="grid gap-4 pb-20 sm:grid-cols-2">

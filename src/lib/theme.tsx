@@ -59,6 +59,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("light");
   const [accent, setAccentState] = useState<Accent | null>(null);
   const [themeStyle, setThemeStyleState] = useState<ThemeStyle>("default");
+  // The saved theme is applied to <html> before first paint by a head script (see __root.tsx), so the
+  // class effect below must wait until the saved value has been read, or it would strip it for a frame.
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const storedMode = window.localStorage.getItem("theme") as ThemeMode | null;
@@ -74,6 +77,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     const storedStyle = window.localStorage.getItem("onyx-theme-style") as ThemeStyle | null;
     if (storedStyle && THEME_STYLES.includes(storedStyle)) setThemeStyleState(storedStyle);
+    setReady(true);
   }, []);
 
   useEffect(() => {
@@ -85,8 +89,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [mode]);
 
   useEffect(() => {
+    if (!ready) return;
     document.documentElement.classList.toggle("dark", theme === "dark");
-  }, [theme]);
+  }, [theme, ready]);
 
   useEffect(() => {
     if (accent) document.documentElement.setAttribute("data-accent", accent);

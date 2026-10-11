@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import onyxMark from "@/assets/onyx-mark.png.asset.json";
 
 /**
  * ONYX opening animation — plays once per browser session on the landing page.
@@ -136,56 +137,31 @@ export function OnyxIntro() {
         <div className="oi-vignette" aria-hidden="true" />
 
         <div className="oi-center">
-          <svg className="oi-gem" viewBox="0 0 64 64" aria-hidden="true">
-            <defs>
-              <linearGradient
-                id="oi-gem-grad"
-                gradientUnits="userSpaceOnUse"
-                x1="8"
-                y1="4"
-                x2="56"
-                y2="60"
-              >
-                <stop offset="0" style={{ stopColor: "oklch(0.93 0.05 250)" }} />
-                <stop offset="0.45" style={{ stopColor: "oklch(0.76 0.17 262)" }} />
-                <stop offset="0.75" style={{ stopColor: "oklch(0.72 0.21 305)" }} />
-                <stop offset="1" style={{ stopColor: "oklch(0.83 0.15 345)" }} />
-              </linearGradient>
-            </defs>
-            {[
-              { p: "8,22 32,4 20,22", o: 0.35, d: 900 },
-              { p: "20,22 32,4 44,22", o: 0.55, d: 1000 },
-              { p: "44,22 32,4 56,22", o: 0.28, d: 1100 },
-              { p: "8,22 20,22 32,60", o: 0.22, d: 1000 },
-              { p: "20,22 44,22 32,60", o: 0.4, d: 1100 },
-              { p: "44,22 56,22 32,60", o: 0.18, d: 1200 },
-            ].map((f) => (
-              <polygon
-                key={f.p}
-                points={f.p}
-                className="oi-facet"
-                style={{ "--o": f.o, "--d": `${f.d}ms` } as CSSProperties}
+          <div className="oi-logo" aria-hidden="true">
+            <span className="oi-logo-halo">
+              <span className="oi-logo-ring" />
+            </span>
+            <span className="oi-logo-face">
+              {/* Instant placeholder (tiny, same mark) under the full-size brand image */}
+              <img src="/favicon.png" alt="" width={64} height={64} className="oi-logo-ph" />
+              <img
+                src={onyxMark.url}
+                alt=""
+                width={112}
+                height={112}
+                decoding="async"
+                fetchPriority="high"
+                className="oi-logo-img"
               />
-            ))}
-            {[
-              { d: "M32 4 L56 22 L32 60 L8 22 Z", t: 0 },
-              { d: "M8 22 H56", t: 350 },
-              { d: "M32 4 L20 22 L32 60", t: 500 },
-              { d: "M32 4 L44 22 L32 60", t: 650 },
-            ].map((l) => (
+              <span className="oi-logo-sheen" />
+            </span>
+            <svg className="oi-logo-spark" viewBox="0 0 24 24">
               <path
-                key={l.d}
-                d={l.d}
-                pathLength={1}
-                className="oi-gem-line"
-                style={{ "--d": `${l.t + 150}ms` } as CSSProperties}
+                className="oi-spark"
+                d="M12 1 L13.8 8.2 L21 10 L13.8 11.8 L12 19 L10.2 11.8 L3 10 L10.2 8.2 Z"
               />
-            ))}
-            <path
-              className="oi-spark"
-              d="M52 3 L53.3 7.7 L58 9 L53.3 10.3 L52 15 L50.7 10.3 L46 9 L50.7 7.7 Z"
-            />
-          </svg>
+            </svg>
+          </div>
 
           <div className="oi-word" aria-hidden="true">
             {LETTERS.map((ch, i) => (

@@ -49,11 +49,11 @@ export const importStudentsFromCsv = createServerFn({ method: "POST" })
 
     const normalized = rows.map((row, index) => ({
       line: index + 2,
-      email: normalizeEmail(row["email"]),
-      fullName: text(row["full_name"]),
-      rollNo: text(row["roll_no"]),
-      erNo: text(row["er_no"]),
-      srNo: text(row["sr_no"]),
+      email: normalizeEmail(row.email),
+      fullName: text(row.full_name),
+      rollNo: text(row.roll_no),
+      erNo: text(row.er_no),
+      srNo: text(row.sr_no),
     }));
 
     const invalid = normalized.filter((r) => !r.email || !/^\S+@\S+\.\S+$/.test(r.email) || !r.fullName);
@@ -92,7 +92,7 @@ export const importStudentsFromCsv = createServerFn({ method: "POST" })
     const skipped: { line: number; reason: string }[] = [];
 
     for (const row of normalized) {
-      const profile = profileByEmail.get(row["email"]);
+      const profile = profileByEmail.get(row.email);
       if (!profile) {
         skipped.push({ line: row.line, reason: "No ONYX account exists for this email." });
         continue;
@@ -137,7 +137,7 @@ export const importStudentsFromCsv = createServerFn({ method: "POST" })
         skipped.push({ line: row.line, reason: error.message });
         continue;
       }
-      imported.push(row["email"]);
+      imported.push(row.email);
       existingIds.add(profile.id);
       currentCount += 1;
       if (row.rollNo) existingRoll.add(row.rollNo.toLowerCase());
@@ -170,7 +170,7 @@ export const getPlanSummary = createServerFn({ method: "GET" })
     if (storageError) throw storageError;
     if (adminError) throw adminError;
 
-    const basePlan = (plans ?? []).find((p: { code: string }) => p.code === code) ?? (plans ?? [])[0];
+    const basePlan = (plans ?? []).find((p) => p.code === code) ?? (plans ?? [])[0];
     const adminPlan = {
       code: "admin",
       name: "Admin",

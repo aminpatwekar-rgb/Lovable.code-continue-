@@ -63,13 +63,34 @@ function Classes() {
     enabled: Boolean(user && effectiveRole),
     queryFn: async () => {
       if (isTeacher) {
-        const { data, error } = await supabase
+        const { data: owned, error } = await supabase
           .from("classes")
           .select("id, name, subject, section, join_code, description, class_members(count)")
           .eq("teacher_id", user!.id)
           .order("created_at", { ascending: false });
         if (error) throw error;
-        return data ?? [];
+        // Classes this teacher joined as a co-teacher.
+        const { data: mine, error: mineError } = await supabase
+          .from("class_members")
+          .select("class_id")
+          .eq("student_id", user!.id)
+          .eq("member_role", "teacher");
+        if (mineError) throw mineError;
+        const ownedIds = new Set((owned ?? []).map((c) => c.id));
+        const coIds = (mine ?? []).map((x) => x.class_id).filter((id) => !ownedIds.has(id));
+        let co: typeof owned = [];
+        if (coIds.length) {
+          const { data: coData, error: coError } = await supabase
+            .from("classes")
+            .select("id, name, subject, section, join_code, description, class_members(count)")
+            .in("id", coIds);
+          if (coError) throw coError;
+          co = coData ?? [];
+        }
+        return [
+          ...(owned ?? []).map((c) => ({ ...c, coTeacher: false })),
+          ...(co ?? []).map((c) => ({ ...c, coTeacher: true })),
+        ];
       }
       const { data: m, error: membershipError } = await supabase
         .from("class_members")
@@ -83,7 +104,7 @@ function Classes() {
         .select("id, name, subject, section, join_code, description, class_members(count)")
         .in("id", ids);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).map((c) => ({ ...c, coTeacher: false }));
     },
   });
 
@@ -107,6 +128,28 @@ function Classes() {
       setSubject("");
       setSection("");
       setDescription("");
+      void qc.invalidateQueries({ queryKey: ["classes"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [coOpen, setCoOpen] = useState(false);
+  const [coCode, setCoCode] = useState("");
+  const joinAsCoTeacher = useMutation({
+    mutationFn: async () => {
+      if (!coCode.trim()) throw new Error("Enter the co-teacher code");
+      const { data, error } = await supabase.rpc("request_co_teacher_access", {
+        _code: coCode.trim().toUpperCase(),
+        _full_name: profile?.full_name?.trim() || "",
+      });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: (status) => {
+      if (status === "member") toast.success("You're already a co-teacher in this class");
+      else toast.success("Request sent. The class owner must approve it before you get access.");
+      setCoOpen(false);
+      setCoCode("");
       void qc.invalidateQueries({ queryKey: ["classes"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -154,11 +197,48 @@ function Classes() {
           <h1 className="text-2xl sm:text-3xl font-semibold">Classes</h1>
           <p className="mt-1 text-muted-foreground">
             {isTeacher
-              ? "Create a class and share the join code with your students."
+              ? "Create a class and share the join code with your students, or join a colleague's class as co-teacher."
               : "Classes you've joined."}
           </p>
         </div>
         {isTeacher ? (
+          <div className="flex flex-wrap items-center gap-2">
+          <Dialog open={coOpen} onOpenChange={setCoOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Users className="mr-1.5 size-4" /> Request co-teacher access
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Request to co-teach a class</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="cocode">Co-teacher code</Label>
+                  <Input
+                    id="cocode"
+                    maxLength={6}
+                    value={coCode}
+                    onChange={(e) => setCoCode(e.target.value.toUpperCase())}
+                    placeholder="AB12CD"
+                    className="font-mono tracking-[0.3em] uppercase"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Ask the class owner for the class&apos;s co-teacher code (it is different from the student join code). Your request goes to the owner, and you
+                  only get access once they approve it. As a co-teacher you can then view the
+                  roster, take attendance, grade submissions and add your own assignments and
+                  quizzes. Only the owner can edit or delete the class.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button onClick={() => joinAsCoTeacher.mutate()} disabled={joinAsCoTeacher.isPending}>
+                  {joinAsCoTeacher.isPending ? "Sending…" : "Send request"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -217,6 +297,7 @@ function Classes() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         ) : (
           <Dialog open={joinOpen} onOpenChange={setJoinOpen}>
             <DialogTrigger asChild>
@@ -334,6 +415,11 @@ function Classes() {
                     <h2 className="font-semibold text-foreground group-hover:text-primary transition-colors">
                       {c.name}
                     </h2>
+                    {c.coTeacher && (
+                      <span className="ml-auto mr-1 shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                        Co-teacher
+                      </span>
+                    )}
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground opacity-60 transition-all duration-200 group-hover:translate-x-0.5 group-hover:opacity-100 group-hover:text-primary mt-0.5" />
                   </div>
                   <p className="mt-0.5 text-sm text-muted-foreground">

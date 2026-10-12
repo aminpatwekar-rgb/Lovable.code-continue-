@@ -340,7 +340,7 @@ function TeacherQuizzes() {
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline">
-            <Link to="/question-bank" search={{ quizId: undefined }}>Question bank</Link>
+            <Link to="/question-bank">Question bank</Link>
           </Button>
           <CreateQuizDialog />
         </div>

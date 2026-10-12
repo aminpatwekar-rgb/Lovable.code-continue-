@@ -81,6 +81,10 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   );
 }
 
+// Applies the saved theme before first paint so dark-mode users never see a light flash.
+// Mirrors the logic in ThemeProvider (src/lib/theme.tsx): new visitors default to light.
+const THEME_HEAD_SCRIPT = `try{var d=document.documentElement,l=localStorage,m=l.getItem("theme");if(m==="dark"||(m==="system"&&matchMedia("(prefers-color-scheme: dark)").matches))d.classList.add("dark");var a=l.getItem("onyx-accent");if(a)d.setAttribute("data-accent",a);var t=l.getItem("onyx-theme-style");if(t)d.setAttribute("data-theme-style",t)}catch(e){}`;
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
@@ -101,6 +105,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
+    scripts: [{ children: THEME_HEAD_SCRIPT }],
     links: [
       { rel: "stylesheet", href: appCss },
       // Fonts are self-hosted (see @font-face in styles.css) so no third-party request blocks first paint.
@@ -136,7 +141,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>

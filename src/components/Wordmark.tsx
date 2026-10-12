@@ -18,18 +18,14 @@ export function Wordmark({
         width={44}
         height={44}
         decoding="async"
-        alt=""
-        aria-hidden="true"
+        alt="ONYX"
         className={cn("shrink-0 rounded-full object-cover", box)}
       />
-      <span className="flex flex-col leading-tight">
-        <span className="text-lg font-bold tracking-tight">ONYX</span>
-        {subtitle && (
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">
-            {subtitle}
-          </span>
-        )}
-      </span>
+      {subtitle && (
+        <span className="text-xs uppercase tracking-widest text-muted-foreground">
+          {subtitle}
+        </span>
+      )}
     </div>
   );
 }

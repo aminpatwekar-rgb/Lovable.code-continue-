@@ -39,7 +39,7 @@ const FEATURE_ROWS: { key: string; label: string }[] = [
   { key: "calendar", label: "Class calendar" },
   { key: "advanced_analytics", label: "Advanced analytics" },
   { key: "csv_import", label: "Student CSV import" },
-  { key: "csv_export", label: "Grade / report CSV export" },
+  { key: "csv_export", label: "Grade CSV export" },
   { key: "quiz_randomization", label: "Quiz question / choice randomization" },
   { key: "time_attempt_controls", label: "Timed quizzes and attempt controls" },
   { key: "lockdown", label: "Lockdown / proctoring controls" },
@@ -164,7 +164,7 @@ export function BusinessModelPlans() {
       <Card>
         <CardHeader>
           <CardTitle>Feature comparison</CardTitle>
-          <CardDescription>Features marked as included are available to the plan owner. Class, storage, question-bank and AI quotas are shown above.</CardDescription>
+          <CardDescription>Features marked as included are available to the plan owner. Class, storage, question-bank and AI quotas are shown above. The saved question-bank cap applies only to reusable bank items, never to questions written directly inside a manual quiz.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -186,6 +186,9 @@ export function BusinessModelPlans() {
                   "Grading, feedback and returned work",
                   "Class resources, announcements and discussions",
                   "Notifications and deadline reminders",
+                  "Notebook, typed writing and math tools",
+                  "Global search, achievements and leaderboard",
+                  "Co-teacher collaboration with owner approval",
                 ].map((label) => (
                   <tr key={label} className="border-b border-border/60">
                     <th scope="row" className="px-3 py-3 text-left font-medium">{label}</th>

@@ -24,6 +24,32 @@
 - Added ignore rules for `.env` and `.env.*` while explicitly allowing `.env.example`.
 - No production database, Auth, storage, quotas, or Lovable Cloud settings have been changed.
 
+## Mandatory rollback and recovery plan
+
+Rollback is a release requirement, not an optional follow-up.
+
+### Before any cutover
+- Keep the currently working Lovable deployment, its backend, Auth configuration, data, and uploaded files intact and available.
+- Do not change production environment variables, production routing, or the production branch during implementation and testing.
+- Record the currently deployed production commit and configuration references (never copy secrets into docs).
+- Back up/export source data and uploaded files before any copy or transformation. Verify backup readability and perform a restore test in an isolated environment.
+- Create a cutover checklist and a rollback checklist; designate the last known-good Lovable deployment as the fallback.
+- Test the Supabase candidate using a preview/staging deployment and separate test accounts before real users or production traffic are switched.
+
+### Rollback triggers
+Roll back if authentication or account confirmation fails, role/RLS checks are wrong, classes or submissions are missing, assignment attachments cannot be uploaded/downloaded securely, grading/quiz flows fail, error rates materially increase, or data parity cannot be confirmed.
+
+### Rollback procedure
+1. Stop the cutover and disable further writes to the candidate environment if it is safe to do so.
+2. Restore production routing/deployment and production environment variables to the recorded last-known-good Lovable configuration.
+3. Keep Lovable Cloud and its data intact; do not delete either backend during rollback.
+4. If any writes occurred in Supabase during a trial, reconcile them explicitly before retrying. Do not automatically copy them back or overwrite source records; preserve IDs and compare row counts/files first.
+5. Verify login, class lists, assignment submission and file access, grading, and role permissions on the restored Lovable version.
+6. Record the failure and fix it on the migration branch, then repeat the full test plan before another cutover attempt.
+
+### Rollback limitations
+A rollback of application routing alone cannot automatically reverse data written after cutover, password/auth identity changes, emails already sent, or schema changes. Therefore, avoid production writes and destructive schema changes during migration; require an explicit, separately approved data-reconciliation plan if any production writes happen on the new backend.
+
 ## Migration phases
 
 ### Phase 0 — Read-only inventory (in progress)

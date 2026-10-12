@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Download, FileUp, Loader2, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchProfileEmails } from "@/lib/profile-emails";
 
@@ -17,6 +17,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+
+function isPhotoFile(file: { mime_type?: string | null; file_name?: string | null }) {
+  return Boolean(
+    file.mime_type?.startsWith("image/") ||
+      /\.(avif|bmp|gif|heic|heif|jpe?g|png|webp)$/i.test(file.file_name ?? ""),
+  );
+}
 
 export const Route = createFileRoute("/_authenticated/submissions/$submissionId")({
   head: () => ({
@@ -65,7 +72,7 @@ function ReviewSubmission() {
 
       const { data: files } = await supabase
         .from("submission_files")
-        .select("id, storage_path, file_name, kind, caption, page_order")
+        .select("id, storage_path, file_name, mime_type, kind, caption, page_order")
         .eq("submission_id", submissionId)
         .order("page_order", { ascending: true });
       const signed = await Promise.all(
@@ -154,7 +161,7 @@ function ReviewSubmission() {
           <h1 className="text-2xl sm:text-3xl font-semibold">{student?.full_name ?? "Submission"}</h1>
           <p className="mt-1 text-muted-foreground">
             {sub.submitted_at ? `Submitted ${formatDue(sub.submitted_at)}` : "Draft"} ·{" "}
-            {sub.mode === "typed" ? "Typed" : "Handwritten"}
+            {sub.mode === "typed" ? "Typed" : "File & Photo Upload"}
           </p>
         </div>
         <StatusBadge status={(sub.is_late ? "late" : sub.status) as SubmissionStatus} />
@@ -179,14 +186,22 @@ function ReviewSubmission() {
 
       {pages.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Pages</h2>
+          <h2 className="text-lg font-semibold">Uploaded files & photos</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             {pages.map((p, i) => (
-              <figure key={p.id} className="panel overflow-hidden p-0">
-                <img src={p.url} alt={`Page ${i + 1}`} className="w-full object-contain" />
-                <figcaption className="px-3 py-2 text-xs text-muted-foreground">
-                  Page {i + 1} · {p.file_name}
-                </figcaption>
+              <figure key={p.id} className="panel min-w-0 overflow-hidden p-0">
+                {isPhotoFile(p) ? (
+                  <a href={p.url} target="_blank" rel="noreferrer" aria-label={`Open ${p.file_name || `photo ${i + 1}`}`}>
+                    <img src={p.url} alt={p.file_name || `Photo ${i + 1}`} className="max-h-[70vh] w-full bg-muted/20 object-contain" />
+                  </a>
+                ) : (
+                  <a href={p.url} target="_blank" rel="noreferrer" className="flex min-h-32 items-center gap-3 p-4 hover:bg-accent/40">
+                    <FileUp className="size-6 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 break-words text-sm font-medium">{p.file_name}</span>
+                    <Download className="size-4 shrink-0 text-muted-foreground" />
+                  </a>
+                )}
+                <figcaption className="break-words px-3 py-2 text-xs text-muted-foreground">{p.file_name || `File ${i + 1}`}</figcaption>
               </figure>
             ))}
           </div>

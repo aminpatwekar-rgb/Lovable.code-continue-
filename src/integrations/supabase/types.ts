@@ -529,6 +529,70 @@ export type Database = {
           },
         ]
       }
+      class_co_teacher_codes: {
+        Row: {
+          class_id: string
+          code: string
+          created_at: string
+        }
+        Insert: {
+          class_id: string
+          code: string
+          created_at?: string
+        }
+        Update: {
+          class_id?: string
+          code?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_co_teacher_codes_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: true
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_co_teacher_requests: {
+        Row: {
+          class_id: string
+          created_at: string
+          decided_at: string | null
+          full_name: string | null
+          id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          decided_at?: string | null
+          full_name?: string | null
+          id?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          decided_at?: string | null
+          full_name?: string | null
+          id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_co_teacher_requests_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_discussions: {
         Row: {
           author_id: string
@@ -795,6 +859,7 @@ export type Database = {
           kind: string
           link: string | null
           read_at: string | null
+          ref_id: string | null
           title: string
           user_id: string
         }
@@ -805,6 +870,7 @@ export type Database = {
           kind?: string
           link?: string | null
           read_at?: string | null
+          ref_id?: string | null
           title: string
           user_id: string
         }
@@ -815,6 +881,7 @@ export type Database = {
           kind?: string
           link?: string | null
           read_at?: string | null
+          ref_id?: string | null
           title?: string
           user_id?: string
         }
@@ -1752,6 +1819,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _new_co_teacher_code: { Args: never; Returns: string }
       admin_set_user_active: {
         Args: { _active: boolean; _user_id: string }
         Returns: undefined
@@ -1807,6 +1875,7 @@ export type Database = {
           student_id: string
         }[]
       }
+      get_co_teacher_code: { Args: { _class_id: string }; Returns: string }
       get_profile_emails: {
         Args: { _ids: string[] }
         Returns: {
@@ -1899,8 +1968,20 @@ export type Database = {
       }
       plan_limit: { Args: { _key: string; _user_id: string }; Returns: number }
       plan_remove_branding: { Args: { _user_id: string }; Returns: boolean }
+      regenerate_co_teacher_code: {
+        Args: { _class_id: string }
+        Returns: string
+      }
       release_ai_questions: { Args: { _ledger_id: string }; Returns: undefined }
+      request_co_teacher_access: {
+        Args: { _code: string; _full_name: string }
+        Returns: string
+      }
       reserve_ai_questions: { Args: { _requested: number }; Returns: string }
+      respond_co_teacher_request: {
+        Args: { _approve: boolean; _request_id: string }
+        Returns: undefined
+      }
       reviews_attempt: {
         Args: { _attempt_id: string; _user_id: string }
         Returns: boolean

@@ -10,6 +10,7 @@ import { PlanGate } from "@/components/PlanGate";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 const db = supabase as any;
 const STATUSES = ["present","absent","late","excused"] as const;
@@ -70,10 +71,15 @@ function Page() {
       class_id:classId, student_id:s.student_id, attendance_date:date,
       status:values[s.student_id] ?? "present", marked_by:user!.id
     }));
-    const q=await db.from("attendance_records").upsert(rows,{onConflict:"class_id,student_id,attendance_date"});
-    if(q.error) throw q.error;
-    setDraft({});
-    await records.refetch();
+    try {
+      const q=await db.from("attendance_records").upsert(rows,{onConflict:"class_id,student_id,attendance_date"});
+      if(q.error) throw q.error;
+      setDraft({});
+      await records.refetch();
+      toast.success("Attendance saved.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't save attendance.");
+    }
   }
 
   if(!isTeacher) return (

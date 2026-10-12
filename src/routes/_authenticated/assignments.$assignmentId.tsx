@@ -309,7 +309,7 @@ function StudentSubmission({
   const fileRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
   const [blocks, setBlocks] = useState<ImageBlock[]>([]);
-  const [pages, setFiles & photos] = useState<Page[]>([]);
+  const [pages, setPages] = useState<Page[]>([]);
   const [violations, setViolations] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -351,7 +351,7 @@ function StudentSubmission({
         .filter((f) => f.kind === "inline_image")
         .map((f) => ({ id: f.id, path: f.storage_path, url: f.url, caption: f.caption ?? "" })),
     );
-    setFiles & photos(files.filter((f) => f.kind === "page") as Page[]);
+    setPages(files.filter((f) => f.kind === "page") as Page[]);
     setHydrated(true);
   }, [submission.data, hydrated]);
 
@@ -416,7 +416,7 @@ function StudentSubmission({
     return { id: row.id, path, url: signed?.signedUrl ?? "", file_name: file.name, mime_type: file.type };
   }
 
-  async function handleFiles & photos(files: FileList | null) {
+  async function handlePages(files: FileList | null) {
     if (!files?.length) return;
     setUploading(true);
     try {
@@ -448,7 +448,7 @@ function StudentSubmission({
         });
         order += 1;
       }
-      setFiles & photos((p) => [...p, ...added]);
+      setPages((p) => [...p, ...added]);
       if (added.length) toast.success(`${added.length} file(s) uploaded`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
@@ -460,7 +460,7 @@ function StudentSubmission({
   async function removePage(p: Page) {
     await supabase.from("submission_files").delete().eq("id", p.id);
     await supabase.storage.from("submissions").remove([p.storage_path]);
-    setFiles & photos((prev) => prev.filter((x) => x.id !== p.id));
+    setPages((prev) => prev.filter((x) => x.id !== p.id));
   }
 
   async function logViolation(kind: string) {
@@ -603,7 +603,7 @@ function StudentSubmission({
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
-                void handleFiles & photos(e.dataTransfer.files);
+                void handlePages(e.dataTransfer.files);
               }}
               className="panel flex flex-col items-center gap-3 border-dashed p-10 text-center"
             >
@@ -629,7 +629,7 @@ function StudentSubmission({
                 accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.zip"
                 multiple
                 className="hidden"
-                onChange={(e) => void handleFiles & photos(e.target.files)}
+                onChange={(e) => void handlePages(e.target.files)}
               />
             </div>
 

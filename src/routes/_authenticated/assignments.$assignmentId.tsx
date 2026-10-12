@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, Download, FileText, FileUp, Loader2, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Download, FileUp, Loader2, Trash2, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useViewRole } from "@/lib/viewRole";
@@ -15,16 +15,6 @@ import { TypedEditor, type ImageBlock } from "@/components/TypedEditor";
 import { RenderMathText } from "@/components/math/RenderMathText";
 import { AssignmentActions, type AssignmentRow } from "@/components/AssignmentActions";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -50,15 +40,6 @@ type Page = {
   file_name: string;
   url: string;
   page_order: number;
-};
-
-type SubmissionAttachment = {
-  id: string;
-  storage_path: string;
-  file_name: string;
-  url: string;
-  mime_type: string | null;
-  size_bytes: number | null;
 };
 
 function AssignmentPage() {
@@ -317,20 +298,9 @@ function StudentSubmission({
   const [text, setText] = useState("");
   const [blocks, setBlocks] = useState<ImageBlock[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
-  const [attachments, setAttachments] = useState<SubmissionAttachment[]>([]);
   const [violations, setViolations] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
-  const [draftSaveState, setDraftSaveState] = useState<"idle" | "pending" | "saving" | "saved" | "error">("idle");
-  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
-  const attachmentRef = useRef<HTMLInputElement>(null);
-  const lastSavedSnapshot = useRef<string | null>(null);
-  const latestAutosaveSnapshot = useRef("");
-  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const autosavePromise = useRef<Promise<void> | null>(null);
-  const submissionIdRef = useRef<string | null>(null);
-  const ensureSubmissionPromise = useRef<Promise<string> | null>(null);
 
   const submission = useQuery({
     queryKey: ["my-submission", assignment.id, userId],
@@ -344,7 +314,7 @@ function StudentSubmission({
       if (!sub) return null;
       const { data: files } = await supabase
         .from("submission_files")
-        .select("id, storage_path, file_name, page_order, kind, caption, mime_type, size_bytes")
+        .select("id, storage_path, file_name, page_order, kind, caption")
         .eq("submission_id", sub.id)
         .order("page_order", { ascending: true });
       const signed = await Promise.all(
@@ -359,26 +329,10 @@ function StudentSubmission({
     },
   });
 
-  const mode: "handwritten" | "typed" =
-    assignment.submission_type === "typed"
-      ? "typed"
-      : assignment.submission_type === "handwritten"
-        ? "handwritten"
-        : ((submission.data?.sub.mode as "handwritten" | "typed") ?? "handwritten");
-
-  const [choice, setChoice] = useState<"handwritten" | "typed">(mode);
-
   useEffect(() => {
-    if (hydrated || submission.isLoading || submission.isError) return;
-    if (!submission.data) {
-      lastSavedSnapshot.current = JSON.stringify([mode, ""]);
-      setHydrated(true);
-      return;
-    }
+    if (hydrated || !submission.data) return;
     const { sub, files } = submission.data;
     setText(sub.typed_content ?? "");
-    lastSavedSnapshot.current = JSON.stringify([sub.mode ?? mode, sub.typed_content ?? ""]);
-    setChoice(sub.mode === "typed" ? "typed" : "handwritten");
     setViolations(sub.paste_violation_count ?? 0);
     setBlocks(
       files
@@ -386,131 +340,40 @@ function StudentSubmission({
         .map((f) => ({ id: f.id, path: f.storage_path, url: f.url, caption: f.caption ?? "" })),
     );
     setPages(files.filter((f) => f.kind === "page") as Page[]);
-    setAttachments(
-      files
-        .filter((f) => f.kind === "attachment")
-        .map((f) => ({
-          id: f.id,
-          storage_path: f.storage_path,
-          file_name: f.file_name,
-          url: f.url,
-          mime_type: f.mime_type ?? null,
-          size_bytes: f.size_bytes ?? null,
-        })),
-    );
     setHydrated(true);
-  }, [submission.data, submission.isLoading, submission.isError, hydrated, mode]);
+  }, [submission.data, hydrated]);
 
   const locked = ["submitted", "reviewed", "completed", "late"].includes(
     submission.data?.sub.status ?? "",
   );
 
+  const mode: "handwritten" | "typed" =
+    assignment.submission_type === "typed"
+      ? "typed"
+      : assignment.submission_type === "handwritten"
+        ? "handwritten"
+        : ((submission.data?.sub.mode as "handwritten" | "typed") ?? "handwritten");
+  const [choice, setChoice] = useState<"handwritten" | "typed">(mode);
   const activeMode = assignment.submission_type === "either" ? choice : mode;
-  const draftSnapshot = JSON.stringify([activeMode, text]);
-  latestAutosaveSnapshot.current = draftSnapshot;
-  const existingSubmissionId = submission.data?.sub?.id ?? null;
 
-  const ensureSubmission = useCallback(async () => {
-    if (submissionIdRef.current) return submissionIdRef.current;
-    if (existingSubmissionId) {
-      submissionIdRef.current = existingSubmissionId;
-      return existingSubmissionId;
-    }
-    if (ensureSubmissionPromise.current) return ensureSubmissionPromise.current;
+  async function ensureSubmission() {
+    if (submission.data?.sub) return submission.data.sub.id;
+    const { data, error } = await supabase
+      .from("submissions")
+      .insert({
+        assignment_id: assignment.id,
+        student_id: userId,
+        status: "in_progress",
+        mode: activeMode,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    await qc.invalidateQueries({ queryKey: ["my-submission"] });
+    return data.id;
+  }
 
-    const createPromise = (async () => {
-      const { data, error } = await supabase
-        .from("submissions")
-        .insert({
-          assignment_id: assignment.id,
-          student_id: userId,
-          status: "in_progress",
-          mode: activeMode,
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      submissionIdRef.current = data.id;
-      await qc.invalidateQueries({ queryKey: ["my-submission", assignment.id, userId] });
-      return data.id;
-    })();
-
-    ensureSubmissionPromise.current = createPromise;
-    try {
-      return await createPromise;
-    } finally {
-      if (ensureSubmissionPromise.current === createPromise) ensureSubmissionPromise.current = null;
-    }
-  }, [activeMode, assignment.id, existingSubmissionId, qc, userId]);
-
-  useEffect(() => {
-    if (!hydrated || submission.isLoading || submission.isError || locked || activeMode !== "typed") return;
-    if (draftSnapshot === lastSavedSnapshot.current) return;
-    if (!text.trim() && !existingSubmissionId && !submissionIdRef.current) {
-      setDraftSaveState("idle");
-      return;
-    }
-
-    setDraftSaveState("pending");
-    const snapshot = draftSnapshot;
-    const textToSave = text;
-    const modeToSave = activeMode;
-    const timer = setTimeout(() => {
-      if (autosaveTimer.current === timer) autosaveTimer.current = null;
-      const job = (async () => {
-        const inFlight = autosavePromise.current;
-        if (inFlight) await inFlight.catch(() => undefined);
-        if (
-          latestAutosaveSnapshot.current !== snapshot ||
-          lastSavedSnapshot.current === snapshot
-        ) return;
-
-        setDraftSaveState("saving");
-        try {
-          const submissionId = await ensureSubmission();
-          if (latestAutosaveSnapshot.current !== snapshot) return;
-          const { error } = await supabase
-            .from("submissions")
-            .update({ typed_content: textToSave, mode: modeToSave })
-            .eq("id", submissionId);
-          if (error) throw error;
-          if (latestAutosaveSnapshot.current === snapshot) {
-            lastSavedSnapshot.current = snapshot;
-            setDraftSaveState("saved");
-            setLastSavedAt(new Date());
-            void qc.invalidateQueries({ queryKey: ["my-submission", assignment.id, userId] });
-          }
-        } catch {
-          if (latestAutosaveSnapshot.current === snapshot) setDraftSaveState("error");
-        }
-      })();
-      autosavePromise.current = job;
-      void job.finally(() => {
-        if (autosavePromise.current === job) autosavePromise.current = null;
-      });
-    }, 1000);
-    autosaveTimer.current = timer;
-
-    return () => {
-      clearTimeout(timer);
-      if (autosaveTimer.current === timer) autosaveTimer.current = null;
-    };
-  }, [
-    activeMode,
-    assignment.id,
-    draftSnapshot,
-    ensureSubmission,
-    existingSubmissionId,
-    hydrated,
-    locked,
-    qc,
-    submission.isError,
-    submission.isLoading,
-    text,
-    userId,
-  ]);
-
-  async function uploadFile(file: File, kind: "page" | "inline_image" | "attachment", order: number) {
+  async function uploadFile(file: File, kind: "page" | "inline_image", order: number) {
     const quota = await (supabase as any).rpc("assert_storage_available", {
       _additional_bytes: file.size,
     });
@@ -582,61 +445,6 @@ function StudentSubmission({
     setPages((prev) => prev.filter((x) => x.id !== p.id));
   }
 
-  function isAllowedAttachment(file: File) {
-    const extension = file.name.toLowerCase().split(".").pop() ?? "";
-    return (
-      file.type.startsWith("image/") ||
-      ["pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "txt", "csv"].includes(extension)
-    );
-  }
-
-  function formatFileSize(bytes: number | null) {
-    if (!bytes) return "";
-    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
-  async function handleAttachments(files: FileList | null) {
-    if (!files?.length) return;
-    setUploading(true);
-    try {
-      const added: SubmissionAttachment[] = [];
-      let order = pages.length + attachments.length;
-      for (const file of Array.from(files)) {
-        if (!isAllowedAttachment(file)) {
-          toast.error(`${file.name} is not a supported file type`);
-          continue;
-        }
-        if (file.size > 15 * 1024 * 1024) {
-          toast.error(`${file.name} is larger than 15MB`);
-          continue;
-        }
-        const r = await uploadFile(file, "attachment", order);
-        added.push({
-          id: r.id,
-          storage_path: r.path,
-          file_name: r.file_name,
-          url: r.url,
-          mime_type: file.type || null,
-          size_bytes: file.size,
-        });
-        order += 1;
-      }
-      setAttachments((prev) => [...prev, ...added]);
-      if (added.length) toast.success(`${added.length} file(s) attached`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "File upload failed");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function removeAttachment(file: SubmissionAttachment) {
-    await supabase.from("submission_files").delete().eq("id", file.id);
-    await supabase.storage.from("submissions").remove([file.storage_path]);
-    setAttachments((prev) => prev.filter((x) => x.id !== file.id));
-  }
-
   async function logViolation(kind: string) {
     setViolations((v) => v + 1);
     try {
@@ -655,9 +463,6 @@ function StudentSubmission({
 
   const save = useMutation({
     mutationFn: async (submit: boolean) => {
-      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-      autosaveTimer.current = null;
-      if (autosavePromise.current) await autosavePromise.current.catch(() => undefined);
       const submissionId = await ensureSubmission();
       if (submit) {
         if (activeMode === "handwritten" && pages.length === 0)
@@ -692,9 +497,6 @@ function StudentSubmission({
       return submit;
     },
     onSuccess: (submitted) => {
-      lastSavedSnapshot.current = JSON.stringify([activeMode, text]);
-      setDraftSaveState("saved");
-      setLastSavedAt(new Date());
       toast.success(submitted ? "Submitted" : "Draft saved");
       onSaved();
       void qc.invalidateQueries({ queryKey: ["my-submission"] });
@@ -709,22 +511,7 @@ function StudentSubmission({
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-lg font-semibold">Your submission</h2>
-          {!locked && activeMode === "typed" && hydrated && (
-            <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
-              {draftSaveState === "pending"
-                ? "Unsaved changes"
-                : draftSaveState === "saving"
-                  ? "Saving draft…"
-                  : draftSaveState === "saved"
-                    ? `Draft saved${lastSavedAt ? ` at ${lastSavedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}`
-                    : draftSaveState === "error"
-                      ? "Autosave failed — use Save draft to retry"
-                      : "Draft saves automatically"}
-            </p>
-          )}
-        </div>
+        <h2 className="text-lg font-semibold">Your submission</h2>
         <StatusBadge
           status={(sub?.is_late ? "late" : (sub?.status ?? "not_started")) as SubmissionStatus}
         />
@@ -758,11 +545,6 @@ function StudentSubmission({
           Your teacher hasn&apos;t released your grade yet.
         </p>
       )}
-      {sub?.status === "returned" && (
-        <p className="panel border-warning/40 bg-warning/5 p-4 text-sm">
-          Your teacher returned this submission for changes. Update your work, then submit it again when ready.
-        </p>
-      )}
 
       {locked ? (
         <div className="panel p-6">
@@ -783,30 +565,6 @@ function StudentSubmission({
             </div>
           )}
           {sub?.typed_content && <RenderMathText text={sub.typed_content} className="mt-4" />}
-          {attachments.length > 0 && (
-            <div className="mt-5 space-y-2">
-              <p className="text-sm font-medium">Attached files</p>
-              <div className="divide-y divide-border rounded-lg border border-border">
-                {attachments.map((file) => (
-                  <a
-                    key={file.id}
-                    href={file.url || undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                    download={file.file_name}
-                    className="flex items-center gap-3 p-3 transition-colors hover:bg-muted/40"
-                  >
-                    <FileText className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate text-sm">{file.file_name}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {formatFileSize(file.size_bytes)}
-                    </span>
-                    <Download className="size-4 shrink-0 text-muted-foreground" />
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       ) : (
         <Tabs value={activeMode} onValueChange={(v) => setChoice(v as "handwritten" | "typed")}>
@@ -907,113 +665,15 @@ function StudentSubmission({
             />
           </TabsContent>
 
-          <section
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              void handleAttachments(e.dataTransfer.files);
-            }}
-            className="panel border-dashed p-5"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold">Additional files</h3>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Attach PDFs, Word, PowerPoint, Excel, text, CSV, or image files to this submission.
-                  Maximum 15MB per file.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => attachmentRef.current?.click()}
-                disabled={uploading}
-              >
-                {uploading ? (
-                  <Loader2 className="mr-1.5 size-4 animate-spin" />
-                ) : (
-                  <Upload className="mr-1.5 size-4" />
-                )}
-                Upload files
-              </Button>
-              <input
-                ref={attachmentRef}
-                type="file"
-                accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => void handleAttachments(e.target.files)}
-              />
-            </div>
-
-            {attachments.length > 0 && (
-              <div className="mt-4 divide-y divide-border rounded-lg border border-border">
-                {attachments.map((file) => (
-                  <div key={file.id} className="flex items-center gap-3 p-3">
-                    <FileText className="size-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{file.file_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {file.mime_type || "File"}
-                        {file.size_bytes ? ` · ${formatFileSize(file.size_bytes)}` : ""}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => void removeAttachment(file)}
-                      aria-label={`Remove ${file.file_name}`}
-                    >
-                      <Trash2 className="size-4 text-destructive" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
           <div className="mt-6 flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              onClick={() => save.mutate(false)}
-              disabled={save.isPending || uploading}
-            >
+            <Button variant="outline" onClick={() => save.mutate(false)} disabled={save.isPending}>
               Save draft
             </Button>
-            <Button
-              onClick={() => {
-                if (activeMode === "handwritten" && pages.length === 0) {
-                  toast.error("Upload at least one page before submitting");
-                  return;
-                }
-                if (activeMode === "typed" && text.trim().length < 10) {
-                  toast.error("Write at least 10 characters before submitting");
-                  return;
-                }
-                setConfirmSubmitOpen(true);
-              }}
-              disabled={save.isPending || uploading}
-            >
+            <Button onClick={() => save.mutate(true)} disabled={save.isPending}>
               {save.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
               Submit assignment
             </Button>
           </div>
-          <AlertDialog open={confirmSubmitOpen} onOpenChange={setConfirmSubmitOpen}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Submit this assignment?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Check your answer and attached files before continuing. After submission, you cannot edit your work unless your teacher returns it for changes.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Continue editing</AlertDialogCancel>
-                <AlertDialogAction onClick={() => save.mutate(true)} disabled={save.isPending}>
-                  Submit final answer
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
         </Tabs>
       )}
     </section>

@@ -17,8 +17,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 
 import { useAuth } from "@/lib/auth";
-import { CoTeacherRequests } from "@/components/CoTeacherRequests";
-import { CoTeacherCode } from "@/components/CoTeacherCode";
 import { downloadCsv, toCsv } from "@/lib/csv";
 import { Pagination } from "@/components/Pagination";
 import { useViewRole } from "@/lib/viewRole";
@@ -261,7 +259,6 @@ function ClassDetail() {
 
   // Only the class owner and platform admins may edit or delete a class.
   const canManage = role === "admin" || klass.data.teacher_id === user?.id;
-  const isCoTeacher = isTeacher && !canManage && klass.data.teacher_id !== user?.id;
   const rosterRows = roster.data ?? [];
   const rosterPageSize = 20;
   const rosterPageCount = Math.max(1, Math.ceil(rosterRows.length / rosterPageSize));
@@ -345,7 +342,7 @@ function ClassDetail() {
             {[klass.data.subject, klass.data.section].filter(Boolean).join(" · ") || "No subject"}
           </p>
         </div>
-        {(!isTeacher || isCoTeacher) && (
+        {!isTeacher && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline">
@@ -388,7 +385,6 @@ function ClassDetail() {
               {klass.data.join_code}
               <Copy className="size-3.5" />
             </button>
-            <CoTeacherCode classId={classId} />
             <Button
               variant="outline"
               className="hidden sm:inline-flex"
@@ -501,8 +497,6 @@ function ClassDetail() {
           </div>
         )}
       </header>
-
-      {canManage && <CoTeacherRequests classId={classId} />}
 
       <Tabs defaultValue="assignments">
         <TabsList>

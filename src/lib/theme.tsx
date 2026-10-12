@@ -41,7 +41,7 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: "light",
-  mode: "system",
+  mode: "light",
   setMode: () => {},
   toggle: () => {},
   accent: null,
@@ -55,17 +55,20 @@ function systemTheme(): Theme {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>("system");
+  const [mode, setModeState] = useState<ThemeMode>("light");
   const [theme, setTheme] = useState<Theme>("light");
   const [accent, setAccentState] = useState<Accent | null>(null);
   const [themeStyle, setThemeStyleState] = useState<ThemeStyle>("default");
+  // The saved theme is applied to <html> before first paint by a head script (see __root.tsx), so the
+  // class effect below must wait until the saved value has been read, or it would strip it for a frame.
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const storedMode = window.localStorage.getItem("theme") as ThemeMode | null;
     const initialMode: ThemeMode =
       storedMode === "light" || storedMode === "dark" || storedMode === "system"
         ? storedMode
-        : "system";
+        : "light"; // new visitors start in light mode (they can still pick Dark or System)
     setModeState(initialMode);
     setTheme(initialMode === "system" ? systemTheme() : initialMode);
 
@@ -74,6 +77,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     const storedStyle = window.localStorage.getItem("onyx-theme-style") as ThemeStyle | null;
     if (storedStyle && THEME_STYLES.includes(storedStyle)) setThemeStyleState(storedStyle);
+    setReady(true);
   }, []);
 
   useEffect(() => {
@@ -85,8 +89,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [mode]);
 
   useEffect(() => {
+    if (!ready) return;
     document.documentElement.classList.toggle("dark", theme === "dark");
-  }, [theme]);
+  }, [theme, ready]);
 
   useEffect(() => {
     if (accent) document.documentElement.setAttribute("data-accent", accent);

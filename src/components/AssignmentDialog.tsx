@@ -250,11 +250,18 @@ export function AssignmentDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="handwritten">Handwritten (photo upload)</SelectItem>
+                <SelectItem value="handwritten">File &amp; Photo Upload</SelectItem>
                 <SelectItem value="typed">Typed (paste protected)</SelectItem>
                 <SelectItem value="either">Student's choice</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              {type === "handwritten"
+                ? "Students can upload photos and files such as PDF, Word, PowerPoint, Excel, CSV, TXT or ZIP (max 15MB per submission file)."
+                : type === "typed"
+                  ? "Students write in the answer editor. Photos may be inserted when images are enabled."
+                  : "Students can choose to type their answer or upload photos and supported files."}
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label>Rubric</Label>

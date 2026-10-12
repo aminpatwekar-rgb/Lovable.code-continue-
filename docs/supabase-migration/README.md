@@ -15,7 +15,9 @@
 - The inspected Supabase project is active and already contains 27 public tables, 27 public functions, 97 public policies, and 2 storage buckets. Its migration-history listing is empty. Treat it as an existing production-like environment, not an empty destination. No SQL changes have been run.
 - Inspected tables have RLS enabled, but table-by-table policy and schema compatibility has not been fully verified.
 - The Supabase security advisor reports warnings involving SECURITY DEFINER function grants, a mutable function search_path, and leaked-password protection. Review each finding before cutover; do not blindly revoke grants because app flows may depend on functions.
+- The server-only Supabase admin client reads `SUPABASE_SERVICE_ROLE_KEY`; keep it exclusively in server-only modules and verify every import path so it can never enter a browser bundle. The request middleware uses `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` to validate user bearer tokens. Hosted preview environments need these variables set independently; do not place service-role credentials in `VITE_*` variables.
 - The repository's README describes auth/roles, classes, assignments and submissions, private uploads, quizzes, resources, announcements, discussions, attendance, notifications, projects and analytics. These require code-level dependency mapping and end-to-end testing.
+- **Preview status for commit `3e092dc1987b2ba3054e94065996844ab0a095da`:** Vercel reported a ready preview deployment, while Netlify reported a failed deploy. The Netlify log is not accessible through the current GitHub integration, so its exact failure is not yet diagnosed. Neither status establishes working authentication or feature parity; do not cut over based on a green deploy alone.
 
 ## Work completed safely
 - Created this isolated branch and a draft pull request; nothing has been merged to `main`.
@@ -53,7 +55,7 @@ A rollback of application routing alone cannot automatically reverse data writte
 ## Migration phases
 
 ### Phase 0 — Read-only inventory (in progress)
-1. Inventory routes, data services, server functions, edge functions, auth providers, scheduled jobs, and environment variables. The browser Google OAuth call is now native Supabase, but server/admin clients and build tooling still need migration work.
+1. Inventory routes, data services, server functions, edge functions, auth providers, scheduled jobs, and environment variables. The browser Google OAuth call is now native Supabase, but server/admin clients and build tooling still need migration work. Diagnose the failed Netlify preview from its deployment logs before using it as a supported target.
 2. Map each feature to its current auth/database/storage dependency and target Supabase equivalent.
 3. Compare table definitions, enums, constraints, triggers, RPCs, RLS policies, and storage policies.
 4. Confirm the intended Supabase project before any environment change.

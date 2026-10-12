@@ -11,6 +11,7 @@ export type Profile = {
   email: string | null;
   avatar_url: string | null;
   institution: string | null;
+  role_confirmed_at: string | null;
 };
 
 type AuthState = {
@@ -58,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [{ data: p }, resolved] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id, full_name, avatar_url, institution")
+        .select("id, full_name, avatar_url, institution, role_confirmed_at")
         .eq("id", userId)
         .maybeSingle(),
       readRoles(userId),

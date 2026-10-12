@@ -35,7 +35,7 @@ SET code = 'orbit',
     annual_price_inr = 9990,
     active = true,
     limits = '{"max_classes":10,"max_students_per_class":150,"assignments_per_month":-1,"quizzes_per_month":-1,"ai_questions_per_month":250,"question_bank_total":-1,"storage_bytes":10737418240}'::jsonb,
-    features = '{"question_bank":true,"advanced_grading":true,"rubrics":true,"attendance":true,"calendar":true,"notifications":true,"advanced_analytics":true,"csv_import":true,"csv_export":true,"quiz_randomization":true,"time_attempt_controls":true,"lockdown":false,"progress_reports":true,"remove_branding":false}'::jsonb,
+    features = '{"question_bank":true,"advanced_grading":true,"rubrics":true,"attendance":true,"calendar":true,"notifications":true,"advanced_analytics":true,"csv_import":true,"csv_export":true,"quiz_randomization":true,"time_attempt_controls":true,"lockdown":true,"progress_reports":true,"remove_branding":false}'::jsonb,
     updated_at = now()
 WHERE code = 'professional';
 

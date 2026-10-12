@@ -11,8 +11,8 @@ const TIER_ORDER = ["free", "core", "orbit", "nexus", "apex"];
 
 const TIER_COPY: Record<string, { tagline: string; subtitle: string }> = {
   free: {
-    tagline: "Zero-friction sandbox & pilot cohort",
-    subtitle: "Start a class and run the complete academic workflow for free.",
+    tagline: "Try ONYX with a small class",
+    subtitle: "Core assignments and manual quizzes stay unlimited; class size, AI, storage and saved questions are tightly capped.",
   },
   core: {
     tagline: "Single-faculty classroom utility",

@@ -954,6 +954,7 @@ export type Database = {
           full_name: string
           id: string
           institution: string | null
+          role_confirmed_at: string | null
           is_active: boolean
           updated_at: string
         }
@@ -964,6 +965,7 @@ export type Database = {
           full_name?: string
           id: string
           institution?: string | null
+          role_confirmed_at?: string | null
           is_active?: boolean
           updated_at?: string
         }
@@ -1840,6 +1842,10 @@ export type Database = {
         Returns: boolean
       }
       bootstrap_first_admin: { Args: never; Returns: boolean }
+      confirm_account_role: {
+        Args: { _role: Database["public"]["Enums"]["app_role"] }
+        Returns: boolean
+      }
       can_view_announcement: {
         Args: { _announcement_id: string; _user_id: string }
         Returns: boolean

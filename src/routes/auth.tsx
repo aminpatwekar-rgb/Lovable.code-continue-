@@ -49,9 +49,9 @@ function AuthPage() {
   const shouldReduceMotion = useReducedMotion();
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, refresh } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">(search.mode ?? "signup");
-  const [role, setRole] = useState<"student" | "teacher">("student");
+  const [role, setRole] = useState<"student" | "teacher" | null>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -61,12 +61,13 @@ function AuthPage() {
 
   const confirmed = isSessionConfirmed(session?.user.id);
   // Only an explicitly confirmed account is allowed through to the app.
+  const needsRoleConfirmation = Boolean(session && profile && !profile.role_confirmed_at);
   const needsConfirm = Boolean(session) && !confirmed && !switching;
 
   useEffect(() => {
-    if (!loading && session && confirmed && !switching)
+    if (!loading && session && confirmed && profile?.role_confirmed_at && !switching)
       navigate({ to: "/dashboard", replace: true });
-  }, [loading, session, confirmed, switching, navigate]);
+  }, [loading, session, confirmed, profile?.role_confirmed_at, switching, navigate]);
 
   async function handleUseAnotherAccount() {
     setSwitching(true);
@@ -94,7 +95,7 @@ function AuthPage() {
           password: parsed.data.password,
           options: {
             emailRedirectTo: window.location.origin,
-            data: { full_name: fullName.trim(), role },
+            data: { full_name: fullName.trim() },
           },
         });
         if (error) throw error;
@@ -103,9 +104,8 @@ function AuthPage() {
           toast.success("Check your email to confirm your account.");
           return;
         }
-        markSessionConfirmed(data.session.user.id);
         setSwitching(false);
-        toast.success("Welcome to ONYX");
+        toast.success("Account created. Please confirm your role to continue.");
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
           email: parsed.data.email,
@@ -125,11 +125,31 @@ function AuthPage() {
 
   async function google() {
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+      redirect_uri: `${window.location.origin}/auth?mode=signup`,
     });
     if (result.error) {
       toast.error("Google sign-in failed");
       return;
+    }
+  }
+
+  async function confirmRole() {
+    if (!role) {
+      toast.error("Choose Student or Teacher to continue.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc("confirm_account_role", { _role: role });
+      if (error) throw error;
+      await refresh();
+      markSessionConfirmed(session?.user.id);
+      toast.success("Your account role has been confirmed.");
+      navigate({ to: "/dashboard", replace: true });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not confirm your role. Please try again.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -167,7 +187,52 @@ function AuthPage() {
           <span className="font-semibold tracking-tight">ONYX</span>
         </Link>
 
-        {needsConfirm ? (
+        {needsRoleConfirmation ? (
+          <div className="space-y-5">
+            <div>
+              <h1 className="text-2xl font-semibold">How will you use ONYX?</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Choose your role carefully. You must confirm it before entering ONYX, so teachers
+                do not accidentally set up a student account.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                { key: "student", label: "Student", description: "Join classes and submit work", icon: GraduationCap },
+                { key: "teacher", label: "Teacher", description: "Create classes and manage work", icon: Presentation },
+              ] as const).map((r) => (
+                <motion.button
+                  key={r.key}
+                  type="button"
+                  disabled={busy}
+                  {...getPressProps(shouldReduceMotion, { hoverScale: 1.02, tapScale: 0.98 })}
+                  onClick={() => setRole(r.key)}
+                  aria-pressed={role === r.key}
+                  className={cn(
+                    "flex min-h-32 flex-col items-start gap-2 rounded-xl border p-4 text-left transition-colors",
+                    role === r.key
+                      ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+                      : "border-border hover:border-primary/50 hover:bg-accent/50",
+                  )}
+                >
+                  <r.icon className="size-5 text-primary" />
+                  <span className="text-sm font-semibold">{r.label}</span>
+                  <span className="text-xs text-muted-foreground">{r.description}</span>
+                </motion.button>
+              ))}
+            </div>
+            <Button className="w-full" disabled={!role || busy} onClick={() => void confirmRole()}>
+              {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {role ? "Confirm as " + (role === "teacher" ? "Teacher" : "Student") : "Select your role to continue"}
+            </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              You cannot change this choice from this screen after confirming it.
+            </p>
+            <Button variant="outline" className="w-full" disabled={busy} onClick={() => void handleUseAnotherAccount()}>
+              Use another account
+            </Button>
+          </div>
+        ) : needsConfirm ? (
           <div className="space-y-4">
             <h1 className="text-2xl font-semibold">
               Continue as {profile?.full_name?.trim() || session?.user.email || "this account"}?
@@ -219,48 +284,23 @@ function AuthPage() {
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {mode === "signup"
-                ? "Choose how you'll use ONYX."
+                ? "Create your account first. You will confirm your role in the next step."
                 : "Sign in to your classes and assignments."}
             </p>
 
             <form onSubmit={submit} className="mt-6 space-y-4">
               {mode === "signup" && (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(
-                      [
-                        { key: "student", label: "Student", icon: GraduationCap },
-                        { key: "teacher", label: "Teacher", icon: Presentation },
-                      ] as const
-                    ).map((r) => (
-                      <motion.button
-                        key={r.key}
-                        type="button"
-                        {...getPressProps(shouldReduceMotion, { hoverScale: 1.02, tapScale: 0.98 })}
-                        onClick={() => setRole(r.key)}
-                        className={cn(
-                          "flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors cursor-pointer",
-                          role === r.key
-                            ? "border-primary bg-primary/10"
-                            : "border-border hover:bg-accent/50",
-                        )}
-                      >
-                        <r.icon className="size-4 text-primary" />
-                        <span className="text-sm font-medium">{r.label}</span>
-                      </motion.button>
-                    ))}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="name">Full name</Label>
-                    <Input
-                      id="name"
-                      value={fullName}
-                      maxLength={100}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="Ada Lovelace"
-                    />
-                  </div>
-                </>
+                <div className="space-y-1.5">
+                  <Label htmlFor="name">Full name</Label>
+                  <Input
+                    id="name"
+                    value={fullName}
+                    maxLength={100}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Ada Lovelace"
+                    required
+                  />
+                </div>
               )}
 
               <div className="space-y-1.5">

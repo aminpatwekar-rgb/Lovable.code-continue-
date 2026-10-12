@@ -169,8 +169,24 @@ function BootOverlay({ show }: { show: boolean }) {
 }
 
 function RootContent() {
-  const { loading } = useAuth();
+  const { loading, session, profile } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+
+  // A new account must finish role confirmation before any protected route
+  // can be reached, including when OAuth returns to the public landing page.
+  useEffect(() => {
+    if (
+      !loading &&
+      session &&
+      profile &&
+      !profile.role_confirmed_at &&
+      pathname !== "/auth" &&
+      pathname !== "/reset-password"
+    ) {
+      void navigate({ to: "/auth", search: { mode: "signup" }, replace: true });
+    }
+  }, [loading, session, profile, pathname, navigate]);
   // The public landing page does not depend on the session, so it is never hidden behind the loader.
   const showLoader = loading && pathname !== "/";
 

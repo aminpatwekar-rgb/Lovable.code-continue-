@@ -92,7 +92,7 @@ export function BusinessModelPlans() {
           <CardTitle className="flex items-center gap-2"><Sparkles className="size-5 text-primary" />ONYX Plans & Pricing</CardTitle>
           <CardDescription>
             The core academic workflow stays open on every plan: unlimited assignments, unlimited manually authored quizzes,
-            submissions, grading, feedback, class resources, announcements, discussions and notifications. Upgrade for more capacity and advanced tools.
+            submissions, grading, feedback, class resources, announcements, discussions and notifications. SPARK is designed for a small trial class; upgrade for more capacity and advanced tools.
           </CardDescription>
         </CardHeader>
       </Card>

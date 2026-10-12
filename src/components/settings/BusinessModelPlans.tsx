@@ -150,9 +150,11 @@ export function BusinessModelPlans() {
                   <Button variant="outline" className="w-full" disabled>Current plan</Button>
                 ) : role === "admin" ? (
                   <Button variant="outline" className="w-full" disabled>Admin — unlimited access</Button>
+                ) : p.code === "apex" ? (
+                  <Button className="w-full" variant="outline" disabled>Custom agreement required</Button>
                 ) : (
-                  <Button asChild className="w-full" variant={highlighted ? "default" : "outline"}>
-                    <Link to="/settings">{p.code === "apex" ? "Discuss plan" : "Upgrade"}</Link>
+                  <Button className="w-full" variant="outline" disabled title="Plan-aware checkout is not enabled yet">
+                    Checkout not enabled yet
                   </Button>
                 )}
               </CardContent>

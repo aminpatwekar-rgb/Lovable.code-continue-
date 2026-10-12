@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Download, FileUp, Loader2, ShieldAlert } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, FileText, FileUp, Loader2, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchProfileEmails } from "@/lib/profile-emails";
 
@@ -72,7 +72,7 @@ function ReviewSubmission() {
 
       const { data: files } = await supabase
         .from("submission_files")
-        .select("id, storage_path, file_name, mime_type, kind, caption, page_order")
+        .select("id, storage_path, file_name, mime_type, size_bytes, kind, caption, page_order")
         .eq("submission_id", submissionId)
         .order("page_order", { ascending: true });
       const signed = await Promise.all(
@@ -89,6 +89,24 @@ function ReviewSubmission() {
         .eq("submission_id", submissionId)
         .order("occurred_at", { ascending: false });
       return { sub, files: signed, violations: violations ?? [] };
+    },
+  });
+
+  const navigationAssignmentId = q.data?.sub?.assignments
+    ? (q.data.sub.assignments as unknown as { id: string }).id
+    : null;
+  const navigation = useQuery({
+    queryKey: ["assignment-submission-navigation", navigationAssignmentId],
+    enabled: isTeacher && Boolean(navigationAssignmentId),
+    queryFn: async () => {
+      if (!navigationAssignmentId) return [];
+      const { data, error } = await supabase
+        .from("submissions")
+        .select("id, submitted_at")
+        .eq("assignment_id", navigationAssignmentId)
+        .order("submitted_at", { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -143,6 +161,19 @@ function ReviewSubmission() {
   } | null;
   const pages = files.filter((f) => f.kind === "page");
   const inline = files.filter((f) => f.kind === "inline_image");
+  const attachments = files.filter((f) => f.kind === "attachment");
+  const navigationRows = navigation.data ?? [];
+  const currentSubmissionIndex = navigationRows.findIndex((row) => row.id === submissionId);
+  const previousSubmission = currentSubmissionIndex > 0 ? navigationRows[currentSubmissionIndex - 1] : null;
+  const nextSubmission = currentSubmissionIndex >= 0 && currentSubmissionIndex < navigationRows.length - 1
+    ? navigationRows[currentSubmissionIndex + 1]
+    : null;
+
+  function formatFileSize(bytes: number | null) {
+    if (!bytes) return "";
+    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
 
   return (
     <div className="space-y-8">
@@ -166,6 +197,38 @@ function ReviewSubmission() {
         </div>
         <StatusBadge status={(sub.is_late ? "late" : sub.status) as SubmissionStatus} />
       </header>
+
+      {isTeacher && currentSubmissionIndex >= 0 && navigationRows.length > 1 && (
+        <nav aria-label="Submission navigation" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3">
+          <p className="text-sm text-muted-foreground">
+            Submission {currentSubmissionIndex + 1} of {navigationRows.length}
+          </p>
+          <div className="flex gap-2">
+            {previousSubmission ? (
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/submissions/$submissionId" params={{ submissionId: previousSubmission.id }}>
+                  <ChevronLeft className="mr-1 size-4" /> Previous
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
+                <ChevronLeft className="mr-1 size-4" /> Previous
+              </Button>
+            )}
+            {nextSubmission ? (
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/submissions/$submissionId" params={{ submissionId: nextSubmission.id }}>
+                  Next <ChevronRight className="ml-1 size-4" />
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
+                Next <ChevronRight className="ml-1 size-4" />
+              </Button>
+            )}
+          </div>
+        </nav>
+      )}
 
       {sub.paste_violation_count > 0 && (
         <div className="panel border-destructive/40 bg-destructive/5 p-4">
@@ -203,6 +266,34 @@ function ReviewSubmission() {
                 )}
                 <figcaption className="break-words px-3 py-2 text-xs text-muted-foreground">{p.file_name || `File ${i + 1}`}</figcaption>
               </figure>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {attachments.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Attached files</h2>
+          <div className="panel divide-y divide-border">
+            {attachments.map((file) => (
+              <a
+                key={file.id}
+                href={file.url || undefined}
+                target="_blank"
+                rel="noreferrer"
+                download={file.file_name}
+                className="flex items-center gap-3 p-4 transition-colors hover:bg-muted/40"
+              >
+                <FileText className="size-5 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{file.file_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {file.mime_type || "File"}
+                    {file.size_bytes ? ` · ${formatFileSize(file.size_bytes)}` : ""}
+                  </p>
+                </div>
+                <Download className="size-4 shrink-0 text-muted-foreground" />
+              </a>
             ))}
           </div>
         </section>

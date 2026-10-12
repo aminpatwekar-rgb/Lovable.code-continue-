@@ -7,6 +7,8 @@ import {
   ChevronUp,
   Pencil,
   Plus,
+  Sparkles,
+  Loader2,
   Trash2,
   X,
 } from "lucide-react";
@@ -18,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PlanGate } from "@/components/PlanGate";
+import { generateRubricWithAI } from "@/lib/grading/rubric-ai.functions";
 import {
   Dialog,
   DialogContent,
@@ -108,6 +111,27 @@ function Page() {
   const [form, setForm] = useState<RubricForm>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [aiDescription, setAiDescription] = useState("");
+  const [aiTotalPoints, setAiTotalPoints] = useState("100");
+  const [aiLevelCount, setAiLevelCount] = useState("4");
+
+  const aiGenerateMutation = useMutation({
+    mutationFn: () => generateRubricWithAI({ data: { description: aiDescription, totalPoints: Number(aiTotalPoints), levelCount: Number(aiLevelCount) } }),
+    onSuccess: (generated) => {
+      setForm({
+        id: null,
+        title: generated.title,
+        description: generated.description,
+        criteria: generated.criteria.map((criterion) => ({
+          key: newKey(), title: criterion.title, description: criterion.description,
+          max_points: criterion.max_points,
+          levels: criterion.levels.map((level) => ({ key: newKey(), label: level.label, description: level.description, points: level.points })),
+        })),
+      });
+      toast.success("Rubric generated. Review it and edit anything before saving.");
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not generate a rubric."),
+  });
 
   const rubricsQuery = useQuery({
     queryKey: ["rubrics"],
@@ -299,6 +323,9 @@ function Page() {
 
   function openNew() {
     setForm(emptyForm());
+    setAiDescription("");
+    setAiTotalPoints("100");
+    setAiLevelCount("4");
     setEditorOpen(true);
   }
 
@@ -488,6 +515,49 @@ function Page() {
                 Name the rubric, add each criterion, and describe what each score means. Changes are saved when you select Save rubric.
               </DialogDescription>
             </DialogHeader>
+
+            {!form.id && (
+              <section className="space-y-3 rounded-xl border border-primary/25 bg-primary/5 p-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="size-4 text-primary" />
+                  <h3 className="font-semibold">Generate with AI</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Describe the assignment and how you want it graded. AI will draft criteria, performance levels, descriptions, and points for you to review.
+                </p>
+                <Textarea
+                  value={aiDescription}
+                  onChange={(event) => setAiDescription(event.target.value)}
+                  placeholder="Example: Create a 100-point rubric for a robotics project report. Prioritize technical accuracy, design justification, testing results, diagrams, and presentation. Reward evidence-based reasoning and clear explanations."
+                  rows={4}
+                  maxLength={4000}
+                />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ai-rubric-total">Total marks</Label>
+                    <Input id="ai-rubric-total" type="number" min="1" max="500" value={aiTotalPoints} onChange={(event) => setAiTotalPoints(event.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ai-rubric-levels">Performance levels</Label>
+                    <select id="ai-rubric-levels" value={aiLevelCount} onChange={(event) => setAiLevelCount(event.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                      <option value="2">2 levels</option>
+                      <option value="3">3 levels</option>
+                      <option value="4">4 levels</option>
+                      <option value="5">5 levels</option>
+                    </select>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => aiGenerateMutation.mutate()}
+                  disabled={aiGenerateMutation.isPending || aiDescription.trim().length < 20 || !(Number(aiTotalPoints) > 0)}
+                >
+                  {aiGenerateMutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
+                  {aiGenerateMutation.isPending ? "Generating rubric…" : "Generate rubric"}
+                </Button>
+                <p className="text-xs text-muted-foreground">This fills the editor but does not save automatically. Check the criteria and scores before saving.</p>
+              </section>
+            )}
 
             <div className="space-y-5">
               <div className="grid gap-4 sm:grid-cols-2">

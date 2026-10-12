@@ -83,7 +83,7 @@ function Dashboard() {
         .eq("teacher_id", user!.id);
       if (classError) throw classError;
       const ids = (classes ?? []).map((c) => c.id);
-      const [{ count: students }, { data: assignments }] = await Promise.all([
+      const [{ count: students }, assignmentResult] = await Promise.all([
         ids.length
           ? supabase
               .from("class_members")
@@ -97,6 +97,8 @@ function Dashboard() {
           .eq("archived", false)
           .order("due_date", { ascending: true }),
       ]);
+      if (assignmentResult.error) throw assignmentResult.error;
+      const assignments = assignmentResult.data;
       const aIds = (assignments ?? []).map((a) => a.id);
       const { data: subs, error: submissionsError } = aIds.length
         ? await supabase
@@ -124,7 +126,7 @@ function Dashboard() {
         .eq("student_id", user!.id);
       if (membershipError) throw membershipError;
       const classIds = (memberships ?? []).map((m) => m.class_id);
-      const { data: assignments } = classIds.length
+      const { data: assignments, error: assignmentsError } = classIds.length
         ? await supabase
             .from("assignments")
             .select("id, title, subject, due_date, priority, max_marks, class_id, classes(name)")
@@ -132,7 +134,8 @@ function Dashboard() {
             .eq("published", true)
             .eq("archived", false)
             .order("due_date", { ascending: true })
-        : { data: [] };
+        : { data: [], error: null };
+      if (assignmentsError) throw assignmentsError;
       const { data: subs, error: submissionsError } = await supabase
         .from("submissions")
         .select("id, assignment_id, status, marks_awarded")

@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Check, Crown, Minus, Sparkles } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getPlanSummary } from "@/lib/onyx.features.functions";
 import { useAuth } from "@/lib/auth";
@@ -11,8 +12,8 @@ const TIER_ORDER = ["free", "core", "orbit", "nexus", "apex"];
 
 const TIER_CATALOG = [
   { code: "free", name: "SPARK", monthly_price_inr: 0, annual_price_inr: 0, limits: { max_classes: 1, max_students_per_class: 30, ai_questions_per_month: 10, storage_bytes: 524288000, question_bank_total: 50 }, features: { question_bank: true, rubrics: true, attendance: false, calendar: false, advanced_analytics: false, csv_import: false, csv_export: true, quiz_randomization: false, time_attempt_controls: false, lockdown: false, progress_reports: false, remove_branding: false } },
-  { code: "core", name: "CORE", monthly_price_inr: 499, annual_price_inr: 4990, limits: { max_classes: 3, max_students_per_class: 60, ai_questions_per_month: 75, storage_bytes: 2147483648, question_bank_total: 250 }, features: { question_bank: true, rubrics: true, attendance: true, calendar: true, advanced_analytics: false, csv_import: false, csv_export: true, quiz_randomization: false, time_attempt_controls: false, lockdown: false, progress_reports: false, remove_branding: false } },
-  { code: "orbit", name: "ORBIT", monthly_price_inr: 999, annual_price_inr: 9990, limits: { max_classes: 10, max_students_per_class: 150, ai_questions_per_month: 250, storage_bytes: 10737418240, question_bank_total: -1 }, features: { question_bank: true, rubrics: true, attendance: true, calendar: true, advanced_analytics: false, csv_import: false, csv_export: true, quiz_randomization: true, time_attempt_controls: true, lockdown: true, progress_reports: false, remove_branding: false } },
+  { code: "core", name: "CORE", monthly_price_inr: 499, annual_price_inr: 4990, limits: { max_classes: 3, max_students_per_class: 60, ai_questions_per_month: 75, storage_bytes: 1073741824, question_bank_total: 200 }, features: { question_bank: true, rubrics: true, attendance: true, calendar: true, advanced_analytics: false, csv_import: false, csv_export: true, quiz_randomization: false, time_attempt_controls: false, lockdown: false, progress_reports: false, remove_branding: false } },
+  { code: "orbit", name: "ORBIT", monthly_price_inr: 2999, annual_price_inr: 29990, limits: { max_classes: 10, max_students_per_class: 100, ai_questions_per_month: 250, storage_bytes: 8589934592, question_bank_total: -1 }, features: { question_bank: true, rubrics: true, attendance: true, calendar: true, advanced_analytics: false, csv_import: false, csv_export: true, quiz_randomization: true, time_attempt_controls: true, lockdown: true, progress_reports: false, remove_branding: false } },
   { code: "nexus", name: "NEXUS", monthly_price_inr: 10000, annual_price_inr: 100000, limits: { max_classes: 30, max_students_per_class: 400, ai_questions_per_month: 1000, storage_bytes: 53687091200, question_bank_total: -1 }, features: { question_bank: true, rubrics: true, attendance: true, calendar: true, advanced_analytics: true, csv_import: true, csv_export: true, quiz_randomization: true, time_attempt_controls: true, lockdown: true, progress_reports: true, remove_branding: false } },
   { code: "apex", name: "APEX", monthly_price_inr: 0, annual_price_inr: 0, limits: { max_classes: -1, max_students_per_class: -1, ai_questions_per_month: 2000, storage_bytes: 107374182400, question_bank_total: -1 }, features: { question_bank: true, rubrics: true, attendance: true, calendar: true, advanced_analytics: true, csv_import: true, csv_export: true, quiz_randomization: true, time_attempt_controls: true, lockdown: true, progress_reports: true, remove_branding: true } },
 ];
@@ -39,6 +40,31 @@ const TIER_COPY: Record<string, { tagline: string; subtitle: string }> = {
     subtitle: "Institution-wide rollout with negotiated limits and branding.",
   },
 };
+
+const FEATURE_DETAILS: { key: string; label: string; description: string }[] = [
+  { key: "assignments", label: "Unlimited assignments", description: "Create and publish as many assignments as needed, with deadlines and submission instructions." },
+  { key: "manual_quizzes", label: "Unlimited manual quizzes", description: "Write your own quizzes and questions without using AI-generation credits. Saved question-bank limits never limit questions written directly inside a quiz." },
+  { key: "submissions", label: "Handwritten and typed submissions", description: "Students can submit work in handwriting-first or typed formats, depending on the assignment settings." },
+  { key: "attachments", label: "File attachments and reference links", description: "Attach supported files and provide links or reference materials to guide student work." },
+  { key: "grading", label: "Grading and feedback", description: "Review submissions, award marks, leave feedback, and return graded work to students." },
+  { key: "class_content", label: "Resources, announcements and discussions", description: "Share class materials and updates, and keep class conversations together in ONYX." },
+  { key: "notifications", label: "Notifications and deadline reminders", description: "Keep students and teachers informed about relevant class activity and upcoming deadlines." },
+  { key: "notebook", label: "Notebook, typed writing and math tools", description: "Use the built-in writing workflow and math-entry tools for academic work." },
+  { key: "collaboration", label: "Co-teacher collaboration", description: "Collaborate with other teachers in a class, subject to class-owner permissions." },
+  { key: "question_bank", label: "Saved question bank", description: "Save reusable questions for future quizzes. The plan's item cap applies only to saved reusable bank items." },
+  { key: "rubrics", label: "Rubric-based grading", description: "Use grading rubrics to make marking criteria more consistent and transparent." },
+  { key: "attendance", label: "Attendance tracking", description: "Record and review student attendance for your classes." },
+  { key: "calendar", label: "Class calendar", description: "Organize class events and keep important academic dates visible." },
+  { key: "advanced_analytics", label: "Advanced analytics", description: "Review broader class and quiz performance patterns to help identify where students may need support." },
+  { key: "csv_import", label: "Student CSV import", description: "Import student roster data in bulk using a supported CSV file." },
+  { key: "csv_export", label: "Grade CSV export", description: "Export grade data for reporting or further analysis." },
+  { key: "quiz_randomization", label: "Quiz question and choice randomization", description: "Randomize question order and answer choices to create varied quiz attempts." },
+  { key: "time_attempt_controls", label: "Timed quizzes and attempt controls", description: "Configure quiz time limits and control student attempts where supported." },
+  { key: "lockdown", label: "Lockdown quiz controls", description: "Use additional quiz restrictions intended to reduce opportunities for leaving the quiz workflow." },
+  { key: "progress_reports", label: "Detailed student progress reports", description: "Review individual student progress through more detailed reporting." },
+  { key: "remove_branding", label: "White-label branding", description: "Customize the ONYX experience under institutional branding as agreed for the APEX plan." },
+  { key: "search_achievements", label: "Global search, achievements and leaderboard", description: "Find relevant areas of the app and use class achievement and leaderboard features where available." },
+];
 
 const FEATURE_ROWS: { key: string; label: string }[] = [
   { key: "question_bank", label: "Saved question bank" },
@@ -154,6 +180,44 @@ export function BusinessModelPlans() {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">Assignments: unlimited · Manual quizzes: unlimited</p>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button type="button" variant="outline" className="w-full">View all features</Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>{p.name} — plan features</DialogTitle>
+                      <DialogDescription>
+                        {p.code === "apex" ? "Custom institutional agreement and default quotas." : `₹${Number(p.monthly_price_inr).toLocaleString("en-IN")} per month · ₹${Number(p.annual_price_inr).toLocaleString("en-IN")} per year`}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3 rounded-lg border p-3 text-sm sm:grid-cols-3">
+                        <div><p className="text-muted-foreground">Classes</p><p className="font-semibold">{limitLabel(limits.max_classes)}</p></div>
+                        <div><p className="text-muted-foreground">Students / class</p><p className="font-semibold">{limitLabel(limits.max_students_per_class)}</p></div>
+                        <div><p className="text-muted-foreground">AI questions / month</p><p className="font-semibold">{limitLabel(limits.ai_questions_per_month)}</p></div>
+                        <div><p className="text-muted-foreground">Cloud storage</p><p className="font-semibold">{storageLabel(limits.storage_bytes)}</p></div>
+                        <div><p className="text-muted-foreground">Saved question bank</p><p className="font-semibold">{limitLabel(limits.question_bank_total)} items</p></div>
+                      </div>
+                      <div className="max-h-[45dvh] space-y-3 overflow-y-auto pr-1">
+                        {FEATURE_DETAILS.map((feature) => {
+                          const alwaysIncluded = ["assignments", "manual_quizzes", "submissions", "attachments", "grading", "class_content", "notifications", "notebook", "collaboration", "search_achievements"].includes(feature.key);
+                          const included = alwaysIncluded || Boolean((p.features ?? {})[feature.key]);
+                          return (
+                            <div key={feature.key} className="flex items-start gap-3 border-b border-border/60 pb-3 last:border-0">
+                              {included ? <Check className="mt-0.5 size-4 shrink-0 text-primary" /> : <Minus className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium">{feature.label}</p>
+                                <p className="text-xs text-muted-foreground">{feature.description}</p>
+                                {!included && <p className="mt-1 text-xs text-muted-foreground">Not included in this plan.</p>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
                 {isCurrent ? (
                   <Button variant="outline" className="w-full" disabled>Current plan</Button>
                 ) : role === "admin" ? (

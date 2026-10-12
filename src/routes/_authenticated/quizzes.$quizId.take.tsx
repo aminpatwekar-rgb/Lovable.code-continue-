@@ -117,7 +117,7 @@ function Page() {
         if (!rows?.length) throw new Error("This quiz has no questions yet.");
 
         let live: Attempt | null = null;
-        const { data: open } = await supabase
+        const { data: open, error: openError } = await supabase
           .from("quiz_attempts")
           .select("id, attempt_no, started_at, question_order, status")
           .eq("quiz_id", quizId)
@@ -126,6 +126,7 @@ function Page() {
           .order("attempt_no", { ascending: false })
           .limit(1)
           .maybeSingle();
+        if (openError) throw openError;
 
         if (open) {
           live = {
@@ -137,11 +138,12 @@ function Page() {
               : [],
           };
         } else {
-          const { count } = await supabase
+          const { count, error: countError } = await supabase
             .from("quiz_attempts")
             .select("id", { count: "exact", head: true })
             .eq("quiz_id", quizId)
             .eq("student_id", user.id);
+          if (countError) throw countError;
           if ((count ?? 0) >= q.max_attempts) {
             throw new Error("You have used all your attempts for this quiz.");
           }

@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useNavigate,
   useRouterState,
   HeadContent,
   Scripts,

@@ -63,5 +63,5 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.confirm_account_role(public.app_role) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.confirm_account_role(public.app_role) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.confirm_account_role(public.app_role) TO authenticated;

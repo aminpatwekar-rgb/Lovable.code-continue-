@@ -51,7 +51,8 @@ BEGIN
   ON CONFLICT (user_id, role) DO NOTHING;
 
   UPDATE public.profiles
-  SET role_confirmed_at = now()
+  SET role = _role::text,
+      role_confirmed_at = now()
   WHERE id = _user_id AND role_confirmed_at IS NULL;
 
   IF NOT FOUND THEN

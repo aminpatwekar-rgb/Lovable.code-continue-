@@ -266,24 +266,41 @@ export function OnyxIntro() {
     setPhase("exiting");
   };
 
+  /** Saves "sound on" and starts whatever is still to come. Needs a user gesture to succeed. */
+  const unlockSound = async () => {
+    const snd = soundRef.current;
+    if (!snd) return;
+    // Persist the choice immediately; the browser may still block audio on this visit.
+    writeSoundPref(true);
+    setSoundOn(true);
+    setSavedSoundOn(true);
+    snd.setMuted(false);
+    try {
+      const ok = await snd.start(() => elapsedRef.current());
+      setNeedsTap(!ok);
+    } catch {
+      // Keep the preference enabled so the next intro remembers the visitor's choice.
+      setNeedsTap(true);
+    }
+  };
+
+  /**
+   * Tapping the intro normally skips it. But if the visitor has saved "sound on" and the browser is
+   * still holding audio back, that tap is the gesture the browser needs, so it turns sound on
+   * instead. The Skip button (and Escape/Enter) always skip.
+   */
+  const onStageClick = () => {
+    if (needsTap && savedSoundOn) void unlockSound();
+    else skip();
+  };
+
   const onSoundClick = async (e: MouseEvent) => {
     e.stopPropagation(); // don't let this tap count as "skip"
     const snd = soundRef.current;
     if (!snd) return;
 
     if (needsTap) {
-      // Persist the choice immediately; the browser may still block audio on this visit.
-      writeSoundPref(true);
-      setSoundOn(true);
-      setSavedSoundOn(true);
-      snd.setMuted(false);
-      try {
-        const ok = await snd.start(() => elapsedRef.current());
-        setNeedsTap(!ok);
-      } catch {
-        // Keep the preference enabled so the next intro remembers the visitor's choice.
-        setNeedsTap(true);
-      }
+      await unlockSound();
       return;
     }
 
@@ -299,7 +316,7 @@ export function OnyxIntro() {
       <div
         className="oi-stage"
         data-phase={phase}
-        onClick={skip}
+        onClick={onStageClick}
         onAnimationEnd={(e) => {
           if (e.target === e.currentTarget && e.animationName === "oi-iris") setPhase("done");
         }}
@@ -338,7 +355,7 @@ export function OnyxIntro() {
             aria-label={
               needsTap
                 ? savedSoundOn && soundOn
-                  ? "Sound preference saved as on; tap to start playback"
+                  ? "Sound is saved as on; tap anywhere to start it"
                   : "Turn on sound"
                 : soundOn
                   ? "Mute sound"
@@ -353,7 +370,7 @@ export function OnyxIntro() {
             )}
             {needsTap
               ? savedSoundOn && soundOn
-                ? "Saved on · tap to play"
+                ? "Saved on · tap anywhere"
                 : "Tap for sound"
               : soundOn
                 ? "Sound on"
@@ -361,7 +378,14 @@ export function OnyxIntro() {
           </button>
         )}
 
-        <button type="button" className="oi-skip" onClick={skip}>
+        <button
+          type="button"
+          className="oi-skip"
+          onClick={(e) => {
+            e.stopPropagation();
+            skip();
+          }}
+        >
           Skip
         </button>
 

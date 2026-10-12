@@ -142,6 +142,15 @@ function readSoundPref(): boolean {
   }
 }
 
+/** True only when the visitor explicitly saved the preference as enabled. */
+function readSavedSoundOn(): boolean {
+  try {
+    return window.localStorage.getItem(SOUND_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
 /** Save the visitor's sound preference independently of whether autoplay is allowed. */
 function writeSoundPref(enabled: boolean) {
   try {
@@ -155,6 +164,7 @@ export function OnyxIntro() {
   const [phase, setPhase] = useState<Phase>("playing");
   const [mounted, setMounted] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
+  const [savedSoundOn, setSavedSoundOn] = useState(false);
   const [needsTap, setNeedsTap] = useState(false);
   const clockRef = useRef<HTMLSpanElement>(null);
   const exitedRef = useRef(false);
@@ -211,6 +221,7 @@ export function OnyxIntro() {
     elapsedRef.current = () => Number(clock?.currentTime ?? performance.now());
     const on = readSoundPref();
     setSoundOn(on);
+    setSavedSoundOn(readSavedSoundOn());
     setMounted(true);
     const snd = createIntroSound();
     soundRef.current = snd;
@@ -272,8 +283,9 @@ export function OnyxIntro() {
     if (needsTap) {
       // Persist the choice immediately; the browser may still block audio on this visit.
       writeSoundPref(true);
-      snd.setMuted(false);
       setSoundOn(true);
+      setSavedSoundOn(true);
+      snd.setMuted(false);
       try {
         const ok = await snd.start(() => elapsedRef.current());
         setNeedsTap(!ok);
@@ -287,6 +299,7 @@ export function OnyxIntro() {
     const next = !soundOn;
     writeSoundPref(next);
     setSoundOn(next);
+    setSavedSoundOn(next);
     snd.setMuted(!next);
   };
 
@@ -331,7 +344,15 @@ export function OnyxIntro() {
             className="oi-sound"
             data-hint={needsTap}
             aria-pressed={soundOn && !needsTap}
-            aria-label={needsTap ? "Turn on sound" : soundOn ? "Mute sound" : "Unmute sound"}
+            aria-label={
+              needsTap
+                ? savedSoundOn && soundOn
+                  ? "Sound preference saved as on; tap to start playback"
+                  : "Turn on sound"
+                : soundOn
+                  ? "Mute sound"
+                  : "Unmute sound"
+            }
             onClick={onSoundClick}
           >
             {soundOn && !needsTap ? (
@@ -339,7 +360,13 @@ export function OnyxIntro() {
             ) : (
               <VolumeX className="size-3.5" aria-hidden="true" />
             )}
-            {needsTap ? "Tap for sound" : soundOn ? "Sound on" : "Sound off"}
+            {needsTap
+              ? savedSoundOn && soundOn
+                ? "Saved on · tap to play"
+                : "Tap for sound"
+              : soundOn
+                ? "Sound on"
+                : "Sound off"}
           </button>
         )}
 

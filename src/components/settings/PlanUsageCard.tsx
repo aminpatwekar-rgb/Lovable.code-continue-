@@ -65,7 +65,7 @@ export function PlanUsageCard() {
             </div>
           ))}
           <div className="col-span-2 rounded-lg border border-border p-3 sm:col-span-3">
-            <span className="text-muted-foreground">Included advanced features</span>
+            <span className="text-muted-foreground">Included plan features</span>
             <p className="mt-1 font-semibold">{Object.values(features).filter(Boolean).length} enabled</p>
           </div>
         </div>

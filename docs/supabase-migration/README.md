@@ -10,8 +10,8 @@
 ## Current audit findings (2026-10-12)
 - Application: TanStack Start / React / TypeScript / Vite.
 - Dependencies include `@supabase/supabase-js` and `@lovable.dev/cloud-auth-js`; Vite currently relies on `@lovable.dev/vite-tanstack-config`, which bundles important build/runtime configuration and must be replaced carefully before leaving Lovable tooling.
-- The Supabase client reads `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`, and uses a Lovable-preview auth-storage adapter. Outside Lovable preview domains, that adapter falls back to browser localStorage, but the full application has not yet been validated outside the current platform.
-- **Project identity is a migration blocker:** the tracked `.env` on `main` references project ref `pvnwklrknyqqugikgiwr`, while the Supabase project currently available for read-only inspection is `nhhrtzoztffqvcvqxapl`. Access to the first project was denied by the connected Supabase integration. Do not silently switch the app to the second project; confirm which project is the intended destination and obtain access before changing environment configuration.
+- The browser Supabase client now uses native Supabase session persistence rather than the Lovable preview auth-storage adapter. The Google sign-in route now calls Supabase OAuth directly and redirects to `/auth`; the Google provider and allowed redirect URLs must be configured in Supabase Auth before this path can be considered verified.
+- **Project identity mismatch still needs resolution in configuration:** the tracked `.env` on `main` references project ref `pvnwklrknyqqugikgiwr`, while the user confirmed that the accessible ONYX project with existing tables is `nhhrtzoztffqvcvqxapl`. The tracked `.env` has been removed from this migration branch only; no values were copied. Before cutover, verify which project the current live Lovable app actually uses and confirm the target's Auth users, files, and data are complete. Do not change production environment configuration until this is verified.
 - The inspected Supabase project is active and already contains 27 public tables, 27 public functions, 97 public policies, and 2 storage buckets. Its migration-history listing is empty. Treat it as an existing production-like environment, not an empty destination. No SQL changes have been run.
 - Inspected tables have RLS enabled, but table-by-table policy and schema compatibility has not been fully verified.
 - The Supabase security advisor reports warnings involving SECURITY DEFINER function grants, a mutable function search_path, and leaked-password protection. Review each finding before cutover; do not blindly revoke grants because app flows may depend on functions.
@@ -19,6 +19,7 @@
 
 ## Work completed safely
 - Created this isolated branch and a draft pull request; nothing has been merged to `main`.
+- Replaced the Google sign-in call on this branch with Supabase's native `signInWithOAuth` API and a `/auth` redirect. This is a preliminary implementation; the provider configuration and redirect behavior still require testing.
 - Removed the tracked `.env` from this branch only, without opening or copying its contents into the migration work.
 - Added ignore rules for `.env` and `.env.*` while explicitly allowing `.env.example`.
 - No production database, Auth, storage, quotas, or Lovable Cloud settings have been changed.
@@ -26,7 +27,7 @@
 ## Migration phases
 
 ### Phase 0 — Read-only inventory (in progress)
-1. Inventory routes, data services, server functions, edge functions, auth providers, scheduled jobs, and environment variables.
+1. Inventory routes, data services, server functions, edge functions, auth providers, scheduled jobs, and environment variables. The browser Google OAuth call is now native Supabase, but server/admin clients and build tooling still need migration work.
 2. Map each feature to its current auth/database/storage dependency and target Supabase equivalent.
 3. Compare table definitions, enums, constraints, triggers, RPCs, RLS policies, and storage policies.
 4. Confirm the intended Supabase project before any environment change.

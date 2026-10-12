@@ -9,6 +9,14 @@ import { useAuth } from "@/lib/auth";
 
 const TIER_ORDER = ["free", "core", "orbit", "nexus", "apex"];
 
+const TIER_CATALOG = [
+  { code: "free", name: "SPARK", monthly_price_inr: 0, annual_price_inr: 0, limits: { max_classes: 1, max_students_per_class: 30, ai_questions_per_month: 10, storage_bytes: 524288000, question_bank_total: 50 }, features: { question_bank: true, rubrics: true, attendance: false, calendar: false, advanced_analytics: false, csv_import: false, csv_export: true, quiz_randomization: false, time_attempt_controls: false, lockdown: false, progress_reports: false, remove_branding: false } },
+  { code: "core", name: "CORE", monthly_price_inr: 499, annual_price_inr: 4990, limits: { max_classes: 3, max_students_per_class: 60, ai_questions_per_month: 75, storage_bytes: 2147483648, question_bank_total: 250 }, features: { question_bank: true, rubrics: true, attendance: true, calendar: true, advanced_analytics: false, csv_import: false, csv_export: true, quiz_randomization: false, time_attempt_controls: false, lockdown: false, progress_reports: false, remove_branding: false } },
+  { code: "orbit", name: "ORBIT", monthly_price_inr: 999, annual_price_inr: 9990, limits: { max_classes: 10, max_students_per_class: 150, ai_questions_per_month: 250, storage_bytes: 10737418240, question_bank_total: -1 }, features: { question_bank: true, rubrics: true, attendance: true, calendar: true, advanced_analytics: false, csv_import: false, csv_export: true, quiz_randomization: true, time_attempt_controls: true, lockdown: true, progress_reports: false, remove_branding: false } },
+  { code: "nexus", name: "NEXUS", monthly_price_inr: 2999, annual_price_inr: 29990, limits: { max_classes: 30, max_students_per_class: 400, ai_questions_per_month: 1000, storage_bytes: 53687091200, question_bank_total: -1 }, features: { question_bank: true, rubrics: true, attendance: true, calendar: true, advanced_analytics: true, csv_import: true, csv_export: true, quiz_randomization: true, time_attempt_controls: true, lockdown: true, progress_reports: true, remove_branding: false } },
+  { code: "apex", name: "APEX", monthly_price_inr: 0, annual_price_inr: 0, limits: { max_classes: -1, max_students_per_class: -1, ai_questions_per_month: 2000, storage_bytes: 107374182400, question_bank_total: -1 }, features: { question_bank: true, rubrics: true, attendance: true, calendar: true, advanced_analytics: true, csv_import: true, csv_export: true, quiz_randomization: true, time_attempt_controls: true, lockdown: true, progress_reports: true, remove_branding: true } },
+];
+
 const TIER_COPY: Record<string, { tagline: string; subtitle: string }> = {
   free: {
     tagline: "Zero-friction sandbox & pilot cohort",
@@ -80,10 +88,10 @@ export function BusinessModelPlans() {
   if (q.isError) return <Card><CardContent className="p-6 text-sm text-destructive">Could not load plan information.</CardContent></Card>;
 
   const current = q.data.plan;
-  const plans = (q.data as any).plans ?? [];
-  const catalog = plans
-    .filter((p: any) => TIER_ORDER.includes(p.code))
-    .sort((a: any, b: any) => TIER_ORDER.indexOf(a.code) - TIER_ORDER.indexOf(b.code));
+  // Render the complete five-tier catalogue independently of database migration state.
+  // The database still determines the user's current subscription; pricing cards must not
+  // silently disappear when an older billing_plans table contains only the free plan.
+  const catalog = TIER_CATALOG;
 
   return (
     <div className="space-y-5">

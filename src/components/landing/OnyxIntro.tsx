@@ -142,6 +142,15 @@ function readSoundPref(): boolean {
   }
 }
 
+/** Save the visitor's sound preference independently of whether autoplay is allowed. */
+function writeSoundPref(enabled: boolean) {
+  try {
+    window.localStorage.setItem(SOUND_KEY, enabled ? "on" : "off");
+  } catch {
+    // Sound still works for this visit when persistent storage is unavailable.
+  }
+}
+
 export function OnyxIntro() {
   const [phase, setPhase] = useState<Phase>("playing");
   const [mounted, setMounted] = useState(false);
@@ -259,27 +268,26 @@ export function OnyxIntro() {
     e.stopPropagation(); // don't let this tap count as "skip"
     const snd = soundRef.current;
     if (!snd) return;
+
     if (needsTap) {
-      // First tap = the user gesture browsers require. Starts whatever is still to come.
+      // Persist the choice immediately; the browser may still block audio on this visit.
+      writeSoundPref(true);
       snd.setMuted(false);
       setSoundOn(true);
-      const ok = await snd.start(() => elapsedRef.current());
-      setNeedsTap(!ok);
       try {
-        window.localStorage.setItem(SOUND_KEY, "on");
+        const ok = await snd.start(() => elapsedRef.current());
+        setNeedsTap(!ok);
       } catch {
-        /* ignore */
+        // Keep the preference enabled so the next intro remembers the visitor's choice.
+        setNeedsTap(true);
       }
       return;
     }
+
     const next = !soundOn;
+    writeSoundPref(next);
     setSoundOn(next);
     snd.setMuted(!next);
-    try {
-      window.localStorage.setItem(SOUND_KEY, next ? "on" : "off");
-    } catch {
-      /* ignore */
-    }
   };
 
   return (

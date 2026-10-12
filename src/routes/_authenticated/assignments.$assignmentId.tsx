@@ -38,9 +38,17 @@ type Page = {
   id: string;
   storage_path: string;
   file_name: string;
+  mime_type?: string | null;
   url: string;
   page_order: number;
 };
+
+function isPhotoFile(file: { mime_type?: string | null; file_name?: string | null }) {
+  return Boolean(
+    file.mime_type?.startsWith("image/") ||
+      /\.(avif|bmp|gif|heic|heif|jpe?g|png|webp)$/i.test(file.file_name ?? ""),
+  );
+}
 
 function AssignmentPage() {
   const { assignmentId } = Route.useParams();
@@ -112,7 +120,11 @@ function AssignmentPage() {
             {a.priority} priority
           </span>
           <span className="rounded-full border border-border px-2 py-0.5 capitalize">
-            {a.submission_type}
+            {a.submission_type === "handwritten"
+              ? "File & Photo Upload"
+              : a.submission_type === "typed"
+                ? "Typed Answer"
+                : "Student’s Choice"}
           </span>
           {!a.published && (
             <span className="rounded-full border border-warning/40 bg-warning/15 px-2 py-0.5">
@@ -297,7 +309,7 @@ function StudentSubmission({
   const fileRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
   const [blocks, setBlocks] = useState<ImageBlock[]>([]);
-  const [pages, setPages] = useState<Page[]>([]);
+  const [pages, setFiles & photos] = useState<Page[]>([]);
   const [violations, setViolations] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -314,7 +326,7 @@ function StudentSubmission({
       if (!sub) return null;
       const { data: files } = await supabase
         .from("submission_files")
-        .select("id, storage_path, file_name, page_order, kind, caption")
+        .select("id, storage_path, file_name, mime_type, page_order, kind, caption")
         .eq("submission_id", sub.id)
         .order("page_order", { ascending: true });
       const signed = await Promise.all(
@@ -339,7 +351,7 @@ function StudentSubmission({
         .filter((f) => f.kind === "inline_image")
         .map((f) => ({ id: f.id, path: f.storage_path, url: f.url, caption: f.caption ?? "" })),
     );
-    setPages(files.filter((f) => f.kind === "page") as Page[]);
+    setFiles & photos(files.filter((f) => f.kind === "page") as Page[]);
     setHydrated(true);
   }, [submission.data, hydrated]);
 
@@ -401,23 +413,28 @@ function StudentSubmission({
       .single();
     if (rowErr) throw rowErr;
     const { data: signed } = await supabase.storage.from("submissions").createSignedUrl(path, 3600);
-    return { id: row.id, path, url: signed?.signedUrl ?? "", file_name: file.name };
+    return { id: row.id, path, url: signed?.signedUrl ?? "", file_name: file.name, mime_type: file.type };
   }
 
-  async function handlePages(files: FileList | null) {
+  async function handleFiles & photos(files: FileList | null) {
     if (!files?.length) return;
     setUploading(true);
     try {
       const added: Page[] = [];
       let order = pages.length;
       for (const file of Array.from(files)) {
-        const ok = file.type.startsWith("image/") || file.type === "application/pdf";
+        const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+        const allowedExtensions = new Set([
+          "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "csv", "txt", "zip",
+          "avif", "bmp", "gif", "heic", "heif", "jpeg", "jpg", "png", "webp",
+        ]);
+        const ok = file.type.startsWith("image/") || allowedExtensions.has(extension);
         if (!ok) {
-          toast.error(`${file.name} must be an image or PDF`);
+          toast.error(`${file.name} is not a supported file. Upload photos, PDF, Office documents, CSV, TXT or ZIP files.`);
           continue;
         }
         if (file.size > 15 * 1024 * 1024) {
-          toast.error(`${file.name} is larger than 15MB`);
+          toast.error(`${file.name} is larger than the 15MB per-file limit`);
           continue;
         }
         const r = await uploadFile(file, "page", order);
@@ -426,12 +443,13 @@ function StudentSubmission({
           storage_path: r.path,
           url: r.url,
           file_name: r.file_name,
+          mime_type: r.mime_type,
           page_order: order,
         });
         order += 1;
       }
-      setPages((p) => [...p, ...added]);
-      if (added.length) toast.success(`${added.length} page(s) uploaded`);
+      setFiles & photos((p) => [...p, ...added]);
+      if (added.length) toast.success(`${added.length} file(s) uploaded`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -442,7 +460,7 @@ function StudentSubmission({
   async function removePage(p: Page) {
     await supabase.from("submission_files").delete().eq("id", p.id);
     await supabase.storage.from("submissions").remove([p.storage_path]);
-    setPages((prev) => prev.filter((x) => x.id !== p.id));
+    setFiles & photos((prev) => prev.filter((x) => x.id !== p.id));
   }
 
   async function logViolation(kind: string) {
@@ -466,7 +484,7 @@ function StudentSubmission({
       const submissionId = await ensureSubmission();
       if (submit) {
         if (activeMode === "handwritten" && pages.length === 0)
-          throw new Error("Upload at least one page before submitting");
+          throw new Error("Upload at least one file or photo before submitting");
         if (activeMode === "typed" && text.trim().length < 10)
           throw new Error("Write your answer before submitting");
       }
@@ -555,12 +573,17 @@ function StudentSubmission({
           {pages.length > 0 && (
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {pages.map((p) => (
-                <img
-                  key={p.id}
-                  src={p.url}
-                  alt={p.file_name}
-                  className="aspect-[3/4] w-full rounded-md border border-border object-cover"
-                />
+                {isPhotoFile(p) ? (
+                  <a key={p.id} href={p.url} target="_blank" rel="noreferrer" className="block">
+                    <img src={p.url} alt={p.file_name || "Uploaded photo"} className="max-h-96 w-full bg-muted/20 object-contain" />
+                  </a>
+                ) : (
+                  <a key={p.id} href={p.url} target="_blank" rel="noreferrer" className="flex min-h-40 flex-col items-center justify-center gap-3 p-4 text-center hover:bg-accent/30">
+                    <FileUp className="size-8 text-muted-foreground" />
+                    <span className="w-full break-words text-sm font-medium">{p.file_name}</span>
+                    <span className="text-xs text-muted-foreground">Open file</span>
+                  </a>
+                )}
               ))}
             </div>
           )}
@@ -570,7 +593,7 @@ function StudentSubmission({
         <Tabs value={activeMode} onValueChange={(v) => setChoice(v as "handwritten" | "typed")}>
           {assignment.submission_type === "either" && (
             <TabsList>
-              <TabsTrigger value="handwritten">Handwritten</TabsTrigger>
+              <TabsTrigger value="handwritten">File &amp; Photo Upload</TabsTrigger>
               <TabsTrigger value="typed">Typed</TabsTrigger>
             </TabsList>
           )}
@@ -580,13 +603,13 @@ function StudentSubmission({
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
-                void handlePages(e.dataTransfer.files);
+                void handleFiles & photos(e.dataTransfer.files);
               }}
               className="panel flex flex-col items-center gap-3 border-dashed p-10 text-center"
             >
               <FileUp className="size-6 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                Drag pages here, or take photos of your handwritten work.
+                Upload files or photos of your work. PDF, Word, PowerPoint, Excel, CSV, TXT, ZIP and image formats are supported (max 15MB each).
               </p>
               <Button
                 variant="outline"
@@ -603,10 +626,10 @@ function StudentSubmission({
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/*,application/pdf"
+                accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.zip"
                 multiple
                 className="hidden"
-                onChange={(e) => void handlePages(e.target.files)}
+                onChange={(e) => void handleFiles & photos(e.target.files)}
               />
             </div>
 
@@ -625,13 +648,13 @@ function StudentSubmission({
                       className="aspect-[3/4] w-full object-cover"
                     />
                     <div className="flex items-center justify-between px-2 py-1.5 text-xs">
-                      <span className="text-muted-foreground">Page {i + 1}</span>
+                      <span className="min-w-0 truncate text-muted-foreground">{isPhotoFile(p) ? "Photo " + (i + 1) : p.file_name}</span>
                       <motion.button
                         type="button"
                         {...getPressProps(shouldReduceMotion, { hoverScale: 1.15, tapScale: 0.9 })}
                         onClick={() => void removePage(p)}
                         className="cursor-pointer"
-                        aria-label="Remove page"
+                        aria-label="Remove uploaded file"
                       >
                         <Trash2 className="size-3.5 text-destructive" />
                       </motion.button>

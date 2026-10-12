@@ -1168,6 +1168,7 @@ html.oi-lock {
 .oi-mono {
   width: clamp(270px, 60vw, 640px);
   height: auto;
+  max-height: 44vh; /* keeps the lockup clear of the Skip button on short screens */
   overflow: visible;
 }
 .oi-rv {
@@ -1708,26 +1709,35 @@ html[data-intro="playing"] .lp-score {
   }
 }
 
-/* Logo chip glint */
-.lp-logo {
-  position: relative;
-  overflow: hidden;
+/* Header mark: graphite on light, polished silver on dark (matches the brand logo plate) */
+.om {
+  --om-f0: #4b4e55;
+  --om-f1: #26282c;
+  --om-f2: #131417;
+  --om-rim: #0e0f11;
+  --om-side: #07080a;
+  --om-gloss: 0.14;
+  --om-sheen: 0.55;
 }
-.lp-logo::after {
-  content: "";
-  position: absolute;
-  inset: -50%;
-  background: linear-gradient(115deg, transparent 40%, oklch(1 0 0 / 0.55) 50%, transparent 60%);
-  transform: translateX(-100%);
-  animation: lp-glint 4.5s ease-in-out 2.5s infinite;
+.dark .om {
+  --om-f0: #f7f8fb;
+  --om-f1: #b4b7bf;
+  --om-f2: #6f727b;
+  --om-rim: #43454c;
+  --om-side: #2a2c32;
+  --om-gloss: 0.35;
+  --om-sheen: 0.9;
 }
-@keyframes lp-glint {
-  0%,
-  55% {
-    transform: translateX(-100%);
+.om-sheen {
+  animation: om-sheen 8s cubic-bezier(0.4, 0, 0.2, 1) 3s infinite;
+}
+@keyframes om-sheen {
+  0% {
+    transform: translateX(0);
   }
+  16%,
   100% {
-    transform: translateX(100%);
+    transform: translateX(1450px);
   }
 }
 
@@ -1896,7 +1906,7 @@ html[data-intro="playing"] .lp-score {
   .lp-aurora-text,
   .lp-chip,
   .lp-beam::before,
-  .lp-logo::after,
+  .om-sheen,
   .lp-float,
   .lp-dot,
   .lp-band {

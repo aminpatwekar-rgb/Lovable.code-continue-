@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "@/lib/theme";
 import { OnyxIntro, ONYX_INTRO_HEAD_SCRIPT } from "@/components/landing/OnyxIntro";
 import { PasteDemo } from "@/components/landing/PasteDemo";
+import { OnyxMark } from "@/components/landing/OnyxMark";
 import { AuroraBackdrop, HeroPreview, Reveal, SpotlightCard } from "@/components/landing/LandingFx";
 
 export const Route = createFileRoute("/")({
@@ -77,9 +78,7 @@ function Landing() {
 
       <header className="glass lp-drop sticky top-0 z-40 mx-auto flex max-w-6xl items-center justify-between rounded-b-2xl px-5 py-3">
         <div className="flex items-center gap-2">
-          <span className="brand-gradient lp-logo flex size-8 items-center justify-center rounded-lg text-sm font-bold text-primary-foreground">
-            O
-          </span>
+          <OnyxMark className="h-7 w-auto" />
           <span className="font-semibold tracking-tight">ONYX</span>
         </div>
         <div className="flex items-center gap-2">

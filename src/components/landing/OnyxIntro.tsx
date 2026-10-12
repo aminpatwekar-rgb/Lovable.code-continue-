@@ -8,6 +8,8 @@ import {
 } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import { createIntroSound, type IntroSound } from "@/lib/introSound";
+import { REVEAL } from "./onyxMarkGeometry";
+import { Strokes } from "./OnyxMark";
 
 /**
  * ONYX opening animation — plays once per browser session on the landing page.
@@ -37,38 +39,6 @@ const LETTERS = ["O", "N", "Y", "X"];
 
 /** Runs in <head> on a full page load so repeat visits never flash the intro. */
 export const ONYX_INTRO_HEAD_SCRIPT = `try{var d=document.documentElement,s=window.sessionStorage,q=/[?&]intro(=|&|$)/.test(location.search);if(q)s.removeItem("${SEEN_KEY}");d.setAttribute("data-intro",s.getItem("${SEEN_KEY}")?"seen":"playing")}catch(e){document.documentElement.setAttribute("data-intro","seen")}`;
-
-/* ---- The ONYX monogram: one glossy ribbon, rebuilt as vector strokes from the brand logo ---- */
-const RING = { cx: 437, cy: 390, r: 147, w: 72 };
-const STROKES = [
-  {
-    id: "sw",
-    w: 72,
-    d: "M440 243 C525 238 584 270 625 320 C672 372 705 440 742 492 C770 530 800 540 835 538 C868 536 890 515 912 481 L1110 205",
-  },
-  {
-    id: "st",
-    w: 62,
-    d: "M783 508 L783 270 C783 243 805 231 832 231 C858 231 875 247 892 272 L985 385",
-  },
-  { id: "leg", w: 70, d: "M1014 408 L1116 574" },
-];
-/** Same shapes, but the ring is a path that starts at the top so it can be drawn on. */
-const REVEAL = [
-  { id: "ring", w: RING.w, d: "M437 243 A147 147 0 0 0 437 537 A147 147 0 0 0 437 243" },
-  ...STROKES,
-];
-
-function Strokes({ extra = 0 }: { extra?: number }) {
-  return (
-    <>
-      <circle cx={RING.cx} cy={RING.cy} r={RING.r} strokeWidth={RING.w + extra} />
-      {STROKES.map((s) => (
-        <path key={s.id} d={s.d} strokeWidth={s.w + extra} />
-      ))}
-    </>
-  );
-}
 
 function Monogram() {
   return (

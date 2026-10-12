@@ -77,9 +77,8 @@ function Landing() {
       <AuroraBackdrop />
 
       <header className="glass lp-drop sticky top-0 z-40 mx-auto flex max-w-6xl items-center justify-between rounded-b-2xl px-5 py-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center">
           <OnyxMark className="h-7 w-auto" />
-          <span className="font-semibold tracking-tight">ONYX</span>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">

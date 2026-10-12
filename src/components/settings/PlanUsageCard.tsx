@@ -5,15 +5,71 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { getPlanSummary } from "@/lib/onyx.features.functions";
 
-function bytes(n:number){if(n<0)return "Unlimited";if(n<1024**2)return `${Math.round(n/1024)} KB`;if(n<1024**3)return `${(n/1024**2).toFixed(1)} MB`;return `${(n/1024**3).toFixed(1)} GB`;}
-function limit(n:unknown){const v=Number(n);return v<0?"Unlimited":String(v);}
+function bytes(n: number) {
+  if (n < 0) return "Unlimited";
+  if (n < 1024 ** 2) return `${Math.round(n / 1024)} KB`;
+  if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1)} MB`;
+  return `${(n / 1024 ** 3).toFixed(1)} GB`;
+}
 
-export function PlanUsageCard(){
-  const get=useServerFn(getPlanSummary);
-  const q=useQuery({queryKey:["plan-summary"],queryFn:()=>get(),staleTime:30_000});
-  if(q.isLoading)return <Card><CardContent className="p-6 text-sm text-muted-foreground">Loading plan…</CardContent></Card>;
-  if(q.isError)return <Card><CardContent className="p-6 text-sm text-destructive">Could not load plan information.</CardContent></Card>;
-  const p=q.data.plan; const limits=(p?.limits??{}) as Record<string,number>; const features=(p?.features??{}) as Record<string,boolean>;
-  const storageLimit=Number(limits.storage_bytes??0); const storageUsed=Number(q.data.storageUsed??0); const storagePct=storageLimit>0?Math.min(100,(storageUsed/storageLimit)*100):0;
-  return <Card className="lift"><CardHeader><CardTitle className="flex items-center gap-2"><Sparkles className="size-5 text-primary"/>{p?.name??"Free"} plan</CardTitle><CardDescription>Entitlements and usage are enforced by ONYX, not just the UI.</CardDescription></CardHeader><CardContent className="space-y-5"><div><div className="mb-2 flex items-center justify-between text-sm"><span className="flex items-center gap-2"><HardDrive className="size-4"/>Storage</span><span className="text-muted-foreground">{bytes(storageUsed)} / {storageLimit<0?"Unlimited":bytes(storageLimit)}</span></div><Progress value={storagePct}/></div><div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3"><div className="rounded-lg border border-border p-3"><span className="text-muted-foreground">Classes</span><p className="mt-1 font-semibold">{limits.max_classes<0?"Unlimited":limits.max_classes}</p></div><div className="rounded-lg border border-border p-3"><span className="text-muted-foreground">Students/class</span><p className="mt-1 font-semibold">{limit(limits.max_students_per_class)}</p></div><div className="rounded-lg border border-border p-3"><span className="text-muted-foreground">AI/month</span><p className="mt-1 font-semibold">{limit(limits.ai_questions_per_month)}</p></div><div className="rounded-lg border border-border p-3"><span className="text-muted-foreground">Question bank</span><p className="mt-1 font-semibold">{limits.question_bank_total<0?"Unlimited":limits.question_bank_total}</p></div><div className="rounded-lg border border-border p-3 col-span-2 sm:col-span-2"><span className="text-muted-foreground">Premium features</span><p className="mt-1 font-semibold">{Object.values(features).filter(Boolean).length} enabled</p></div></div></CardContent></Card>;
+function limit(n: unknown) {
+  const value = Number(n);
+  if (!Number.isFinite(value)) return "—";
+  return value < 0 ? "Unlimited" : value.toLocaleString("en-IN");
+}
+
+export function PlanUsageCard() {
+  const get = useServerFn(getPlanSummary);
+  const q = useQuery({ queryKey: ["plan-summary"], queryFn: () => get(), staleTime: 30_000 });
+
+  if (q.isLoading) return <Card><CardContent className="p-6 text-sm text-muted-foreground">Loading plan…</CardContent></Card>;
+  if (q.isError) return <Card><CardContent className="p-6 text-sm text-destructive">Could not load plan information.</CardContent></Card>;
+
+  const plan = q.data.plan;
+  const limits = (plan?.limits ?? {}) as Record<string, number>;
+  const features = (plan?.features ?? {}) as Record<string, boolean>;
+  const storageLimit = Number(limits.storage_bytes ?? 0);
+  const storageUsed = Number(q.data.storageUsed ?? 0);
+  const storagePct = storageLimit > 0 ? Math.min(100, (storageUsed / storageLimit) * 100) : 0;
+
+  const stats = [
+    ["Classes", limit(limits.max_classes)],
+    ["Students / class", limit(limits.max_students_per_class)],
+    ["AI quiz questions / month", limit(limits.ai_questions_per_month)],
+    ["Assignments / month", limit(limits.assignments_per_month)],
+    ["Manual quizzes / month", limit(limits.quizzes_per_month)],
+    ["Saved question bank", limit(limits.question_bank_total)],
+  ];
+
+  return (
+    <Card className="lift">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Sparkles className="size-5 text-primary" />{plan?.name ?? "SPARK"} plan</CardTitle>
+        <CardDescription>
+          Assignments and manually authored quizzes are unlimited. AI-generated quiz questions, classes, student capacity and storage follow your plan limits.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+            <span className="flex items-center gap-2"><HardDrive className="size-4" />Cloud storage</span>
+            <span className="text-right text-muted-foreground">{bytes(storageUsed)} / {storageLimit < 0 ? "Unlimited" : bytes(storageLimit)}</span>
+          </div>
+          <Progress value={storagePct} />
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+          {stats.map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-border p-3">
+              <span className="text-muted-foreground">{label}</span>
+              <p className="mt-1 font-semibold">{value}</p>
+            </div>
+          ))}
+          <div className="col-span-2 rounded-lg border border-border p-3 sm:col-span-3">
+            <span className="text-muted-foreground">Included plan features</span>
+            <p className="mt-1 font-semibold">{Object.values(features).filter(Boolean).length} enabled</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }

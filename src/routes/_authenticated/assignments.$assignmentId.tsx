@@ -535,8 +535,8 @@ function StudentSubmission({
           toast.error(`${file.name} is not a supported file. Upload photos, PDF, Office documents, CSV, TXT or ZIP files.`);
           continue;
         }
-        if (file.size > 15 * 1024 * 1024) {
-          toast.error(`${file.name} is larger than the 15MB per-file limit`);
+        if (file.size > 50 * 1024 * 1024) {
+          toast.error(`${file.name} is larger than the 50MB per-file limit`);
           continue;
         }
         const r = await uploadFile(file, "page", order);
@@ -737,7 +737,7 @@ function StudentSubmission({
             >
               <FileUp className="size-6 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                Upload files or photos of your work. PDF, Word, PowerPoint, Excel, CSV, TXT, ZIP and image formats are supported (max 15MB each).
+                Upload files or photos of your work. PDF, Word, PowerPoint, Excel, CSV, TXT, ZIP and image formats are supported (max 50MB each).
               </p>
               <Button
                 variant="outline"

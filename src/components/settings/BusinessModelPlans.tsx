@@ -27,7 +27,7 @@ const TIER_COPY: Record<string, { tagline: string; subtitle: string }> = {
     subtitle: "Department-sized rollout with lockdown controls and reporting.",
   },
   apex: {
-    tagline: "Institutional white-label & custom engine",
+    tagline: "Institutional white-label & custom agreement",
     subtitle: "Institution-wide rollout with negotiated limits and branding.",
   },
 };
@@ -42,7 +42,7 @@ const FEATURE_ROWS: { key: string; label: string }[] = [
   { key: "csv_export", label: "Grade CSV export" },
   { key: "quiz_randomization", label: "Quiz question / choice randomization" },
   { key: "time_attempt_controls", label: "Timed quizzes and attempt controls" },
-  { key: "lockdown", label: "Lockdown / proctoring controls" },
+  { key: "lockdown", label: "Lockdown quiz controls" },
   { key: "progress_reports", label: "Detailed student progress reports" },
   { key: "remove_branding", label: "White-label branding" },
 ];

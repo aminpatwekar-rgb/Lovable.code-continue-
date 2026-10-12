@@ -69,7 +69,7 @@ type RubricForm = {
 };
 
 function newKey() {
-  return globalThis.crypto?.randomUUID?.() ?? \`item-\${Date.now()}-\${Math.random()}\`;
+  return globalThis.crypto?.randomUUID?.() ?? `item-${Date.now()}-${Math.random()}`;
 }
 
 function makeLevel(label: string, points: number, description = ""): RubricLevel {
@@ -145,20 +145,20 @@ function Page() {
       if (!title) throw new Error("Add a rubric title before saving.");
       if (form.criteria.length === 0) throw new Error("Add at least one criterion.");
       for (const [index, criterion] of form.criteria.entries()) {
-        if (!criterion.title.trim()) throw new Error(\`Add a title for criterion \${index + 1}.\`);
+        if (!criterion.title.trim()) throw new Error(`Add a title for criterion ${index + 1}.`);
         if (!Number.isFinite(Number(criterion.max_points)) || Number(criterion.max_points) <= 0) {
-          throw new Error(\`Enter a maximum score greater than zero for “\${criterion.title}”.\`);
+          throw new Error(`Enter a maximum score greater than zero for “${criterion.title}”.`);
         }
         if (criterion.levels.length === 0) {
-          throw new Error(\`Add at least one performance level for “\${criterion.title}”.\`);
+          throw new Error(`Add at least one performance level for “${criterion.title}”.`);
         }
         for (const level of criterion.levels) {
-          if (!level.label.trim()) throw new Error(\`Name every performance level in “\${criterion.title}”.\`);
+          if (!level.label.trim()) throw new Error(`Name every performance level in “${criterion.title}”.`);
           if (!Number.isFinite(Number(level.points)) || Number(level.points) < 0) {
-            throw new Error(\`Enter a valid score for “\${level.label}”.\`);
+            throw new Error(`Enter a valid score for “${level.label}”.`);
           }
           if (Number(level.points) > Number(criterion.max_points)) {
-            throw new Error(\`“\${level.label}” cannot score more than the \${criterion.max_points}-point maximum for “\${criterion.title}”.\`);
+            throw new Error(`“${level.label}” cannot score more than the ${criterion.max_points}-point maximum for “${criterion.title}”.`);
           }
         }
       }
@@ -423,7 +423,7 @@ function Page() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        aria-label={\`Delete \${rubric.title}\`}
+                        aria-label={`Delete ${rubric.title}`}
                         title="Delete rubric"
                         onClick={() => setDeleteTarget({ id: rubric.id, title: rubric.title })}
                         disabled={deleteMutation.isPending}
@@ -563,9 +563,9 @@ function Page() {
 
                     <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_130px]">
                       <div className="space-y-2">
-                        <Label htmlFor={\`criterion-title-\${criterion.key}\`}>Criterion name <span className="text-destructive">*</span></Label>
+                        <Label htmlFor={`criterion-title-${criterion.key}`}>Criterion name <span className="text-destructive">*</span></Label>
                         <Input
-                          id={\`criterion-title-\${criterion.key}\`}
+                          id={`criterion-title-${criterion.key}`}
                           value={criterion.title}
                           onChange={(event) => updateCriterion(criterion.key, { title: event.target.value })}
                           placeholder="e.g. Technical accuracy"
@@ -573,9 +573,9 @@ function Page() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor={\`criterion-points-\${criterion.key}\`}>Maximum points</Label>
+                        <Label htmlFor={`criterion-points-${criterion.key}`}>Maximum points</Label>
                         <Input
-                          id={\`criterion-points-\${criterion.key}\`}
+                          id={`criterion-points-${criterion.key}`}
                           type="number"
                           min="0.5"
                           step="0.5"
@@ -585,9 +585,9 @@ function Page() {
                       </div>
                     </div>
                     <div className="mt-3 space-y-2">
-                      <Label htmlFor={\`criterion-description-\${criterion.key}\`}>What is being assessed? <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                      <Label htmlFor={`criterion-description-${criterion.key}`}>What is being assessed? <span className="font-normal text-muted-foreground">(optional)</span></Label>
                       <Textarea
-                        id={\`criterion-description-\${criterion.key}\`}
+                        id={`criterion-description-${criterion.key}`}
                         value={criterion.description}
                         onChange={(event) => updateCriterion(criterion.key, { description: event.target.value })}
                         placeholder="Explain what students should demonstrate."
@@ -618,17 +618,17 @@ function Page() {
                         {criterion.levels.map((level, levelIndex) => (
                           <div key={level.key} className="grid min-w-0 gap-3 rounded-lg bg-muted/35 p-3 sm:grid-cols-[minmax(0,1fr)_100px_40px]">
                             <div className="min-w-0 space-y-2">
-                              <Label htmlFor={\`level-label-\${level.key}\`}>Level {levelIndex + 1} name</Label>
+                              <Label htmlFor={`level-label-${level.key}`}>Level {levelIndex + 1} name</Label>
                               <Input
-                                id={\`level-label-\${level.key}\`}
+                                id={`level-label-${level.key}`}
                                 value={level.label}
                                 onChange={(event) => updateLevel(criterion.key, level.key, { label: event.target.value })}
                                 placeholder="e.g. Excellent"
                                 maxLength={80}
                               />
-                              <Label htmlFor={\`level-description-\${level.key}\`}>Description <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                              <Label htmlFor={`level-description-${level.key}`}>Description <span className="font-normal text-muted-foreground">(optional)</span></Label>
                               <Textarea
-                                id={\`level-description-\${level.key}\`}
+                                id={`level-description-${level.key}`}
                                 value={level.description}
                                 onChange={(event) => updateLevel(criterion.key, level.key, { description: event.target.value })}
                                 placeholder="What does this level look like?"
@@ -637,9 +637,9 @@ function Page() {
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor={\`level-points-\${level.key}\`}>Points</Label>
+                              <Label htmlFor={`level-points-${level.key}`}>Points</Label>
                               <Input
-                                id={\`level-points-\${level.key}\`}
+                                id={`level-points-${level.key}`}
                                 type="number"
                                 min="0"
                                 max={criterion.max_points}
@@ -654,7 +654,7 @@ function Page() {
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                aria-label={\`Remove \${level.label || "performance level"}\`}
+                                aria-label={`Remove ${level.label || "performance level"}`}
                                 title="Remove level"
                                 disabled={criterion.levels.length <= 1}
                                 onClick={() => updateCriterion(criterion.key, {

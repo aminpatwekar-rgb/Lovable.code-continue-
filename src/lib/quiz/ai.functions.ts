@@ -215,8 +215,6 @@ export const generateQuizQuestions = createServerFn({ method: "POST" })
         _successful: questions.length,
         _provider: "lovable-ai-gateway",
         _model: MODEL,
-        _input_tokens: null,
-        _output_tokens: null,
       });
       if (settled.error) throw new Error(settled.error.message);
       return { questions };
@@ -243,8 +241,6 @@ export const regenerateQuizQuestion = createServerFn({ method: "POST" })
         _successful: 1,
         _provider: "lovable-ai-gateway",
         _model: MODEL,
-        _input_tokens: null,
-        _output_tokens: null,
       });
       if (settled.error) throw new Error(settled.error.message);
       return { question };

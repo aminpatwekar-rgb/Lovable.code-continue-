@@ -23,7 +23,7 @@ export function BusinessModelPlans() {
   });
 
   if (q.isLoading) return <Card><CardContent className="p-6 text-sm text-muted-foreground">Loading plans…</CardContent></Card>;
-  if (q.isError) return <Card><CardContent className="p-6 text-sm text-destructive">Could not load plan information.</CardContent></Card>;
+  if (q.isError || !q.data) return <Card><CardContent className="p-6 text-sm text-destructive">Could not load plan information.</CardContent></Card>;
 
   const current = q.data.plan;
   const plans = (q.data as any).plans ?? [];

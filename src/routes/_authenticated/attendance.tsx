@@ -99,7 +99,7 @@ function Page() {
         {(roster.data ?? []).map((s:any)=><div key={s.student_id} className="flex flex-wrap items-center gap-3 p-4">
           <div className="min-w-0 flex-1"><p className="font-medium">{s.full_name || "Student"}</p><p className="text-xs text-muted-foreground">{[s.roll_no&&`Roll ${s.roll_no}`,s.er_no&&`ER ${s.er_no}`,s.sr_no&&`Sr ${s.sr_no}`].filter(Boolean).join(" · ")}</p></div>
           <Select value={values[s.student_id] ?? "present"} onValueChange={v=>setDraft(d=>({...d,[s.student_id]:v as Status}))}>
-            <SelectTrigger className="w-36"><SelectValue/></SelectTrigger><SelectContent>{STATUSES.map(v=><SelectItem value={v} key={v}>{v[0].toUpperCase()+v.slice(1)}</SelectItem>)}</SelectContent>
+            <SelectTrigger className="w-36"><SelectValue/></SelectTrigger><SelectContent>{STATUSES.map(v=><SelectItem value={v} key={v}>{v.charAt(0).toUpperCase()+v.slice(1)}</SelectItem>)}</SelectContent>
           </Select>
           {values[s.student_id] === "present" && <Check className="size-4 text-success"/>}
         </div>)}

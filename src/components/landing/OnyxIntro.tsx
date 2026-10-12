@@ -12,7 +12,9 @@ import { REVEAL } from "./onyxMarkGeometry";
 import { Strokes } from "./OnyxMark";
 
 /**
- * ONYX opening animation — plays once per browser session on the landing page.
+ * ONYX opening animation — plays every time the site is opened (each full page load of the homepage,
+ * including refreshes). It does not replay when someone navigates back to the homepage from another
+ * page inside the app, which would feel repetitive.
  *
  * - The whole visual timeline is CSS (see "ONYX intro" in styles.css), so it paints with the server
  *   HTML before any JavaScript has loaded. React only decides *when it ends* and removes it after.
@@ -20,13 +22,11 @@ import { Strokes } from "./OnyxMark";
  *   drift out of sync with what is on screen. Sound is scheduled from the same clock.
  * - Sound is synthesised (src/lib/introSound.ts). Browsers block audio until the visitor interacts
  *   with the page, so if it can't start, a "Tap for sound" button unlocks it.
- * - Skipped for prefers-reduced-motion and for repeat visits in the same session.
- *   Add `?intro` to the URL to replay it any time.
- * - `html[data-intro]` is the shared switch: "playing" → "revealed" (or "seen"). The landing page
- *   uses it to hold its entrance animations until the intro opens.
+ * - Skipped only for prefers-reduced-motion.
+ * - `html[data-intro]` is the shared switch: "playing" → "revealed" (or "seen" when skipped for
+ *   reduced motion). The landing page uses it to hold its entrance animations until the intro opens.
  */
 
-const SEEN_KEY = "onyx-intro-seen";
 const SOUND_KEY = "onyx-intro-sound";
 const HOLD_MS = 3800; // keep in sync with `oi-clock` in styles.css
 const EXIT_MS = 1000; // keep in sync with `oi-iris` in styles.css
@@ -37,8 +37,11 @@ const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayout
 
 const LETTERS = ["O", "N", "Y", "X"];
 
-/** Runs in <head> on a full page load so repeat visits never flash the intro. */
-export const ONYX_INTRO_HEAD_SCRIPT = `try{var d=document.documentElement,s=window.sessionStorage,q=/[?&]intro(=|&|$)/.test(location.search);if(q)s.removeItem("${SEEN_KEY}");d.setAttribute("data-intro",s.getItem("${SEEN_KEY}")?"seen":"playing")}catch(e){document.documentElement.setAttribute("data-intro","seen")}`;
+/** True once the intro has finished (or been skipped) during this page load; cleared by a reload. */
+let playedThisLoad = false;
+
+/** Runs in <head> on every full page load, before first paint, so the page's entrance animations wait for the intro. */
+export const ONYX_INTRO_HEAD_SCRIPT = `document.documentElement.setAttribute("data-intro","playing")`;
 
 function Monogram() {
   return (
@@ -175,14 +178,10 @@ export function OnyxIntro() {
     const root = document.documentElement;
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let alreadySeen = false;
-    try {
-      alreadySeen = window.sessionStorage.getItem(SEEN_KEY) === "1";
-    } catch {
-      alreadySeen = true; // storage blocked: don't risk replaying on every visit
-    }
-    const attr = root.getAttribute("data-intro"); // set by the head script on a full page load
-    const shouldPlay = !reduceMotion && (attr === "playing" || (attr !== "seen" && !alreadySeen));
+    // Plays on the first view of the homepage in each page load. A full load of "/" always gets here
+    // with playedThisLoad === false, so refreshing or re-opening the link always replays it.
+    const shouldPlay =
+      !reduceMotion && !playedThisLoad && root.getAttribute("data-intro") !== "seen";
 
     if (!shouldPlay) {
       root.setAttribute("data-intro", "seen");
@@ -197,11 +196,7 @@ export function OnyxIntro() {
     const startExit = () => {
       if (cancelled || exitedRef.current) return;
       exitedRef.current = true;
-      try {
-        window.sessionStorage.setItem(SEEN_KEY, "1");
-      } catch {
-        /* ignore */
-      }
+      playedThisLoad = true;
       root.setAttribute("data-intro", "revealed");
       soundRef.current?.stop(700);
       setPhase("exiting");
@@ -265,11 +260,7 @@ export function OnyxIntro() {
   const skip = () => {
     if (exitedRef.current) return;
     exitedRef.current = true;
-    try {
-      window.sessionStorage.setItem(SEEN_KEY, "1");
-    } catch {
-      /* ignore */
-    }
+    playedThisLoad = true;
     document.documentElement.setAttribute("data-intro", "revealed");
     soundRef.current?.stop(400);
     setPhase("exiting");

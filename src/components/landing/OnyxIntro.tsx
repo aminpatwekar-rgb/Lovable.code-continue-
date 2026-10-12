@@ -6,7 +6,7 @@ import {
   type CSSProperties,
   type MouseEvent,
 } from "react";
-import { Volume2, VolumeX } from "lucide-react";
+import { VolumeX } from "lucide-react";
 import { createIntroSound, type IntroSound } from "@/lib/introSound";
 import { REVEAL } from "./onyxMarkGeometry";
 import { Strokes } from "./OnyxMark";
@@ -20,14 +20,14 @@ import { Strokes } from "./OnyxMark";
  *   HTML before any JavaScript has loaded. React only decides *when it ends* and removes it after.
  * - The end of the timeline is read from a CSS "clock" animation, so JS hydrating late can never
  *   drift out of sync with what is on screen. Sound is scheduled from the same clock.
- * - Sound is synthesised (src/lib/introSound.ts). Browsers block audio until the visitor interacts
- *   with the page, so if it can't start, a "Tap for sound" button unlocks it.
+ * - Sound is synthesised (src/lib/introSound.ts) and always on. Browsers block audio until the visitor
+ *   interacts with the page, so if it can't start, a "Tap anywhere for sound" prompt appears and the
+ *   first tap turns it on (instead of skipping the intro).
  * - Skipped only for prefers-reduced-motion.
  * - `html[data-intro]` is the shared switch: "playing" → "revealed" (or "seen" when skipped for
  *   reduced motion). The landing page uses it to hold its entrance animations until the intro opens.
  */
 
-const SOUND_KEY = "onyx-intro-sound";
 const HOLD_MS = 3800; // keep in sync with `oi-clock` in styles.css
 const EXIT_MS = 1000; // keep in sync with `oi-iris` in styles.css
 
@@ -137,37 +137,8 @@ function Monogram() {
   );
 }
 
-function readSoundPref(): boolean {
-  try {
-    return window.localStorage.getItem(SOUND_KEY) !== "off";
-  } catch {
-    return true;
-  }
-}
-
-/** True only when the visitor explicitly saved the preference as enabled. */
-function readSavedSoundOn(): boolean {
-  try {
-    return window.localStorage.getItem(SOUND_KEY) === "on";
-  } catch {
-    return false;
-  }
-}
-
-/** Save the visitor's sound preference independently of whether autoplay is allowed. */
-function writeSoundPref(enabled: boolean) {
-  try {
-    window.localStorage.setItem(SOUND_KEY, enabled ? "on" : "off");
-  } catch {
-    // Sound still works for this visit when persistent storage is unavailable.
-  }
-}
-
 export function OnyxIntro() {
   const [phase, setPhase] = useState<Phase>("playing");
-  const [mounted, setMounted] = useState(false);
-  const [soundOn, setSoundOn] = useState(true);
-  const [savedSoundOn, setSavedSoundOn] = useState(false);
   const [needsTap, setNeedsTap] = useState(false);
   const clockRef = useRef<HTMLSpanElement>(null);
   const exitedRef = useRef(false);
@@ -214,13 +185,8 @@ export function OnyxIntro() {
 
     // Sound: scheduled from the same clock the visuals use, so the two can't drift apart.
     elapsedRef.current = () => Number(clock?.currentTime ?? performance.now());
-    const on = readSoundPref();
-    setSoundOn(on);
-    setSavedSoundOn(readSavedSoundOn());
-    setMounted(true);
     const snd = createIntroSound();
     soundRef.current = snd;
-    if (!on) snd.setMuted(true);
     void snd
       .start(() => elapsedRef.current())
       .then((ok) => {
@@ -266,49 +232,31 @@ export function OnyxIntro() {
     setPhase("exiting");
   };
 
-  /** Saves "sound on" and starts whatever is still to come. Needs a user gesture to succeed. */
+  /** Starts whatever is still to come. Browsers only allow this after a tap/click. */
   const unlockSound = async () => {
     const snd = soundRef.current;
     if (!snd) return;
-    // Persist the choice immediately; the browser may still block audio on this visit.
-    writeSoundPref(true);
-    setSoundOn(true);
-    setSavedSoundOn(true);
-    snd.setMuted(false);
     try {
       const ok = await snd.start(() => elapsedRef.current());
       setNeedsTap(!ok);
     } catch {
-      // Keep the preference enabled so the next intro remembers the visitor's choice.
       setNeedsTap(true);
     }
   };
 
   /**
-   * Tapping the intro normally skips it. But if the visitor has saved "sound on" and the browser is
-   * still holding audio back, that tap is the gesture the browser needs, so it turns sound on
-   * instead. The Skip button (and Escape/Enter) always skip.
+   * Sound is always on. If the browser is holding audio back, the first tap anywhere on the intro is
+   * the gesture it needs, so that tap turns sound on instead of skipping. The Skip button (and
+   * Escape/Enter) always skip.
    */
   const onStageClick = () => {
-    if (needsTap && savedSoundOn) void unlockSound();
+    if (needsTap) void unlockSound();
     else skip();
   };
 
-  const onSoundClick = async (e: MouseEvent) => {
+  const onSoundClick = (e: MouseEvent) => {
     e.stopPropagation(); // don't let this tap count as "skip"
-    const snd = soundRef.current;
-    if (!snd) return;
-
-    if (needsTap) {
-      await unlockSound();
-      return;
-    }
-
-    const next = !soundOn;
-    writeSoundPref(next);
-    setSoundOn(next);
-    setSavedSoundOn(next);
-    snd.setMuted(!next);
+    void unlockSound();
   };
 
   return (
@@ -346,35 +294,16 @@ export function OnyxIntro() {
           <p className="oi-tagline">Handwriting-first assignments</p>
         </div>
 
-        {mounted && (
+        {needsTap && (
           <button
             type="button"
             className="oi-sound"
-            data-hint={needsTap}
-            aria-pressed={soundOn && !needsTap}
-            aria-label={
-              needsTap
-                ? savedSoundOn && soundOn
-                  ? "Sound is saved as on; tap anywhere to start it"
-                  : "Turn on sound"
-                : soundOn
-                  ? "Mute sound"
-                  : "Unmute sound"
-            }
+            data-hint="true"
+            aria-label="Turn on sound"
             onClick={onSoundClick}
           >
-            {soundOn && !needsTap ? (
-              <Volume2 className="size-3.5" aria-hidden="true" />
-            ) : (
-              <VolumeX className="size-3.5" aria-hidden="true" />
-            )}
-            {needsTap
-              ? savedSoundOn && soundOn
-                ? "Saved on · tap anywhere"
-                : "Tap for sound"
-              : soundOn
-                ? "Sound on"
-                : "Sound off"}
+            <VolumeX className="size-3.5" aria-hidden="true" />
+            Tap anywhere for sound
           </button>
         )}
 

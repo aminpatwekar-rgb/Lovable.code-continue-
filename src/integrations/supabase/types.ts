@@ -1938,7 +1938,7 @@ export type Database = {
         Returns: boolean
       }
       is_institution_admin: {
-        Args: { _user_id: string; _institution_id: string }
+        Args: { _institution_id: string }
         Returns: boolean
       }
       is_class_teacher: {

@@ -12,8 +12,16 @@ import { PlanGate } from "@/components/PlanGate";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { downloadCsv, toCsv } from "@/lib/csv";
 import { getAssessmentIntegrityReport, getStudentWeaknessInsights } from "@/lib/differentiation.functions";
+import { getStudentProgressAnalytics } from "@/lib/progress-analytics.functions";
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 const db = supabase as any;
+
+function averageScore(points: Array<{ scorePct: number }>): number | null {
+  return points.length
+    ? Math.round((points.reduce((total, point) => total + point.scorePct, 0) / points.length) * 10) / 10
+    : null;
+}
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({ meta: [{ title: "Progress Reports — ONYX" }] }),
@@ -26,6 +34,7 @@ function Page() {
   const isTeacher = effectiveRole === "teacher" || effectiveRole === "admin";
   const [classId, setClassId] = useState("");
   const [studentId, setStudentId] = useState("");
+  const [analyticsPeriod, setAnalyticsPeriod] = useState("all");
 
   const classes = useQuery({
     queryKey: ["report-classes", user?.id, isTeacher],
@@ -71,6 +80,81 @@ function Page() {
       return q.data as Record<string, unknown>;
     },
   });
+
+  const getProgressAnalytics = useServerFn(getStudentProgressAnalytics);
+  const progressAnalytics = useQuery({
+    queryKey: ["progress-report-analytics", target, classId],
+    enabled: isTeacher && Boolean(classId) && Boolean(target),
+    queryFn: () => getProgressAnalytics({ data: { classId, studentId: target! } }),
+  });
+
+  const analyticsData = progressAnalytics.data;
+  const analyticsCutoff = analyticsPeriod === "all"
+    ? 0
+    : Date.now() - (analyticsPeriod === "30d" ? 30 : 90) * 24 * 60 * 60 * 1000;
+  const visibleTrend = (analyticsData?.trend ?? []).filter((point) =>
+    analyticsCutoff === 0 || new Date(point.date).getTime() >= analyticsCutoff
+  );
+  const trendSplit = Math.floor(visibleTrend.length / 2);
+  const earlyAverage = averageScore(visibleTrend.slice(0, trendSplit));
+  const recentAverage = averageScore(visibleTrend.slice(trendSplit));
+  const improvementDelta = visibleTrend.length >= 4 && earlyAverage != null && recentAverage != null
+    ? Math.round((recentAverage - earlyAverage) * 10) / 10
+    : null;
+  const assessmentBars = visibleTrend.slice(-8).map((point) => ({
+    ...point,
+    label: `${point.title.slice(0, 15)} · ${new Date(point.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`,
+  }));
+  const assignmentStatusData = analyticsData ? [
+    { name: "Submitted on time", value: Math.max(0, analyticsData.assignmentsSubmitted - analyticsData.lateSubmissions), fill: "#16a34a" },
+    { name: "Late", value: analyticsData.lateSubmissions, fill: "#f59e0b" },
+    { name: "Not submitted", value: Math.max(0, analyticsData.assignmentCount - analyticsData.assignmentsSubmitted), fill: "#cbd5e1" },
+  ].filter((item) => item.value > 0) : [];
+  const attendancePct = Number(report.data?.["attendance_percentage"] ?? 0);
+  const teacherInsights: string[] = [];
+  if (analyticsData) {
+    if (improvementDelta == null) {
+      teacherInsights.push("More graded assessment results are needed to estimate a reliable improvement trend.");
+    } else if (improvementDelta >= 2) {
+      teacherInsights.push(`Scores are trending upward by ${improvementDelta.toFixed(1)} percentage points between the earlier and recent halves of this period.`);
+    } else if (improvementDelta <= -2) {
+      teacherInsights.push(`Recent scores are lower by ${Math.abs(improvementDelta).toFixed(1)} percentage points compared with the earlier half. Review feedback and workload with the student.`);
+    } else {
+      teacherInsights.push("Scores are broadly steady across the selected period.");
+    }
+    if (analyticsData.classAveragePct != null && analyticsData.overallAveragePct != null) {
+      const gap = Math.round((analyticsData.overallAveragePct - analyticsData.classAveragePct) * 10) / 10;
+      if (gap <= -8) teacherInsights.push(`The student's average is ${Math.abs(gap).toFixed(1)} points below the class average. Consider a focused check-in on the topics covered by lower-scoring assessments.`);
+      else if (gap >= 8) teacherInsights.push(`The student's average is ${gap.toFixed(1)} points above the class average; review whether additional challenge would be useful.`);
+      else teacherInsights.push("Overall performance is close to the class average.");
+    }
+    if (analyticsData.assignmentCount > analyticsData.assignmentsSubmitted) {
+      teacherInsights.push(`${analyticsData.assignmentCount - analyticsData.assignmentsSubmitted} published assignment(s) have no recorded submission yet.`);
+    }
+    if (analyticsData.lateSubmissions > 0) {
+      teacherInsights.push(`${analyticsData.lateSubmissions} assignment(s) are marked late; check for recurring deadline or workload barriers.`);
+    }
+  }
+  if (Number(report.data?.["attendance_total"] ?? 0) > 0 && attendancePct < 75) {
+    teacherInsights.push(`Recorded attendance is ${attendancePct.toFixed(1)}%. Check the institution's attendance policy and the underlying records before intervening.`);
+  }
+
+  const exportProgressAnalytics = () => {
+    if (!analyticsData) return;
+    downloadCsv(
+      `onyx-student-analytics-${target}.csv`,
+      toCsv(
+        ["Date", "Assessment", "Type", "Student score (%)", "Class average (%)"],
+        visibleTrend.map((item) => [
+          new Date(item.date).toLocaleDateString(),
+          item.title,
+          item.type,
+          item.scorePct,
+          item.classAveragePct ?? "",
+        ]),
+      ),
+    );
+  };
 
   const getWeaknessInsights = useServerFn(getStudentWeaknessInsights);
   const weaknessInsights = useMutation({
@@ -135,6 +219,153 @@ function Page() {
             <p className="mt-2 text-2xl font-semibold">{String(value)}</p>
           </div>)}
         </div>}
+
+      {isTeacher && classId && target && <section className="panel space-y-5 p-5 print:hidden">
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-semibold"><BookOpenCheck className="size-5" /> Student improvement analytics</h2>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Compare this student's graded assignment and best completed quiz results over time with the selected class. Retakes are not counted repeatedly in average scores.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={analyticsPeriod} onValueChange={setAnalyticsPeriod}>
+              <SelectTrigger className="w-36"><SelectValue placeholder="Time period" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="30d">Last 30 days</SelectItem>
+                <SelectItem value="90d">Last 90 days</SelectItem>
+                <SelectItem value="all">All time</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={exportProgressAnalytics} disabled={!visibleTrend.length}>
+              <Download className="mr-2 size-4" />Export analytics CSV
+            </Button>
+          </div>
+        </header>
+
+        {progressAnalytics.isLoading ? <div className="rounded-lg border border-border p-6 text-sm text-muted-foreground">Calculating assessment trends…</div>
+          : progressAnalytics.isError ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-4 text-sm">
+            <p role="alert" className="text-destructive">Student analytics couldn't be loaded. Please retry.</p>
+            <Button size="sm" variant="outline" onClick={() => void progressAnalytics.refetch()} disabled={progressAnalytics.isFetching}>
+              {progressAnalytics.isFetching ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}Retry analytics
+            </Button>
+          </div>
+          : analyticsData && <>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-lg border border-border p-4">
+                <p className="text-xs text-muted-foreground">Overall assessment average</p>
+                <p className="mt-1 text-2xl font-semibold">{analyticsData.overallAveragePct == null ? "—" : `${analyticsData.overallAveragePct.toFixed(1)}%`}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{analyticsData.trend.length} scored assessment(s)</p>
+              </div>
+              <div className="rounded-lg border border-border p-4">
+                <p className="text-xs text-muted-foreground">Improvement in selected period</p>
+                <p className="mt-1 text-2xl font-semibold">{improvementDelta == null ? "—" : `${improvementDelta > 0 ? "+" : ""}${improvementDelta.toFixed(1)} pp`}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{improvementDelta == null ? "Need at least 4 scored assessments" : "Recent half vs earlier half"}</p>
+              </div>
+              <div className="rounded-lg border border-border p-4">
+                <p className="text-xs text-muted-foreground">Difference from class average</p>
+                <p className="mt-1 text-2xl font-semibold">{analyticsData.overallAveragePct == null || analyticsData.classAveragePct == null ? "—" : `${analyticsData.overallAveragePct - analyticsData.classAveragePct > 0 ? "+" : ""}${(analyticsData.overallAveragePct - analyticsData.classAveragePct).toFixed(1)} pp`}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Student average minus class average</p>
+              </div>
+              <div className="rounded-lg border border-border p-4">
+                <p className="text-xs text-muted-foreground">Assignment completion</p>
+                <p className="mt-1 text-2xl font-semibold">{analyticsData.assignmentCompletionPct.toFixed(1)}%</p>
+                <p className="mt-1 text-xs text-muted-foreground">{analyticsData.assignmentsSubmitted} of {analyticsData.assignmentCount} published assignments submitted</p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="min-w-0 rounded-lg border border-border p-4">
+                <div className="mb-3">
+                  <h3 className="text-sm font-semibold">Performance trend</h3>
+                  <p className="text-xs text-muted-foreground">Best scored result per assessment, in date order</p>
+                </div>
+                {visibleTrend.length < 2 ? <p className="rounded-md bg-muted/30 p-4 text-sm text-muted-foreground">At least two scored assessments in this period are needed to plot a trend.</p> : (
+                  <ResponsiveContainer width="100%" height={285}>
+                    <LineChart data={visibleTrend}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="label" interval={0} angle={-28} textAnchor="end" height={74} tick={{ fontSize: 10 }} />
+                      <YAxis domain={[0, 100]} tickFormatter={(value: number) => `${value}%`} width={42} />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="scorePct" name="Student score" stroke="#6d5efc" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                      <Line type="monotone" dataKey="classAveragePct" name="Class average" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} connectNulls />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+
+              <div className="min-w-0 rounded-lg border border-border p-4">
+                <div className="mb-3">
+                  <h3 className="text-sm font-semibold">Assessment comparison</h3>
+                  <p className="text-xs text-muted-foreground">Student score compared with the class mean, for the latest 8 assessments</p>
+                </div>
+                {!assessmentBars.length ? <p className="rounded-md bg-muted/30 p-4 text-sm text-muted-foreground">No scored assessments fall within this period.</p> : (
+                  <ResponsiveContainer width="100%" height={285}>
+                    <BarChart data={assessmentBars} margin={{ top: 8, right: 8, bottom: 36, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="label" interval={0} angle={-32} textAnchor="end" height={76} tick={{ fontSize: 9 }} />
+                      <YAxis domain={[0, 100]} tickFormatter={(value: number) => `${value}%`} width={42} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="scorePct" name="Student score" fill="#6d5efc" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="classAveragePct" name="Class average" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+
+              <div className="min-w-0 rounded-lg border border-border p-4">
+                <div className="mb-3">
+                  <h3 className="text-sm font-semibold">Assignment completion breakdown</h3>
+                  <p className="text-xs text-muted-foreground">Published assignment status for this class</p>
+                </div>
+                {!assignmentStatusData.length ? <p className="rounded-md bg-muted/30 p-4 text-sm text-muted-foreground">No published assignments are available for this class.</p> : (
+                  <ResponsiveContainer width="100%" height={230}>
+                    <PieChart>
+                      <Pie data={assignmentStatusData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={82} paddingAngle={3}>
+                        {assignmentStatusData.map((item) => <Cell key={item.name} fill={item.fill} />)}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+
+              <div className="min-w-0 rounded-lg border border-border p-4">
+                <div className="mb-3">
+                  <h3 className="text-sm font-semibold">Teacher review signals</h3>
+                  <p className="text-xs text-muted-foreground">Evidence-based prompts to guide a conversation, not automatic judgements</p>
+                </div>
+                {teacherInsights.length ? <ul className="space-y-2">
+                  {teacherInsights.map((insight, index) => <li key={index} className="flex gap-2 rounded-md bg-muted/30 p-3 text-sm">
+                    <span className="mt-0.5 text-muted-foreground">•</span><span>{insight}</span>
+                  </li>)}
+                </ul> : <p className="rounded-md bg-muted/30 p-4 text-sm text-muted-foreground">No additional review signals are available yet.</p>}
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div className="rounded-md border border-border p-3">
+                    <p className="text-xs text-muted-foreground">Assignment average</p>
+                    <p className="mt-1 text-lg font-semibold">{analyticsData.assignmentAveragePct == null ? "—" : `${analyticsData.assignmentAveragePct.toFixed(1)}%`}</p>
+                  </div>
+                  <div className="rounded-md border border-border p-3">
+                    <p className="text-xs text-muted-foreground">Quiz best-score average</p>
+                    <p className="mt-1 text-lg font-semibold">{analyticsData.quizAveragePct == null ? "—" : `${analyticsData.quizAveragePct.toFixed(1)}%`}</p>
+                  </div>
+                  <div className="rounded-md border border-border p-3">
+                    <p className="text-xs text-muted-foreground">Quizzes attempted</p>
+                    <p className="mt-1 text-lg font-semibold">{analyticsData.quizzesAttempted} / {analyticsData.quizCount}</p>
+                  </div>
+                  <div className="rounded-md border border-border p-3">
+                    <p className="text-xs text-muted-foreground">Attendance</p>
+                    <p className="mt-1 text-lg font-semibold">{report.data?.["attendance_total"] == null ? "—" : `${attendancePct.toFixed(1)}%`}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">Class averages use available graded results. A missing point means no score is recorded for that assessment. Attendance and review signals should be checked against the institution's policy and source records.</p>
+          </>}
+      </section>}
 
       {isTeacher && classId && <section className="panel space-y-4 p-5">
         <header className="flex flex-wrap items-start justify-between gap-3">

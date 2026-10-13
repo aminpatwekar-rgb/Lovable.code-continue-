@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.departments (
   name text NOT NULL,
   code text,
   description text,
-  created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT departments_name_length_check

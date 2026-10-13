@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { fetchProfileEmails } from "@/lib/profile-emails";
 import { csvObjects, downloadCsv, toCsv } from "@/lib/csv";
-import { assignInstitutionMembers, deleteInstitution, removeInstitutionMember, updateInstitutionDetails } from "@/lib/admin.functions";
+import { assignInstitutionMembers, bulkCreateInstitutionStudents, deleteInstitution, removeInstitutionMember, updateInstitutionDetails, type StudentOnboardingResult } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,6 +34,7 @@ export function InstitutionManager() {
   const updateInstitutionFn = useServerFn(updateInstitutionDetails);
   const removeMemberFn = useServerFn(removeInstitutionMember);
   const deleteInstitutionFn = useServerFn(deleteInstitution);
+  const bulkCreateStudentsFn = useServerFn(bulkCreateInstitutionStudents);
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -48,6 +49,7 @@ export function InstitutionManager() {
   const [csvFileName, setCsvFileName] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<InstitutionRow | null>(null);
   const [lastResult, setLastResult] = useState<RosterResult | null>(null);
+  const [studentOnboardingResult, setStudentOnboardingResult] = useState<StudentOnboardingResult | null>(null);
 
   const institutions = useQuery({
     enabled: isAdmin,
@@ -106,6 +108,7 @@ export function InstitutionManager() {
     setSelectedPeople([]);
     setCsv("");
     setCsvFileName("");
+    setStudentOnboardingResult(null);
     setPersonSearch("");
     setLastResult(null);
   }, [activeInstitution]);
@@ -152,7 +155,7 @@ export function InstitutionManager() {
       data: { institutionId: activeInstitution!.id, ...payload },
     }),
     onSuccess: async (result) => {
-      setSelectedPeople([]); setCsv(""); setCsvFileName(""); setLastResult(result);
+      setSelectedPeople([]); setLastResult(result);
       if (result.assigned) toast.success("Added " + result.assigned + " member(s).");
       else toast.info("No new members were added. Review the results below.");
       await Promise.all([
@@ -161,6 +164,37 @@ export function InstitutionManager() {
       ]);
     },
     onError: (error: Error) => toast.error(error.message || "Couldn't add members."),
+  });
+
+  const bulkOnboardStudents = useMutation({
+    mutationFn: () => {
+      if (!activeInstitution) throw new Error("Select an institution first.");
+      return bulkCreateStudentsFn({ data: { institutionId: activeInstitution.id, csv, redirectTo: `${window.location.origin}/reset-password` } });
+    },
+    onSuccess: async (result) => {
+      setStudentOnboardingResult(result);
+      const summary = [
+        result.invited ? `${result.invited} new invite(s) sent` : "",
+        result.assignedExisting ? `${result.assignedExisting} existing student(s) added` : "",
+        result.alreadyAssigned ? `${result.alreadyAssigned} already assigned` : "",
+        result.inviteFailed ? `${result.inviteFailed} invitation(s) failed` : "",
+        result.setupFailed ? `${result.setupFailed} setup issue(s)` : "",
+        result.skipped ? `${result.skipped} skipped` : "",
+      ].filter(Boolean).join(" · ");
+      if (result.inviteFailed || result.setupFailed || result.skipped) {
+        toast.info("Student onboarding finished with items to review. " + summary);
+      } else if (result.invited || result.assignedExisting) {
+        toast.success("Student onboarding completed. " + summary);
+      } else {
+        toast.info("No new changes were needed. " + summary);
+      }
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["admin-institution-people"] }),
+        qc.invalidateQueries({ queryKey: ["institution-readiness"] }),
+        qc.invalidateQueries({ queryKey: ["admin-institutions"] }),
+      ]);
+    },
+    onError: (error: Error) => toast.error(error.message || "Bulk student onboarding failed."),
   });
 
   const removeMember = useMutation({
@@ -209,9 +243,7 @@ export function InstitutionManager() {
     });
   }, [currentMembers, people.data, personSearch]);
 
-  const csvEmails = useMemo(() => csvObjects(csv)
-    .map((row) => String(row.email ?? "").trim().toLowerCase())
-    .filter((email) => email.length > 0), [csv]);
+  const csvRowCount = useMemo(() => csvObjects(csv).length, [csv]);
 
   const togglePerson = (id: string, checked: boolean) => setSelectedPeople((current) =>
     checked ? [...new Set([...current, id])] : current.filter((item) => item !== id),
@@ -332,26 +364,82 @@ export function InstitutionManager() {
             <UserPlus className="mr-2 size-4" />{assignMembers.isPending ? "Adding…" : "Add selected (" + selectedPeople.length + ")"}
           </Button>
 
-          <div className="space-y-3 rounded-lg border border-border p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2"><h5 className="text-sm font-semibold">Bulk add from CSV</h5>
-              <Button type="button" size="sm" variant="outline" onClick={() => downloadCsv("onyx-institution-roster-template.csv", toCsv(["email"], [["student@example.com"], ["teacher@example.com"]]))}><Download className="mr-2 size-4" />Template</Button></div>
-            <p className="text-xs text-muted-foreground">Use an email column. Only existing ONYX student/teacher accounts are added. Unknown emails are reported; accounts are not invited or auto-created.</p>
-            <label className="flex flex-wrap items-center gap-2 text-sm"><FileUp className="size-4" />Choose CSV
+          {lastResult && <div className="space-y-2 rounded-lg border border-border p-3">
+            <p className="text-sm font-medium">Last manual roster action: {lastResult.assigned} added · {lastResult.skipped} skipped</p>
+            {lastResult.skippedRows.length > 0 && <div className="max-h-40 space-y-1 overflow-y-auto text-xs text-muted-foreground">
+              {lastResult.skippedRows.map((row, index) => <p key={row.email + "-" + index}>{row.email}: {row.reason}</p>)}
+            </div>}
+          </div>}
+
+          <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/[0.03] p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h5 className="text-sm font-semibold">Bulk student account onboarding</h5>
+              <Button type="button" size="sm" variant="outline" onClick={() => downloadCsv(
+                "onyx-student-onboarding-template.csv",
+                toCsv(["full_name", "email"], [["Aarav Sharma", "aarav@example.edu"], ["Student Two", "student2@example.edu"]]),
+              )}><Download className="mr-2 size-4" />Download CSV template</Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Upload up to 500 students with <code>full_name,email</code>. ONYX creates missing student accounts, assigns the Student role, links them to this institution, and emails an invitation to set their own password. Existing student accounts are added if they are not affiliated elsewhere. Passwords are never collected or shown.
+            </p>
+            <p className="rounded-md border border-border bg-background p-3 text-xs text-muted-foreground">
+              <strong>Email setup required for mass imports:</strong> Supabase's built-in email sender is limited to 2 emails per hour and team-authorized addresses. Configure custom SMTP before inviting a full student cohort, and allow your ONYX <code>/reset-password</code> URL in Supabase Auth URL Configuration. <a className="underline underline-offset-2" href="https://supabase.com/docs/guides/auth/auth-smtp" target="_blank" rel="noreferrer">SMTP setup guide</a>.
+            </p>
+            <label className="flex flex-wrap items-center gap-2 text-sm">
+              <FileUp className="size-4" />Choose student CSV
               <input type="file" accept=".csv,text/csv" className="block max-w-full text-xs" onChange={async (event) => {
                 const file = event.currentTarget.files?.[0]; if (!file) return;
                 if (file.size > 2 * 1024 * 1024) { toast.error("CSV files must be 2 MB or smaller."); event.currentTarget.value = ""; return; }
-                try { setCsvFileName(file.name); setCsv(await file.text()); } catch { toast.error("Couldn't read that CSV file."); }
+                try { setCsvFileName(file.name); setCsv(await file.text()); setStudentOnboardingResult(null); }
+                catch { toast.error("Couldn't read that CSV file."); }
                 finally { event.currentTarget.value = ""; }
               }} />
             </label>
             {csvFileName && <p className="text-xs text-muted-foreground">Loaded: {csvFileName}</p>}
-            <Textarea value={csv} onChange={(event) => { setCsv(event.target.value); setCsvFileName(""); }} rows={4} placeholder="email, e.g. student@example.com" aria-label="Institution roster CSV" />
-            <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{csvEmails.length} email(s) detected</p>
-              <Button type="button" size="sm" disabled={!csvEmails.length || assignMembers.isPending} onClick={() => assignMembers.mutate({ emails: csvEmails })}>Import roster</Button></div>
+            <Textarea
+              value={csv}
+              onChange={(event) => { setCsv(event.target.value); setCsvFileName(""); setStudentOnboardingResult(null); }}
+              rows={5}
+              placeholder={"full_name,email\nAarav Sharma,aarav@college.edu\nStudent Two,student2@college.edu"}
+              aria-label="Bulk student account onboarding CSV"
+            />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">{csvRowCount} student row(s) detected · Required columns: full_name, email</p>
+              <Button
+                type="button"
+                size="sm"
+                disabled={!csvRowCount || bulkOnboardStudents.isPending}
+                onClick={() => bulkOnboardStudents.mutate()}
+              >
+                <UserPlus className="mr-2 size-4" />
+                {bulkOnboardStudents.isPending ? "Onboarding students…" : "Create accounts & send invites"}
+              </Button>
+            </div>
           </div>
-          {lastResult && <div className="space-y-2 rounded-lg border border-border p-3"><p className="text-sm font-medium">Last action: {lastResult.assigned} added · {lastResult.skipped} skipped</p>
-            {lastResult.skippedRows.length > 0 && <div className="max-h-40 space-y-1 overflow-y-auto text-xs text-muted-foreground">
-              {lastResult.skippedRows.map((row, index) => <p key={row.email + "-" + index}>{row.email}: {row.reason}</p>)}</div>}</div>}
+
+          {studentOnboardingResult && <div className="space-y-3 rounded-lg border border-border p-4">
+            <div>
+              <h5 className="text-sm font-semibold">Bulk onboarding results</h5>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {studentOnboardingResult.invited} invited · {studentOnboardingResult.assignedExisting} existing accounts added · {studentOnboardingResult.alreadyAssigned} already assigned · {studentOnboardingResult.inviteFailed} invite failures · {studentOnboardingResult.setupFailed} setup issues · {studentOnboardingResult.skipped} skipped
+              </p>
+            </div>
+            <div className="max-h-72 overflow-auto rounded-lg border border-border">
+              <table className="w-full min-w-[34rem] text-left text-xs">
+                <thead className="sticky top-0 border-b border-border bg-muted text-muted-foreground">
+                  <tr><th className="p-2.5 font-medium">CSV row</th><th className="p-2.5 font-medium">Email</th><th className="p-2.5 font-medium">Status</th><th className="p-2.5 font-medium">Details</th></tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {studentOnboardingResult.rows.map((row) => <tr key={row.line + "-" + row.email}>
+                    <td className="p-2.5 tabular-nums">{row.line}</td>
+                    <td className="p-2.5">{row.email}</td>
+                    <td className="p-2.5 capitalize">{row.status.replaceAll("_", " ")}</td>
+                    <td className="p-2.5 text-muted-foreground">{row.message}</td>
+                  </tr>)}
+                </tbody>
+              </table>
+            </div>
+          </div>}
         </section>
       </div>
     </section>}

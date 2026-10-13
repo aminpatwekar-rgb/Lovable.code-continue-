@@ -311,6 +311,293 @@ export const assignInstitutionMembers = createServerFn({ method: "POST" })
     return { assigned: eligibleIds.length, skipped: skippedRows.length, skippedRows };
   });
 
+export type StudentOnboardingRowResult = {
+  line: number;
+  email: string;
+  status: "invited" | "assigned" | "already_assigned" | "skipped" | "invite_failed" | "setup_failed";
+  message: string;
+};
+
+export type StudentOnboardingResult = {
+  total: number;
+  invited: number;
+  assignedExisting: number;
+  alreadyAssigned: number;
+  inviteFailed: number;
+  setupFailed: number;
+  skipped: number;
+  rows: StudentOnboardingRowResult[];
+};
+
+/**
+ * Create student accounts from an institution's roster and send each student an
+ * invitation to set their own password. Existing student accounts are attached
+ * only if they are not already affiliated with a different institution.
+ * This endpoint is platform-admin-only and never promotes users to staff/admin.
+ */
+export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { institutionId: string; csv: string; redirectTo: string }) => {
+    const institutionId = validateInstitutionId(input?.institutionId);
+    if (typeof input?.csv !== "string" || !input.csv.trim() || input.csv.length > 2_000_000) {
+      throw new Error("Upload or paste a CSV up to 2 MB.");
+    }
+    let redirectUrl: URL;
+    try {
+      redirectUrl = new URL(String(input?.redirectTo ?? ""));
+    } catch {
+      throw new Error("A valid ONYX password-setup redirect is required.");
+    }
+    const localDevelopment = redirectUrl.hostname === "localhost" || redirectUrl.hostname === "127.0.0.1";
+    if (
+      redirectUrl.pathname !== "/reset-password" ||
+      redirectUrl.search ||
+      redirectUrl.hash ||
+      redirectUrl.username ||
+      redirectUrl.password ||
+      (redirectUrl.protocol !== "https:" && !(localDevelopment && redirectUrl.protocol === "http:"))
+    ) {
+      throw new Error("Invitations must redirect to the ONYX /reset-password page over HTTPS.");
+    }
+    return { institutionId, csv: input.csv, redirectTo: redirectUrl.toString() };
+  })
+  .handler(async ({ data, context }): Promise<StudentOnboardingResult> => {
+    await requireInstitutionAdmin(context.supabase, context.userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+    const { data: institution, error: institutionError } = await admin
+      .from("institutions")
+      .select("id, name")
+      .eq("id", data.institutionId)
+      .maybeSingle();
+    if (institutionError) throw new Error("Could not load the selected institution.");
+    if (!institution) throw new Error("This institution no longer exists.");
+
+    const inputRows = csvObjects(data.csv);
+    if (!inputRows.length) throw new Error("The CSV must contain a header row and at least one student row.");
+    if (inputRows.length > 500) throw new Error("Import up to 500 student rows per batch.");
+
+    const rows: Array<{ line: number; email: string; fullName: string }> = [];
+    const outcomes: StudentOnboardingRowResult[] = [];
+    const seen = new Set<string>();
+
+    inputRows.forEach((row, index) => {
+      const line = index + 2;
+      const email = String(row["email"] ?? "").trim().toLowerCase();
+      const fullName = String(row["full_name"] ?? row["name"] ?? "").trim().replace(/\s+/g, " ");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        outcomes.push({ line, email: email || "—", status: "skipped", message: "A valid email address is required." });
+        return;
+      }
+      if (!fullName || fullName.length > 100) {
+        outcomes.push({ line, email, status: "skipped", message: "A student's full_name is required (maximum 100 characters)." });
+        return;
+      }
+      if (seen.has(email)) {
+        outcomes.push({ line, email, status: "skipped", message: "Duplicate email in this CSV; the first row is kept." });
+        return;
+      }
+      seen.add(email);
+      rows.push({ line, email, fullName });
+    });
+
+    const emailList = rows.map((row) => row.email);
+    const { data: profiles, error: profilesError } = emailList.length
+      ? await admin
+          .from("profiles")
+          .select("id, full_name, email, institution, is_active, role_confirmed_at")
+          .in("email", emailList)
+      : { data: [], error: null };
+    if (profilesError) throw new Error("Could not check existing ONYX accounts.");
+
+    const profileByEmail = new Map<string, any>(
+      (profiles ?? []).map((profile: any) => [String(profile.email ?? "").trim().toLowerCase(), profile]),
+    );
+    const existingProfiles = [...profileByEmail.values()];
+    const rolesByUser = new Map<string, string[]>();
+    if (existingProfiles.length) {
+      const { data: roleRows, error: roleError } = await admin
+        .from("user_roles")
+        .select("user_id, role")
+        .in("user_id", existingProfiles.map((profile: any) => profile.id));
+      if (roleError) throw new Error("Could not verify existing account roles.");
+      for (const roleRow of roleRows ?? []) {
+        const list = rolesByUser.get(roleRow.user_id) ?? [];
+        list.push(String(roleRow.role));
+        rolesByUser.set(roleRow.user_id, list);
+      }
+    }
+
+    const normalizedInstitution = String(institution.name).trim().toLowerCase();
+    const now = new Date().toISOString();
+
+    const attachExistingStudent = async (
+      row: { line: number; email: string; fullName: string },
+      profile: any,
+      invitePreviouslyFailed = false,
+    ): Promise<void> => {
+      const userRoles = rolesByUser.get(profile.id) ?? [];
+      const currentInstitution = String(profile.institution ?? "").trim();
+      if (userRoles.includes("admin") || userRoles.includes("teacher")) {
+        outcomes.push({
+          line: row.line, email: row.email, status: invitePreviouslyFailed ? "invite_failed" : "skipped",
+          message: userRoles.includes("admin")
+            ? "This email belongs to a platform administrator; CSV import cannot change that account."
+            : "This email belongs to a teacher account. Add staff through the existing account picker instead.",
+        });
+        return;
+      }
+      if (profile.is_active === false) {
+        outcomes.push({ line: row.line, email: row.email, status: "skipped", message: "The existing account is suspended. Reactivate it before onboarding." });
+        return;
+      }
+      if (currentInstitution && currentInstitution.toLowerCase() !== normalizedInstitution) {
+        outcomes.push({ line: row.line, email: row.email, status: "skipped", message: "The existing account is affiliated with a different institution. No affiliation was changed." });
+        return;
+      }
+      if (userRoles.length && !userRoles.includes("student")) {
+        outcomes.push({ line: row.line, email: row.email, status: "skipped", message: "The existing account does not have a student role." });
+        return;
+      }
+
+      if (!userRoles.includes("student")) {
+        const { error: setRoleError } = await context.supabase.rpc("admin_set_user_role", {
+          _user_id: profile.id,
+          _role: "student",
+        });
+        if (setRoleError) {
+          outcomes.push({ line: row.line, email: row.email, status: "setup_failed", message: "Could not assign the student role: " + setRoleError.message });
+          return;
+        }
+      }
+
+      const updates: Record<string, unknown> = {
+        institution: institution.name,
+        role: "student",
+        role_confirmed_at: profile.role_confirmed_at ?? now,
+      };
+      if (!String(profile.full_name ?? "").trim()) updates["full_name"] = row.fullName;
+      const { error: updateError } = await admin.from("profiles").update(updates).eq("id", profile.id);
+      if (updateError) {
+        outcomes.push({ line: row.line, email: row.email, status: "setup_failed", message: "The student role is set, but institution affiliation could not be saved: " + updateError.message });
+        return;
+      }
+
+      if (invitePreviouslyFailed) {
+        outcomes.push({
+          line: row.line,
+          email: row.email,
+          status: "invite_failed",
+          message: "The account exists and has been attached to this institution, but the invitation email failed. Check custom SMTP and arrange an invitation resend.",
+        });
+      } else if (currentInstitution.toLowerCase() === normalizedInstitution) {
+        outcomes.push({ line: row.line, email: row.email, status: "already_assigned", message: "This student was already assigned to the institution." });
+      } else {
+        outcomes.push({ line: row.line, email: row.email, status: "assigned", message: "Existing student account attached to the institution; no password was changed." });
+      }
+    };
+
+    for (const row of rows) {
+      const profile = profileByEmail.get(row.email);
+      if (profile) {
+        await attachExistingStudent(row, profile);
+        continue;
+      }
+
+      const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(row.email, {
+        data: {
+          full_name: row.fullName,
+          role: "student",
+          institution: institution.name,
+        },
+        redirectTo: data.redirectTo,
+      });
+
+      if (inviteError || !inviteData?.user?.id) {
+        // Auth can create the pending account before email delivery reports a
+        // failure. Detect that partial success so the next step is not hidden.
+        const { data: partialProfile } = await admin
+          .from("profiles")
+          .select("id, full_name, email, institution, is_active, role_confirmed_at")
+          .eq("email", row.email)
+          .maybeSingle();
+        if (partialProfile) {
+          if (!rolesByUser.has(partialProfile.id)) {
+            const { data: partialRoles } = await admin
+              .from("user_roles").select("user_id, role").eq("user_id", partialProfile.id);
+            for (const roleRow of partialRoles ?? []) {
+              const list = rolesByUser.get(roleRow.user_id) ?? [];
+              list.push(String(roleRow.role));
+              rolesByUser.set(roleRow.user_id, list);
+            }
+          }
+          await attachExistingStudent(row, partialProfile, true);
+        } else {
+          outcomes.push({
+            line: row.line,
+            email: row.email,
+            status: "invite_failed",
+            message: "Could not create and invite this account: " + (inviteError?.message || "No user was returned.") + " Check email delivery settings before retrying.",
+          });
+        }
+        continue;
+      }
+
+      const userId = inviteData.user.id;
+      const [
+        { error: studentRoleError },
+        { error: profileError },
+      ] = await Promise.all([
+        admin.from("user_roles").upsert(
+          { user_id: userId, role: "student" },
+          { onConflict: "user_id,role" },
+        ),
+        admin.from("profiles").upsert(
+          {
+            id: userId,
+            full_name: row.fullName,
+            email: row.email,
+            institution: institution.name,
+            role: "student",
+            role_confirmed_at: now,
+          },
+          { onConflict: "id" },
+        ),
+      ]);
+
+      if (studentRoleError || profileError) {
+        outcomes.push({
+          line: row.line,
+          email: row.email,
+          status: "setup_failed",
+          message: "The invitation was sent, but ONYX could not finish setting up the student record. Role error: " +
+            (studentRoleError?.message || "none") + "; profile error: " + (profileError?.message || "none"),
+        });
+      } else {
+        outcomes.push({
+          line: row.line,
+          email: row.email,
+          status: "invited",
+          message: "Student account created and invitation sent. The student sets their own password from the email.",
+        });
+      }
+    }
+
+    const count = (status: StudentOnboardingRowResult["status"]) =>
+      outcomes.filter((row) => row.status === status).length;
+    return {
+      total: inputRows.length,
+      invited: count("invited"),
+      assignedExisting: count("assigned"),
+      alreadyAssigned: count("already_assigned"),
+      inviteFailed: count("invite_failed"),
+      setupFailed: count("setup_failed"),
+      skipped: count("skipped"),
+      rows: outcomes.sort((a, b) => a.line - b.line),
+    };
+  });
+
 /** Remove a person from an institution while preserving their ONYX account and work. */
 export const removeInstitutionMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

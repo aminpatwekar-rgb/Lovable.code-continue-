@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CornerDownLeft, Loader2, SkipForward, Undo2 } from "lucide-react";
+import { CornerDownLeft, Loader2, Plus, SkipForward, Undo2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { formatDue, type SubmissionStatus } from "@/lib/assignments";
 import { percentOf, quickMarks } from "@/lib/grading/types";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -17,7 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-const COMMENTS = [
+const DEFAULT_COMMENTS = [
   "Well done.",
   "Show your working.",
   "Check your units.",
@@ -41,11 +42,71 @@ export function AssignmentGradePanel({
   onSkip: () => void;
 }) {
   const qc = useQueryClient();
+  const { user } = useAuth();
   const [marks, setMarks] = useState("");
   const [feedback, setFeedback] = useState("");
   const [notes, setNotes] = useState("");
   const [released, setReleased] = useState(true);
   const [hydrated, setHydrated] = useState(false);
+  const [feedbackSnippets, setFeedbackSnippets] = useState<string[]>(DEFAULT_COMMENTS);
+  const [newFeedbackSnippet, setNewFeedbackSnippet] = useState("");
+
+  useEffect(() => {
+    if (!user?.id) {
+      setFeedbackSnippets(DEFAULT_COMMENTS);
+      return;
+    }
+    try {
+      const stored = localStorage.getItem(`onyx.feedback-snippets.${user.id}`);
+      if (!stored) {
+        setFeedbackSnippets(DEFAULT_COMMENTS);
+        return;
+      }
+      const parsed: unknown = JSON.parse(stored);
+      if (!Array.isArray(parsed)) {
+        setFeedbackSnippets(DEFAULT_COMMENTS);
+        return;
+      }
+      const clean = parsed
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim().slice(0, 120))
+        .filter(Boolean);
+      setFeedbackSnippets([...new Set(clean)].slice(0, 20));
+    } catch {
+      setFeedbackSnippets(DEFAULT_COMMENTS);
+    }
+  }, [user?.id]);
+
+  function persistFeedbackSnippets(next: string[]) {
+    setFeedbackSnippets(next);
+    try {
+      if (user?.id) {
+        localStorage.setItem(`onyx.feedback-snippets.${user.id}`, JSON.stringify(next));
+      }
+    } catch {
+      toast.error("Couldn't save reusable feedback in this browser.");
+    }
+  }
+
+  function addFeedbackSnippet() {
+    const snippet = newFeedbackSnippet.trim().slice(0, 120);
+    if (!snippet) return;
+    if (feedbackSnippets.some((saved) => saved.toLocaleLowerCase() === snippet.toLocaleLowerCase())) {
+      toast.error("That feedback phrase is already saved.");
+      return;
+    }
+    if (feedbackSnippets.length >= 20) {
+      toast.error("You can save up to 20 reusable feedback phrases.");
+      return;
+    }
+    persistFeedbackSnippets([...feedbackSnippets, snippet]);
+    setNewFeedbackSnippet("");
+    toast.success("Reusable feedback saved");
+  }
+
+  function removeFeedbackSnippet(snippet: string) {
+    persistFeedbackSnippets(feedbackSnippets.filter((saved) => saved !== snippet));
+  }
 
   const q = useQuery({
     queryKey: ["grading", "submission", submissionId],
@@ -233,17 +294,67 @@ export function AssignmentGradePanel({
             placeholder="What went well, and what to fix"
             className="min-h-28"
           />
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick comments">
-            {COMMENTS.map((c) => (
-              <button
-                key={c}
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Reusable feedback phrases">
+              {feedbackSnippets.map((snippet) => (
+                <span
+                  key={snippet}
+                  className="inline-flex max-w-full items-center gap-0.5 rounded-full border border-border"
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFeedback((current) =>
+                        current.trim() ? `${current.trimEnd()} ${snippet}` : snippet,
+                      )
+                    }
+                    className="rounded-full px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    title={`Insert: ${snippet}`}
+                  >
+                    + {snippet}
+                  </button>
+                  {!DEFAULT_COMMENTS.includes(snippet) && (
+                    <button
+                      type="button"
+                      onClick={() => removeFeedbackSnippet(snippet)}
+                      className="mr-1 rounded-full p-1 text-muted-foreground hover:text-destructive"
+                      aria-label={`Remove reusable phrase: ${snippet}`}
+                      title="Remove saved phrase"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Input
+                value={newFeedbackSnippet}
+                onChange={(event) => setNewFeedbackSnippet(event.target.value)}
+                placeholder="Save a feedback phrase you reuse"
+                maxLength={120}
+                aria-label="New reusable feedback phrase"
+                className="min-w-0 flex-1"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addFeedbackSnippet();
+                  }
+                }}
+              />
+              <Button
                 type="button"
-                onClick={() => setFeedback((f) => (f.trim() ? `${f.trimEnd()} ${c}` : c))}
-                className="cursor-pointer rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                variant="outline"
+                size="sm"
+                onClick={addFeedbackSnippet}
+                disabled={!newFeedbackSnippet.trim() || feedbackSnippets.length >= 20}
               >
-                + {c}
-              </button>
-            ))}
+                <Plus className="mr-1.5 size-3.5" /> Save phrase
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Your reusable phrases are saved in this browser for your teacher account.
+            </p>
           </div>
         </div>
 

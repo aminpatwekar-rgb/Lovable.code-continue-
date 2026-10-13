@@ -490,15 +490,18 @@ function StudentSubmission({
   ]);
 
   async function uploadFile(file: File, kind: "page" | "inline_image", order: number) {
+    if (file.size > 50 * 1024 * 1024) {
+      throw new Error(`${file.name} is larger than the 50 MB per-file limit.`);
+    }
     const quota = await (supabase as any).rpc("assert_storage_available", {
       _additional_bytes: file.size,
     });
     if (quota.error) throw quota.error;
     const submissionId = await ensureSubmission();
-    const ext = file.name.split(".").pop() ?? "bin";
+    const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "bin";
     const path = `${assignment.id}/${userId}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from("submissions").upload(path, file, {
-      contentType: file.type,
+      contentType: file.type || "application/octet-stream",
       upsert: false,
     });
     if (error) throw error;
@@ -529,41 +532,56 @@ function StudentSubmission({
   }
 
   async function handlePages(files: FileList | null) {
-    if (!files?.length) return;
+    if (!files?.length || uploading) return;
     setUploading(true);
+    const allowedExtensions = new Set([
+      "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "csv", "txt", "zip",
+      "avif", "bmp", "gif", "heic", "heif", "jpeg", "jpg", "png", "webp",
+    ]);
+    const failures: string[] = [];
+    let uploaded = 0;
+    let order = pages.length;
+
     try {
-      const added: Page[] = [];
-      let order = pages.length;
       for (const file of Array.from(files)) {
-        const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-        const allowedExtensions = new Set([
-          "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "csv", "txt", "zip",
-          "avif", "bmp", "gif", "heic", "heif", "jpeg", "jpg", "png", "webp",
-        ]);
-        const ok = file.type.startsWith("image/") || allowedExtensions.has(extension);
-        if (!ok) {
-          toast.error(`${file.name} is not a supported file. Upload photos, PDF, Office documents, CSV, TXT or ZIP files.`);
+        const extension = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
+        if (!allowedExtensions.has(extension)) {
+          failures.push(`${file.name}: unsupported file type`);
           continue;
         }
         if (file.size > 50 * 1024 * 1024) {
-          toast.error(`${file.name} is larger than the 50MB per-file limit`);
+          failures.push(`${file.name}: larger than the 50 MB per-file limit`);
           continue;
         }
-        const r = await uploadFile(file, "page", order);
-        added.push({
-          id: r.id,
-          storage_path: r.path,
-          url: r.url,
-          file_name: r.file_name,
-          mime_type: r.mime_type,
-          page_order: order,
-        });
-        order += 1;
+
+        try {
+          const result = await uploadFile(file, "page", order);
+          const page: Page = {
+            id: result.id,
+            storage_path: result.path,
+            url: result.url,
+            file_name: result.file_name,
+            mime_type: result.mime_type,
+            page_order: order,
+          };
+          // Keep every successful upload visible even if a later file in the batch fails.
+          setPages((current) => [...current, page]);
+          order += 1;
+          uploaded += 1;
+        } catch (error) {
+          failures.push(
+            `${file.name}: ${error instanceof Error ? error.message : "upload failed"}`,
+          );
+        }
       }
-      setPages((p) => [...p, ...added]);
-      if (added.length) toast.success(`${added.length} file(s) uploaded`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
+
+      if (uploaded) toast.success(`${uploaded} file${uploaded === 1 ? "" : "s"} uploaded`);
+      if (failures.length) {
+        const preview = failures.slice(0, 3).join("; ");
+        toast.error(
+          `${failures.length} file${failures.length === 1 ? "" : "s"} could not be uploaded: ${preview}${failures.length > 3 ? "; see each file and retry failed items" : ""}`,
+        );
+      }
     } finally {
       setUploading(false);
     }
@@ -571,26 +589,23 @@ function StudentSubmission({
 
   async function removePage(p: Page) {
     try {
+      // Keep the submission metadata/UI intact if storage deletion fails, so the user can retry.
+      const { error: storageError } = await supabase.storage
+        .from("submissions")
+        .remove([p.storage_path]);
+      if (storageError) throw storageError;
+
       const { error: rowError } = await supabase
         .from("submission_files")
         .delete()
         .eq("id", p.id);
       if (rowError) throw rowError;
 
-      const { error: storageError } = await supabase.storage
-        .from("submissions")
-        .remove([p.storage_path]);
-      if (storageError) {
-        // The file record is already removed, so don't keep a dead item in the UI.
-        console.error("Submission file record removed, but storage cleanup failed", storageError);
-        toast.error("File removed from your submission, but storage cleanup failed. Please contact your teacher.");
-      } else {
-        toast.success("File removed");
-      }
       setPages((prev) => prev.filter((x) => x.id !== p.id));
+      toast.success("File removed");
       void qc.invalidateQueries({ queryKey: ["my-submission", assignment.id, userId] });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Couldn't remove this file");
+      toast.error(e instanceof Error ? e.message : "Couldn't remove this file. Please retry.");
     }
   }
 
@@ -612,13 +627,15 @@ function StudentSubmission({
 
   const save = useMutation({
     mutationFn: async (submit: boolean) => {
-      const submissionId = await ensureSubmission();
+      // Validate first so a failed submit never creates an empty in-progress record.
+      if (uploading) throw new Error("Wait for file uploads to finish before saving or submitting.");
       if (submit) {
         if (activeMode === "handwritten" && pages.length === 0)
           throw new Error("Upload at least one file or photo before submitting");
         if (activeMode === "typed" && text.trim().length < 10)
           throw new Error("Write your answer before submitting");
       }
+      const submissionId = await ensureSubmission();
       const isLate = assignment.due_date ? new Date() > new Date(assignment.due_date) : false;
       const { error } = await supabase
         .from("submissions")
@@ -638,10 +655,11 @@ function StudentSubmission({
         .eq("id", submissionId);
       if (error) throw error;
       for (const [i, b] of blocks.entries()) {
-        await supabase
+        const { error: blockError } = await supabase
           .from("submission_files")
           .update({ caption: b.caption, page_order: i })
           .eq("id", b.id);
+        if (blockError) throw blockError;
       }
       return submit;
     },

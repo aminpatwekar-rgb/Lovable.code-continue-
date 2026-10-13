@@ -26,7 +26,7 @@ export function ViewRoleProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return null;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === "student" || stored === "teacher" || stored === "institution_admin" || stored === "admin") {
+      if (stored === "student" || stored === "teacher" || stored === "admin") {
         return stored;
       }
     } catch {

@@ -81,6 +81,11 @@ function HandwritingAssist({ file }: { file: ViewerFile }) {
   );
 }
 
+function supportsHandwritingAssist(file: ViewerFile) {
+  const mime = file.mime_type?.toLowerCase();
+  return mime ? ["image/jpeg", "image/png", "image/webp"].includes(mime) : /\.(jpe?g|png|webp)$/i.test(file.file_name ?? "");
+}
+
 /** The student's work: photographed pages, typed answer with equations, and paste warnings. */
 export function SubmissionViewer({
   files,
@@ -143,7 +148,7 @@ export function SubmissionViewer({
                   </a>
                 )}
                 <figcaption className="break-words px-3 py-2 text-xs text-muted-foreground">{p.file_name || `File ${i + 1}`}</figcaption>
-                {isPhotoFile(p) && <HandwritingAssist file={p} />}
+                {isPhotoFile(p) && supportsHandwritingAssist(p) && <HandwritingAssist file={p} />}
               </figure>
             ))}
           </div>

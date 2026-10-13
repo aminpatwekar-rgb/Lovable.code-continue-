@@ -448,6 +448,15 @@ export const generateQuizQuestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: GenerateInput) => validate(input))
   .handler(async ({ data, context }) => {
+    const { data: roles, error: rolesError } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId);
+    if (rolesError) throw new Error("Could not verify permissions");
+    if (!(roles ?? []).some((role) => role.role === "teacher" || role.role === "admin")) {
+      throw new Error("Only teachers and admins can generate quiz questions.");
+    }
+
     const db = context.supabase as any;
     const reservation = await db.rpc("reserve_ai_questions", { _requested: data.count });
     if (reservation.error) throw new Error(reservation.error.message);
@@ -476,6 +485,15 @@ export const regenerateQuizQuestion = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: GenerateInput) => validate({ ...input, count: 1 }))
   .handler(async ({ data, context }) => {
+    const { data: roles, error: rolesError } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId);
+    if (rolesError) throw new Error("Could not verify permissions");
+    if (!(roles ?? []).some((role) => role.role === "teacher" || role.role === "admin")) {
+      throw new Error("Only teachers and admins can generate quiz questions.");
+    }
+
     const reservation = await context.supabase.rpc("reserve_ai_questions", { _requested: 1 });
     if (reservation.error) throw new Error(reservation.error.message);
     const ledgerId = reservation.data as string;

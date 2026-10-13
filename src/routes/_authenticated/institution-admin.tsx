@@ -43,7 +43,7 @@ function InstitutionAdminConsole() {
   useEffect(() => {
     if (!authLoading && role === "admin") {
       void navigate({ to: "/admin", replace: true });
-    } else if (!authLoading && role && role !== "institution_admin") {
+    } else if (!authLoading && role !== "institution_admin") {
       void navigate({ to: "/dashboard", replace: true });
     }
   }, [authLoading, role, navigate]);

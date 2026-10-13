@@ -28,6 +28,7 @@ import { Route as AuthenticatedAssignmentsAssignmentIdRouteImport } from './rout
 import { Route as AuthenticatedClassesIndexRouteImport } from './routes/_authenticated/classes.index'
 import { Route as AuthenticatedClassesClassIdRouteImport } from './routes/_authenticated/classes.$classId'
 import { Route as AuthenticatedGradingIndexRouteImport } from './routes/_authenticated/grading.index'
+import { Route as AuthenticatedGradingBulkRouteImport } from './routes/_authenticated/grading.bulk'
 import { Route as AuthenticatedQuizzesIndexRouteImport } from './routes/_authenticated/quizzes.index'
 import { Route as AuthenticatedSubmissionsSubmissionIdRouteImport } from './routes/_authenticated/submissions.$submissionId'
 import { Route as AuthenticatedClassesClassIdImportRouteImport } from './routes/_authenticated/classes.$classId.import'
@@ -140,6 +141,11 @@ const AuthenticatedGradingIndexRoute =
     path: '/grading/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedGradingBulkRoute = AuthenticatedGradingBulkRouteImport.update({
+    id: '/grading/bulk',
+    path: '/grading/bulk',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedQuizzesIndexRoute =
   AuthenticatedQuizzesIndexRouteImport.update({
     id: '/quizzes/',
@@ -215,6 +221,7 @@ export interface FileRoutesByFullPath {
   '/assignments/': typeof AuthenticatedAssignmentsIndexRoute
   '/classes/': typeof AuthenticatedClassesIndexRoute
   '/grading/': typeof AuthenticatedGradingIndexRoute
+  '/grading/bulk': typeof AuthenticatedGradingBulkRoute
   '/quizzes/': typeof AuthenticatedQuizzesIndexRoute
   '/classes/$classId/import': typeof AuthenticatedClassesClassIdImportRoute
   '/grading/assignment/$assignmentId': typeof AuthenticatedGradingAssignmentAssignmentIdRoute
@@ -244,6 +251,7 @@ export interface FileRoutesByTo {
   '/assignments': typeof AuthenticatedAssignmentsIndexRoute
   '/classes': typeof AuthenticatedClassesIndexRoute
   '/grading': typeof AuthenticatedGradingIndexRoute
+  '/grading/bulk': typeof AuthenticatedGradingBulkRoute
   '/quizzes': typeof AuthenticatedQuizzesIndexRoute
   '/classes/$classId/import': typeof AuthenticatedClassesClassIdImportRoute
   '/grading/assignment/$assignmentId': typeof AuthenticatedGradingAssignmentAssignmentIdRoute
@@ -275,6 +283,7 @@ export interface FileRoutesById {
   '/_authenticated/assignments/': typeof AuthenticatedAssignmentsIndexRoute
   '/_authenticated/classes/': typeof AuthenticatedClassesIndexRoute
   '/_authenticated/grading/': typeof AuthenticatedGradingIndexRoute
+  '/_authenticated/grading/bulk': typeof AuthenticatedGradingBulkRoute
   '/_authenticated/quizzes/': typeof AuthenticatedQuizzesIndexRoute
   '/_authenticated/classes/$classId/import': typeof AuthenticatedClassesClassIdImportRoute
   '/_authenticated/grading/assignment/$assignmentId': typeof AuthenticatedGradingAssignmentAssignmentIdRoute
@@ -306,6 +315,7 @@ export interface FileRouteTypes {
     | '/assignments/'
     | '/classes/'
     | '/grading/'
+    | '/grading/bulk'
     | '/quizzes/'
     | '/classes/$classId/import'
     | '/grading/assignment/$assignmentId'
@@ -335,6 +345,7 @@ export interface FileRouteTypes {
     | '/assignments'
     | '/classes'
     | '/grading'
+    | '/grading/bulk'
     | '/quizzes'
     | '/classes/$classId/import'
     | '/grading/assignment/$assignmentId'
@@ -365,6 +376,7 @@ export interface FileRouteTypes {
     | '/_authenticated/assignments/'
     | '/_authenticated/classes/'
     | '/_authenticated/grading/'
+    | '/_authenticated/grading/bulk'
     | '/_authenticated/quizzes/'
     | '/_authenticated/classes/$classId/import'
     | '/_authenticated/grading/assignment/$assignmentId'
@@ -615,6 +627,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAssignmentsIndexRoute: typeof AuthenticatedAssignmentsIndexRoute
   AuthenticatedClassesIndexRoute: typeof AuthenticatedClassesIndexRoute
   AuthenticatedGradingIndexRoute: typeof AuthenticatedGradingIndexRoute
+  AuthenticatedGradingBulkRoute: typeof AuthenticatedGradingBulkRoute
   AuthenticatedQuizzesIndexRoute: typeof AuthenticatedQuizzesIndexRoute
   AuthenticatedGradingAssignmentAssignmentIdRoute: typeof AuthenticatedGradingAssignmentAssignmentIdRoute
   AuthenticatedGradingQuizQuizIdRoute: typeof AuthenticatedGradingQuizQuizIdRoute
@@ -644,6 +657,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAssignmentsIndexRoute: AuthenticatedAssignmentsIndexRoute,
   AuthenticatedClassesIndexRoute: AuthenticatedClassesIndexRoute,
   AuthenticatedGradingIndexRoute: AuthenticatedGradingIndexRoute,
+  AuthenticatedGradingBulkRoute: AuthenticatedGradingBulkRoute,
   AuthenticatedQuizzesIndexRoute: AuthenticatedQuizzesIndexRoute,
   AuthenticatedGradingAssignmentAssignmentIdRoute:
     AuthenticatedGradingAssignmentAssignmentIdRoute,

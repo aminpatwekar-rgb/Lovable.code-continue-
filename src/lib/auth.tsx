@@ -3,7 +3,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { clearSessionConfirmation, markSessionConfirmed } from "@/lib/session-confirm";
 
-export type AppRole = "student" | "teacher" | "admin";
+export type AppRole = "student" | "teacher" | "institution_admin" | "admin";
 
 export type Profile = {
   id: string;
@@ -48,11 +48,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const roles = (data ?? []).map((x) => x.role as AppRole);
     return roles.includes("admin")
       ? "admin"
-      : roles.includes("teacher")
-        ? "teacher"
-        : roles.includes("student")
-          ? "student"
-          : null;
+      : roles.includes("institution_admin")
+        ? "institution_admin"
+        : roles.includes("teacher")
+          ? "teacher"
+          : roles.includes("student")
+            ? "student"
+            : null;
   }
 
   async function loadMeta(userId: string, userEmail?: string | null) {

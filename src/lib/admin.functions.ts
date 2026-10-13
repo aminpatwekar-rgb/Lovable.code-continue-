@@ -297,7 +297,7 @@ export const assignInstitutionMembers = createServerFn({ method: "POST" })
       const email = String(profile.email ?? profile.id);
       const userRoles = rolesByUser.get(profile.id) ?? [];
       if (userRoles.includes("admin")) skippedRows.push({ email, reason: "Platform-admin accounts cannot be roster members." });
-      else if (!userRoles.includes("student") && !userRoles.includes("teacher")) skippedRows.push({ email, reason: "Account must already have the student or teacher role." });
+      else if (!userRoles.includes("student") && !userRoles.includes("teacher") && !userRoles.includes("institution_admin")) skippedRows.push({ email, reason: "Account must already have the student, teacher, or institution-admin role." });
       else if (profile.is_active === false) skippedRows.push({ email, reason: "Account is suspended. Reactivate it before assigning it." });
       else if (String(profile.institution ?? "").trim().toLowerCase() === institution.name.trim().toLowerCase()) skippedRows.push({ email, reason: "Already assigned to this institution." });
       else eligibleIds.push(profile.id);
@@ -330,10 +330,11 @@ export type StudentOnboardingResult = {
 };
 
 /**
- * Create student accounts from an institution's roster and send each student an
- * invitation to set their own password. Existing student accounts are attached
- * only if they are not already affiliated with a different institution.
- * This endpoint is platform-admin-only and never promotes users to staff/admin.
+ * Create or attach institution roster accounts from a CSV and send invitations.
+ * Platform admins may appoint student, teacher, or institution-admin roles;
+ * institution admins may only onboard students and teachers in their own institution.
+ * Platform admins may explicitly set a mismatched existing account role through the CSV role column;
+ * institution admins can only attach existing accounts whose role already matches. Global admins are protected.
  */
 export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -362,7 +363,19 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
     return { institutionId, csv: input.csv, redirectTo: redirectUrl.toString() };
   })
   .handler(async ({ data, context }): Promise<StudentOnboardingResult> => {
-    await requireInstitutionAdmin(context.supabase, context.userId);
+    const { data: isPlatformAdmin, error: platformRoleError } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (platformRoleError) throw new Error("Could not verify platform-administrator permissions.");
+    const { data: isInstitutionAdmin, error: institutionRoleError } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "institution_admin",
+    });
+    if (institutionRoleError) throw new Error("Could not verify institution-administrator permissions.");
+    if (!isPlatformAdmin && !isInstitutionAdmin) {
+      throw new Error("Only platform or institution administrators can run roster onboarding.");
+    }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin = supabaseAdmin as any;
@@ -373,12 +386,34 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
       .maybeSingle();
     if (institutionError) throw new Error("Could not load the selected institution.");
     if (!institution) throw new Error("This institution no longer exists.");
+    if (isInstitutionAdmin && !isPlatformAdmin) {
+      const { data: inScope, error: scopeError } = await context.supabase.rpc("is_institution_admin", {
+        _institution_id: data.institutionId,
+      });
+      if (scopeError) throw new Error("Could not verify institution scope.");
+      if (!inScope) throw new Error("You can only onboard accounts for your own institution.");
+    }
+
+    const configuredAppUrl = (process.env["ONYX_APP_URL"] || "https://onyxedu.lovable.app").trim();
+    let trustedOrigin: string;
+    try {
+      trustedOrigin = new URL(configuredAppUrl).origin;
+    } catch {
+      throw new Error("ONYX_APP_URL must be a valid HTTPS application URL.");
+    }
+    const requestedOrigin = new URL(data.redirectTo).origin;
+    const isLocalDevelopmentOrigin =
+      process.env["NODE_ENV"] === "development" &&
+      (requestedOrigin.startsWith("http://localhost:") || requestedOrigin.startsWith("http://127.0.0.1:"));
+    if (requestedOrigin !== trustedOrigin && !isLocalDevelopmentOrigin) {
+      throw new Error("The invitation redirect is not on the configured ONYX application origin. Set ONYX_APP_URL to the canonical application URL.");
+    }
 
     const inputRows = csvObjects(data.csv);
-    if (!inputRows.length) throw new Error("The CSV must contain a header row and at least one student row.");
-    if (inputRows.length > 500) throw new Error("Import up to 500 student rows per batch.");
+    if (!inputRows.length) throw new Error("The CSV must contain a header row and at least one roster row.");
+    if (inputRows.length > 500) throw new Error("Import up to 500 roster rows per batch.");
 
-    const rows: Array<{ line: number; email: string; fullName: string }> = [];
+    const rows: Array<{ line: number; email: string; fullName: string; role: "student" | "teacher" | "institution_admin" }> = [];
     const outcomes: StudentOnboardingRowResult[] = [];
     const seen = new Set<string>();
 
@@ -386,12 +421,21 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
       const line = index + 2;
       const email = String(row["email"] ?? "").trim().toLowerCase();
       const fullName = String(row["full_name"] ?? row["name"] ?? "").trim().replace(/\s+/g, " ");
+      const role = String(row["role"] ?? "").trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         outcomes.push({ line, email: email || "—", status: "skipped", message: "A valid email address is required." });
         return;
       }
       if (!fullName || fullName.length > 100) {
-        outcomes.push({ line, email, status: "skipped", message: "A student's full_name is required (maximum 100 characters)." });
+        outcomes.push({ line, email, status: "skipped", message: "A full_name is required (maximum 100 characters)." });
+        return;
+      }
+      if (role !== "student" && role !== "teacher" && role !== "institution_admin") {
+        outcomes.push({ line, email, status: "skipped", message: "Role must be student, teacher, or institution_admin." });
+        return;
+      }
+      if (!isPlatformAdmin && role === "institution_admin") {
+        outcomes.push({ line, email, status: "skipped", message: "Only the platform administrator can appoint institution administrators." });
         return;
       }
       if (seen.has(email)) {
@@ -399,7 +443,7 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
         return;
       }
       seen.add(email);
-      rows.push({ line, email, fullName });
+      rows.push({ line, email, fullName, role });
     });
 
     const emailList = rows.map((row) => row.email);
@@ -432,20 +476,15 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
     const normalizedInstitution = String(institution.name).trim().toLowerCase();
     const now = new Date().toISOString();
 
-    const attachExistingStudent = async (
-      row: { line: number; email: string; fullName: string },
+    const attachExistingMember = async (
+      row: { line: number; email: string; fullName: string; role: "student" | "teacher" | "institution_admin" },
       profile: any,
       invitePreviouslyFailed = false,
     ): Promise<void> => {
       const userRoles = rolesByUser.get(profile.id) ?? [];
       const currentInstitution = String(profile.institution ?? "").trim();
-      if (userRoles.includes("admin") || userRoles.includes("teacher")) {
-        outcomes.push({
-          line: row.line, email: row.email, status: invitePreviouslyFailed ? "invite_failed" : "skipped",
-          message: userRoles.includes("admin")
-            ? "This email belongs to a platform administrator; CSV import cannot change that account."
-            : "This email belongs to a teacher account. Add staff through the existing account picker instead.",
-        });
+      if (userRoles.includes("admin")) {
+        outcomes.push({ line: row.line, email: row.email, status: "skipped", message: "Platform-admin accounts can never be assigned or changed by the institution CSV." });
         return;
       }
       if (profile.is_active === false) {
@@ -456,59 +495,68 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
         outcomes.push({ line: row.line, email: row.email, status: "skipped", message: "The existing account is affiliated with a different institution. No affiliation was changed." });
         return;
       }
-      if (userRoles.length && !userRoles.includes("student")) {
-        outcomes.push({ line: row.line, email: row.email, status: "skipped", message: "The existing account does not have a student role." });
+      if (userRoles.length && !userRoles.includes(row.role) && !isPlatformAdmin) {
+        outcomes.push({
+          line: row.line, email: row.email, status: "skipped",
+          message: `Existing role is ${userRoles.join(", ")}; this import requests ${row.role}. Only the platform administrator may explicitly change an existing account's role through the role column.`,
+        });
+        return;
+      }
+      if (!isPlatformAdmin && row.role === "institution_admin" && !userRoles.includes("institution_admin")) {
+        outcomes.push({ line: row.line, email: row.email, status: "skipped", message: "Only the platform administrator can appoint institution administrators." });
         return;
       }
 
-      if (!userRoles.includes("student")) {
+      if (!userRoles.includes(row.role)) {
+        if (!isPlatformAdmin) {
+          outcomes.push({ line: row.line, email: row.email, status: "skipped", message: "An existing account without a confirmed role must finish its normal signup first." });
+          return;
+        }
         const { error: setRoleError } = await context.supabase.rpc("admin_set_user_role", {
           _user_id: profile.id,
-          _role: "student",
+          _role: row.role,
         });
         if (setRoleError) {
-          outcomes.push({ line: row.line, email: row.email, status: "setup_failed", message: "Could not assign the student role: " + setRoleError.message });
+          outcomes.push({ line: row.line, email: row.email, status: "setup_failed", message: `Could not assign the ${row.role} role: ` + setRoleError.message });
           return;
         }
       }
 
       const updates: Record<string, unknown> = {
         institution: institution.name,
-        role: "student",
+        role: row.role,
         role_confirmed_at: profile.role_confirmed_at ?? now,
       };
       if (!String(profile.full_name ?? "").trim()) updates["full_name"] = row.fullName;
       const { error: updateError } = await admin.from("profiles").update(updates).eq("id", profile.id);
       if (updateError) {
-        outcomes.push({ line: row.line, email: row.email, status: "setup_failed", message: "The student role is set, but institution affiliation could not be saved: " + updateError.message });
+        outcomes.push({ line: row.line, email: row.email, status: "setup_failed", message: "The role is set, but institution affiliation could not be saved: " + updateError.message });
         return;
       }
 
       if (invitePreviouslyFailed) {
         outcomes.push({
-          line: row.line,
-          email: row.email,
-          status: "invite_failed",
-          message: "The account exists and has been attached to this institution, but the invitation email failed. Check custom SMTP and arrange an invitation resend.",
+          line: row.line, email: row.email, status: "invite_failed",
+          message: "The account exists and has been attached, but invitation email delivery failed. Check custom SMTP and arrange an invitation resend.",
         });
       } else if (currentInstitution.toLowerCase() === normalizedInstitution) {
-        outcomes.push({ line: row.line, email: row.email, status: "already_assigned", message: "This student was already assigned to the institution." });
+        outcomes.push({ line: row.line, email: row.email, status: "already_assigned", message: `This ${row.role.replace("_", " ")} was already assigned to the institution.` });
       } else {
-        outcomes.push({ line: row.line, email: row.email, status: "assigned", message: "Existing student account attached to the institution; no password was changed." });
+        outcomes.push({ line: row.line, email: row.email, status: "assigned", message: `Existing ${row.role.replace("_", " ")} account attached to the institution; no password was changed.` });
       }
     };
 
     for (const row of rows) {
       const profile = profileByEmail.get(row.email);
       if (profile) {
-        await attachExistingStudent(row, profile);
+        await attachExistingMember(row, profile);
         continue;
       }
 
       const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(row.email, {
         data: {
           full_name: row.fullName,
-          role: "student",
+          role: row.role,
           institution: institution.name,
         },
         redirectTo: data.redirectTo,
@@ -522,7 +570,38 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
           .select("id, full_name, email, institution, is_active, role_confirmed_at")
           .eq("email", row.email)
           .maybeSingle();
-        if (partialProfile) {
+        if (partialProfile && partialProfile.role_confirmed_at == null) {
+          // A just-created invitation may leave a profile behind when mail delivery
+          // fails. Complete its server-assigned role, but clearly report that the
+          // recipient still needs a valid invitation link to authenticate.
+          const { error: clearPartialRolesError } = await admin.from("user_roles").delete().eq("user_id", partialProfile.id);
+          const { error: partialRoleError } = clearPartialRolesError
+            ? { error: clearPartialRolesError }
+            : await admin.from("user_roles").insert({ user_id: partialProfile.id, role: row.role });
+          const { error: partialProfileError } = await admin.from("profiles").update({
+            full_name: row.fullName,
+            email: row.email,
+            institution: institution.name,
+            role: row.role,
+            role_confirmed_at: now,
+          }).eq("id", partialProfile.id);
+          if (partialRoleError || partialProfileError) {
+            outcomes.push({
+              line: row.line,
+              email: row.email,
+              status: "setup_failed",
+              message: "A pending account exists, but its role or institution setup could not be completed. Role error: " +
+                (partialRoleError?.message || "none") + "; profile error: " + (partialProfileError?.message || "none"),
+            });
+          } else {
+            outcomes.push({
+              line: row.line,
+              email: row.email,
+              status: "invite_failed",
+              message: "The pending account was created and correctly assigned, but the invitation email failed. Check SMTP and resend the invitation before the student/staff member signs in.",
+            });
+          }
+        } else if (partialProfile) {
           if (!rolesByUser.has(partialProfile.id)) {
             const { data: partialRoles } = await admin
               .from("user_roles").select("user_id, role").eq("user_id", partialProfile.id);
@@ -532,7 +611,7 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
               rolesByUser.set(roleRow.user_id, list);
             }
           }
-          await attachExistingStudent(row, partialProfile, true);
+          await attachExistingMember(row, partialProfile, true);
         } else {
           outcomes.push({
             line: row.line,
@@ -545,33 +624,28 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
       }
 
       const userId = inviteData.user.id;
-      const [
-        { error: studentRoleError },
-        { error: profileError },
-      ] = await Promise.all([
-        admin.from("user_roles").upsert(
-          { user_id: userId, role: "student" },
-          { onConflict: "user_id,role" },
-        ),
-        admin.from("profiles").upsert(
-          {
-            id: userId,
-            full_name: row.fullName,
-            email: row.email,
-            institution: institution.name,
-            role: "student",
-            role_confirmed_at: now,
-          },
-          { onConflict: "id" },
-        ),
-      ]);
+      const { error: clearRolesError } = await admin.from("user_roles").delete().eq("user_id", userId);
+      const { error: studentRoleError } = clearRolesError
+        ? { error: clearRolesError }
+        : await admin.from("user_roles").insert({ user_id: userId, role: row.role });
+      const { error: profileError } = await admin.from("profiles").upsert(
+        {
+          id: userId,
+          full_name: row.fullName,
+          email: row.email,
+          institution: institution.name,
+          role: row.role,
+          role_confirmed_at: now,
+        },
+        { onConflict: "id" },
+      );
 
       if (studentRoleError || profileError) {
         outcomes.push({
           line: row.line,
           email: row.email,
           status: "setup_failed",
-          message: "The invitation was sent, but ONYX could not finish setting up the student record. Role error: " +
+          message: "The invitation was sent, but ONYX could not finish setting up the account. Role error: " +
             (studentRoleError?.message || "none") + "; profile error: " + (profileError?.message || "none"),
         });
       } else {
@@ -579,7 +653,7 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
           line: row.line,
           email: row.email,
           status: "invited",
-          message: "Student account created and invitation sent. The student sets their own password from the email.",
+          message: `${row.role.replace("_", " ")} account created and invitation sent. The recipient sets their own password from the email.`,
         });
       }
     }

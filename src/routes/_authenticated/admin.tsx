@@ -137,11 +137,13 @@ function AdminConsole() {
         const rs = byUser.get(p.id) ?? [];
         const resolved: AppRole | null = rs.includes("admin")
           ? "admin"
-          : rs.includes("teacher")
-            ? "teacher"
-            : rs.includes("student")
-              ? "student"
-              : null;
+          : rs.includes("institution_admin")
+            ? "institution_admin"
+            : rs.includes("teacher")
+              ? "teacher"
+              : rs.includes("student")
+                ? "student"
+                : null;
         return { ...p, email: emails.get(p.id) ?? null, role: resolved } as UserRow;
       });
     },
@@ -276,6 +278,7 @@ function AdminConsole() {
     students: all.filter((u) => u.role === "student").length,
     teachers: all.filter((u) => u.role === "teacher").length,
     admins: all.filter((u) => u.role === "admin").length,
+    institutionAdmins: all.filter((u) => u.role === "institution_admin").length,
     classes: (classes.data ?? []).length,
     assignments: (assignments.data ?? []).length,
     submissions: (submissions.data ?? []).length,
@@ -338,7 +341,8 @@ function AdminConsole() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Stat icon={Users} label="Students" value={counts.students} />
           <Stat icon={GraduationCap} label="Teachers" value={counts.teachers} />
-          <Stat icon={ShieldCheck} label="Admins" value={counts.admins} tone="text-info" />
+          <Stat icon={ShieldCheck} label="Platform admins" value={counts.admins} tone="text-info" />
+          <Stat icon={ShieldCheck} label="Institution admins" value={counts.institutionAdmins} tone="text-info" />
           <Stat icon={GraduationCap} label="Classes" value={counts.classes} />
           <Stat icon={BookOpen} label="Assignments" value={counts.assignments} />
           <Stat
@@ -399,7 +403,8 @@ function AdminConsole() {
                 <SelectItem value="all">All roles</SelectItem>
                 <SelectItem value="student">Students</SelectItem>
                 <SelectItem value="teacher">Teachers</SelectItem>
-                <SelectItem value="admin">Admins</SelectItem>
+                <SelectItem value="institution_admin">Institution admins</SelectItem>
+                <SelectItem value="admin">Platform admins</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -451,13 +456,6 @@ function AdminConsole() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-52">
-                            {u.role !== "admin" && (
-                              <DropdownMenuItem
-                                onSelect={() => setRole.mutate({ userId: u.id, next: "admin" })}
-                              >
-                                <ShieldCheck className="mr-2 size-4" /> Promote to admin
-                              </DropdownMenuItem>
-                            )}
                             {u.role !== "teacher" && (
                               <DropdownMenuItem
                                 onSelect={() => setRole.mutate({ userId: u.id, next: "teacher" })}

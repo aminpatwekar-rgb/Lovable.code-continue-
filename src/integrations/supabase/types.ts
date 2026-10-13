@@ -1937,6 +1937,10 @@ export type Database = {
         Args: { _class_id: string; _user_id: string }
         Returns: boolean
       }
+      is_institution_admin: {
+        Args: { _institution_id: string }
+        Returns: boolean
+      }
       is_class_teacher: {
         Args: { _class_id: string; _user_id: string }
         Returns: boolean
@@ -2011,7 +2015,7 @@ export type Database = {
       user_has_feature: { Args: { _feature: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "student" | "teacher" | "admin"
+      app_role: "student" | "teacher" | "institution_admin" | "admin"
       quiz_attempt_status:
         | "in_progress"
         | "submitted"
@@ -2163,7 +2167,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["student", "teacher", "admin"],
+      app_role: ["student", "teacher", "institution_admin", "admin"],
       quiz_attempt_status: [
         "in_progress",
         "submitted",

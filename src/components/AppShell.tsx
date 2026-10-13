@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   LayoutDashboard,
   BookOpen,
+  Building2,
   GraduationCap,
   Moon,
   Sun,
@@ -74,6 +75,7 @@ const BOTTOM_NAV = [
 const GRADING_NAV = { to: "/grading", label: "Grading", icon: ClipboardCheck } as const;
 
 const ADMIN_NAV = [{ to: "/admin", label: "Admin", icon: Shield }] as const;
+const INSTITUTION_ADMIN_NAV = [{ to: "/institution-admin", label: "Institution", icon: Building2 }] as const;
 
 const MotionLink = motion.create(Link);
 
@@ -162,7 +164,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const canGrade = effectiveRole === "teacher" || effectiveRole === "admin";
   // Teachers and admins get a Grading tab right after Quizzes.
   const baseNav = canGrade ? [...NAV.slice(0, 4), GRADING_NAV, ...NAV.slice(4)] : [...NAV];
-  const items = effectiveRole === "admin" ? [...baseNav, ...ADMIN_NAV] : baseNav;
+  const items = role === "institution_admin"
+    ? [...baseNav, ...INSTITUTION_ADMIN_NAV]
+    : effectiveRole === "admin" ? [...baseNav, ...ADMIN_NAV] : baseNav;
   // Phone tab bar: grading replaces Quizzes for teachers (Quizzes stays in the More menu).
   const bottomItems = canGrade
     ? [BOTTOM_NAV[0], BOTTOM_NAV[1], GRADING_NAV, BOTTOM_NAV[2]]
@@ -173,7 +177,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const renderRoleSwitcher = (compact = false) => {
     const roleDotClass =
-      effectiveRole === "admin"
+      effectiveRole === "admin" || effectiveRole === "institution_admin"
         ? "bg-primary"
         : effectiveRole === "teacher"
           ? "bg-info"

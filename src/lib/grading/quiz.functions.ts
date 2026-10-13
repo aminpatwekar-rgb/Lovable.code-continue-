@@ -32,14 +32,25 @@ async function loadAttempt(attemptId: string, userId: string) {
   if (!quiz) throw new Error("Quiz not found.");
 
   if (quiz.teacher_id !== userId) {
-    const { data: admin, error: roleError } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .maybeSingle();
+    const [{ data: admin, error: roleError }, { data: coTeacher, error: coTeacherError }] =
+      await Promise.all([
+        supabaseAdmin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .eq("role", "admin")
+          .maybeSingle(),
+        supabaseAdmin
+          .from("class_members")
+          .select("student_id")
+          .eq("class_id", quiz.class_id)
+          .eq("student_id", userId)
+          .eq("member_role", "teacher")
+          .maybeSingle(),
+      ]);
     if (roleError) throw new Error(roleError.message);
-    if (!admin) throw new Error("You are not allowed to grade this attempt.");
+    if (coTeacherError) throw new Error(coTeacherError.message);
+    if (!admin && !coTeacher) throw new Error("You are not allowed to grade this attempt.");
   }
   return { supabaseAdmin, attempt, quiz };
 }

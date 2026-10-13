@@ -27,17 +27,21 @@ export const deletePlatformUser = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: targetRoles } = await supabaseAdmin
+    const { data: targetRoles, error: targetRolesError } = await supabaseAdmin
       .from("user_roles")
       .select("role")
       .eq("user_id", data.userId);
+    if (targetRolesError) throw new Error("Could not verify target account roles");
     const isTargetAdmin = (targetRoles ?? []).some((r) => r.role === "admin");
     if (isTargetAdmin) {
-      const { count } = await supabaseAdmin
+      const { count, error: adminCountError } = await supabaseAdmin
         .from("user_roles")
         .select("id", { count: "exact", head: true })
         .eq("role", "admin");
-      if ((count ?? 0) <= 1) throw new Error("At least one administrator must remain");
+      if (adminCountError || count == null) {
+        throw new Error("Could not verify the administrator count");
+      }
+      if (count <= 1) throw new Error("At least one administrator must remain");
     }
 
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.userId);

@@ -330,10 +330,10 @@ export type StudentOnboardingResult = {
 };
 
 /**
- * Create student accounts from an institution's roster and send each student an
- * invitation to set their own password. Existing student accounts are attached
- * only if they are not already affiliated with a different institution.
- * This endpoint is platform-admin-only and never promotes users to staff/admin.
+ * Create or attach institution roster accounts from a CSV and send invitations.
+ * Platform admins may appoint student, teacher, or institution-admin roles;
+ * institution admins may only onboard students and teachers in their own institution.
+ * Existing accounts are never silently promoted/demoted, and global admins are protected.
  */
 export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -395,8 +395,8 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
     }
 
     const inputRows = csvObjects(data.csv);
-    if (!inputRows.length) throw new Error("The CSV must contain a header row and at least one student row.");
-    if (inputRows.length > 500) throw new Error("Import up to 500 student rows per batch.");
+    if (!inputRows.length) throw new Error("The CSV must contain a header row and at least one roster row.");
+    if (inputRows.length > 500) throw new Error("Import up to 500 roster rows per batch.");
 
     const rows: Array<{ line: number; email: string; fullName: string; role: "student" | "teacher" | "institution_admin" }> = [];
     const outcomes: StudentOnboardingRowResult[] = [];
@@ -555,7 +555,38 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
           .select("id, full_name, email, institution, is_active, role_confirmed_at")
           .eq("email", row.email)
           .maybeSingle();
-        if (partialProfile) {
+        if (partialProfile && partialProfile.role_confirmed_at == null) {
+          // A just-created invitation may leave a profile behind when mail delivery
+          // fails. Complete its server-assigned role, but clearly report that the
+          // recipient still needs a valid invitation link to authenticate.
+          const { error: clearPartialRolesError } = await admin.from("user_roles").delete().eq("user_id", partialProfile.id);
+          const { error: partialRoleError } = clearPartialRolesError
+            ? { error: clearPartialRolesError }
+            : await admin.from("user_roles").insert({ user_id: partialProfile.id, role: row.role });
+          const { error: partialProfileError } = await admin.from("profiles").update({
+            full_name: row.fullName,
+            email: row.email,
+            institution: institution.name,
+            role: row.role,
+            role_confirmed_at: now,
+          }).eq("id", partialProfile.id);
+          if (partialRoleError || partialProfileError) {
+            outcomes.push({
+              line: row.line,
+              email: row.email,
+              status: "setup_failed",
+              message: "A pending account exists, but its role or institution setup could not be completed. Role error: " +
+                (partialRoleError?.message || "none") + "; profile error: " + (partialProfileError?.message || "none"),
+            });
+          } else {
+            outcomes.push({
+              line: row.line,
+              email: row.email,
+              status: "invite_failed",
+              message: "The pending account was created and correctly assigned, but the invitation email failed. Check SMTP and resend the invitation before the student/staff member signs in.",
+            });
+          }
+        } else if (partialProfile) {
           if (!rolesByUser.has(partialProfile.id)) {
             const { data: partialRoles } = await admin
               .from("user_roles").select("user_id, role").eq("user_id", partialProfile.id);

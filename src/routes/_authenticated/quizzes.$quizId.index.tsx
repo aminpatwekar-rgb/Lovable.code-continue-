@@ -85,13 +85,14 @@ function Page() {
 
       // Teachers own the rows; students read a key-free projection via RPC so
       // the `correct`/`explanation` columns never reach the browser.
-      const { data: questions } = isTeacher
+      const { data: questions, error: questionsError } = isTeacher
         ? await supabase
             .from("quiz_questions")
             .select("id, type, prompt, points, position")
             .eq("quiz_id", quizId)
             .order("position")
         : await supabase.rpc("get_quiz_questions_for_student", { _quiz_id: quizId });
+      if (questionsError) throw questionsError;
 
       let attempts;
       let names: Record<string, string> = {};

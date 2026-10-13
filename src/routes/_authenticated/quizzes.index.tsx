@@ -97,6 +97,7 @@ function CreateQuizDialog() {
       const { data, error } = await supabase
         .from("classes")
         .select("id, name, subject")
+        .eq("teacher_id", user!.id)
         .eq("archived", false)
         .order("name");
       if (error) throw error;
@@ -391,18 +392,20 @@ function StudentQuizzes() {
         .eq("archived", false)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      const { data: attempts } = await supabase
+      const { data: attempts, error: attemptsError } = await supabase
         .from("quiz_attempts")
         .select("id, quiz_id, status, score, max_score, attempt_no, submitted_at")
         .eq("student_id", user!.id)
         .order("attempt_no", { ascending: false });
+      if (attemptsError) throw attemptsError;
 
       // Use the quiz's actual question points as the display denominator.
       // This keeps the student-facing percentage aligned with the full quiz marks.
-      const { data: questionMarks } = await supabase
+      const { data: questionMarks, error: questionMarksError } = await supabase
         .from("quiz_questions")
         .select("quiz_id, points")
         .in("quiz_id", (quizzes ?? []).map((x) => x.id));
+      if (questionMarksError) throw questionMarksError;
 
       const totalMarks = new Map<string, number>();
       for (const q of questionMarks ?? []) {

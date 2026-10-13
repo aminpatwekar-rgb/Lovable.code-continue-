@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Plus, Save, Users, X } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Save, ShieldCheck, Users, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import {
@@ -207,6 +207,17 @@ function Page() {
   const [material, setMaterial] = useState("");
   const [regenIndex, setRegenIndex] = useState<number | null>(null);
   const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
+  const [aiGeneratedIds, setAiGeneratedIds] = useState<Set<string>>(() => new Set());
+  const [approvedAiIds, setApprovedAiIds] = useState<Set<string>>(() => new Set());
+
+  const pendingAiReviewCount = questions.filter(
+    (question) => aiGeneratedIds.has(question.id) && !approvedAiIds.has(question.id),
+  ).length;
+
+  function approveAiQuestion(questionId: string) {
+    setApprovedAiIds((current) => new Set(current).add(questionId));
+    toast.success("AI question approved");
+  }
 
   const quiz = useQuery({
     queryKey: ["quiz-edit", quizId],
@@ -295,6 +306,14 @@ function Page() {
   async function persistQuizDraft() {
     if (!settings) throw new Error("Quiz settings are still loading.");
     if (!settings.title.trim()) throw new Error("Quiz title is required.");
+    const pending = questions.filter(
+      (question) => aiGeneratedIds.has(question.id) && !approvedAiIds.has(question.id),
+    );
+    if (pending.length) {
+      throw new Error(
+        `Review and approve all ${pending.length} AI-generated question${pending.length === 1 ? "" : "s"} before saving or publishing.`,
+      );
+    }
     if (
       settings.start_at &&
       settings.end_at &&
@@ -370,6 +389,8 @@ function Page() {
     mutationFn: persistQuizDraft,
     onSuccess: async () => {
       setRemoved([]);
+      setAiGeneratedIds(new Set());
+      setApprovedAiIds(new Set());
       toast.success("Quiz saved");
       await qc.invalidateQueries({ queryKey: ["quiz-edit", quizId] });
       await qc.invalidateQueries({ queryKey: ["teacher-quizzes"] });
@@ -389,6 +410,10 @@ function Page() {
     },
     onSuccess: async (published) => {
       setRemoved([]);
+      if (published) {
+        setAiGeneratedIds(new Set());
+        setApprovedAiIds(new Set());
+      }
       toast.success(published ? "Quiz published" : "Quiz unpublished");
       await qc.invalidateQueries({ queryKey: ["quiz-edit", quizId] });
       await qc.invalidateQueries({ queryKey: ["teacher-quizzes"] });
@@ -422,7 +447,15 @@ function Page() {
         points: q.points,
       }));
       setQuestions((prev) => [...prev, ...added]);
-      toast.success(`Added ${added.length} question${added.length === 1 ? "" : "s"}`);
+      setAiGeneratedIds((current) => new Set([...current, ...added.map((question) => question.id)]));
+      setApprovedAiIds((current) => {
+        const next = new Set(current);
+        for (const question of added) next.delete(question.id);
+        return next;
+      });
+      toast.success(
+        `Added ${added.length} question${added.length === 1 ? "" : "s"} — review and approve each one before saving.`,
+      );
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -463,7 +496,13 @@ function Page() {
             : item,
         ),
       );
-      toast.success("Question regenerated");
+      setAiGeneratedIds((current) => new Set(current).add(target.id));
+      setApprovedAiIds((current) => {
+        const next = new Set(current);
+        next.delete(target.id);
+        return next;
+      });
+      toast.success("Question regenerated — review and approve it before saving.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not regenerate");
     } finally {
@@ -572,6 +611,20 @@ function Page() {
         </TabsList>
 
         <TabsContent value="questions" className="mt-4 space-y-3">
+          {pendingAiReviewCount > 0 && (
+            <div className="flex flex-wrap items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-4">
+              <ShieldCheck className="mt-0.5 size-5 shrink-0 text-warning-foreground" />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">
+                  {pendingAiReviewCount} AI-generated question{pendingAiReviewCount === 1 ? "" : "s"} need review
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Check each question, options and answer key. Approve it only when you agree it is accurate.
+                  ONYX will not save or publish until every AI-generated question is approved.
+                </p>
+              </div>
+            </div>
+          )}
           {questions.length === 0 && (
             <div className="panel p-10 text-center">
               <p className="font-medium">No questions yet</p>
@@ -586,10 +639,38 @@ function Page() {
               index={i}
               question={q}
               regenerating={regenIndex === i}
-              onChange={(next) => setQuestions((prev) => prev.map((x, j) => (j === i ? next : x)))}
+              aiReviewStatus={
+                aiGeneratedIds.has(q.id)
+                  ? approvedAiIds.has(q.id)
+                    ? "approved"
+                    : "needs_review"
+                  : undefined
+              }
+              onApproveAiQuestion={() => approveAiQuestion(q.id)}
+              onChange={(next) => {
+                setQuestions((prev) => prev.map((x, j) => (j === i ? next : x)));
+                if (aiGeneratedIds.has(q.id)) {
+                  // Any edit after approval invalidates the approval for this exact version.
+                  setApprovedAiIds((current) => {
+                    const updated = new Set(current);
+                    updated.delete(q.id);
+                    return updated;
+                  });
+                }
+              }}
               onDelete={() => {
                 if (!q.id.startsWith("draft-")) setRemoved((prev) => [...prev, q.id]);
                 setQuestions((prev) => prev.filter((_, j) => j !== i));
+                setAiGeneratedIds((current) => {
+                  const updated = new Set(current);
+                  updated.delete(q.id);
+                  return updated;
+                });
+                setApprovedAiIds((current) => {
+                  const updated = new Set(current);
+                  updated.delete(q.id);
+                  return updated;
+                });
               }}
               onMove={(dir) =>
                 setQuestions((prev) => {

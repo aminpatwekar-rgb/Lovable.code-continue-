@@ -14,7 +14,16 @@ function validate(input: Input): Input {
 export const generateRubricWithAI = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: Input) => validate(input))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { data: roles, error: rolesError } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId);
+    if (rolesError) throw new Error("Could not verify permissions");
+    if (!(roles ?? []).some((role) => role.role === "teacher" || role.role === "admin")) {
+      throw new Error("Only teachers and admins can generate rubrics.");
+    }
+
     const key = process.env["LOVABLE_API_KEY"];
     if (!key) throw new Error("AI is not configured for this workspace.");
     const total = data.totalPoints ?? 100;

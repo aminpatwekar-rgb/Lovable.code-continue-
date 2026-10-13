@@ -586,12 +586,21 @@ function Page() {
           </Button>
           <Button
             variant={published ? "ghost" : "secondary"}
-            disabled={publish.isPending || save.isPending || aiGenerate.isPending || (!published && questions.length === 0) || !settings.title.trim()}
+            disabled={
+              publish.isPending ||
+              save.isPending ||
+              aiGenerate.isPending ||
+              (!published && (questions.length === 0 || pendingAiReviewCount > 0)) ||
+              !settings.title.trim()
+            }
             onClick={() => publish.mutate(!published)}
           >
             {published ? "Unpublish" : "Publish"}
           </Button>
-          <Button disabled={save.isPending || !settings.title.trim()} onClick={() => save.mutate()}>
+          <Button
+            disabled={save.isPending || !settings.title.trim() || pendingAiReviewCount > 0}
+            onClick={() => save.mutate()}
+          >
             {save.isPending ? (
               <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (

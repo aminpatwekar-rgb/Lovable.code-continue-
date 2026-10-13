@@ -26,7 +26,7 @@ export function ViewRoleProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return null;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === "student" || stored === "teacher" || stored === "admin") {
+      if (stored === "student" || stored === "teacher" || stored === "institution_admin" || stored === "admin") {
         return stored;
       }
     } catch {
@@ -57,6 +57,8 @@ export function ViewRoleProvider({ children }: { children: ReactNode }) {
     effectiveRole = viewRole ?? "admin";
   } else if (realRole === "teacher") {
     effectiveRole = viewRole === "student" ? "student" : "teacher";
+  } else if (realRole === "institution_admin") {
+    effectiveRole = "institution_admin";
   } else if (realRole === "student") {
     effectiveRole = "student";
   } else {

@@ -3,14 +3,15 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect } from "react";
-import { Building2, Download, FileUp, Loader2, RefreshCw, Users, GraduationCap, BookOpenCheck, ClipboardList, UserPlus } from "lucide-react";
+import { Building2, Download, FileUp, Layers, Loader2, Plus, RefreshCw, Tag, Users, GraduationCap, BookOpenCheck, ClipboardList, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
-import { getInstitutionAdminOverview, type InstitutionAdminOverview } from "@/lib/institution-admin.functions";
+import { createInstitutionDepartment, getInstitutionAdminOverview, listInstitutionDepartments, type InstitutionAdminOverview } from "@/lib/institution-admin.functions";
 import { bulkCreateInstitutionStudents, type StudentOnboardingResult } from "@/lib/admin.functions";
 import { csvObjects, downloadCsv, toCsv } from "@/lib/csv";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/_authenticated/institution-admin")({
@@ -39,6 +40,9 @@ function InstitutionAdminConsole() {
   const [csv, setCsv] = useState("");
   const [csvFileName, setCsvFileName] = useState("");
   const [result, setResult] = useState<StudentOnboardingResult | null>(null);
+  const [departmentName, setDepartmentName] = useState("");
+  const [departmentCode, setDepartmentCode] = useState("");
+  const [departmentDescription, setDepartmentDescription] = useState("");
 
   useEffect(() => {
     if (!authLoading && role === "admin") {
@@ -53,6 +57,28 @@ function InstitutionAdminConsole() {
     queryKey: ["institution-admin-overview", role],
     enabled: role === "institution_admin",
     queryFn: () => getOverview(),
+  });
+
+  const getDepartments = useServerFn(listInstitutionDepartments);
+  const departments = useQuery({
+    queryKey: ["institution-admin-departments", role],
+    enabled: role === "institution_admin",
+    queryFn: () => getDepartments(),
+  });
+
+  const createDepartmentAction = useServerFn(createInstitutionDepartment);
+  const createDepartment = useMutation({
+    mutationFn: () => createDepartmentAction({
+      data: { name: departmentName, code: departmentCode, description: departmentDescription },
+    }),
+    onSuccess: async (department) => {
+      setDepartmentName("");
+      setDepartmentCode("");
+      setDepartmentDescription("");
+      toast.success("Department created: " + department.name);
+      await queryClient.invalidateQueries({ queryKey: ["institution-admin-departments"] });
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not create the department."),
   });
 
   const onboard = useServerFn(bulkCreateInstitutionStudents);
@@ -133,6 +159,79 @@ function InstitutionAdminConsole() {
         <Metric icon={ClipboardList} label="Assignments" value={data.assignments} />
         <Metric icon={Users} label="Recorded submissions" value={data.submissions} />
       </div>
+
+      <section className="panel space-y-4 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Departments</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Create and organize departments within {data.institution.name}. Department names and codes are unique within this institution.</p>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
+            <Layers className="size-3.5" /> {departments.data?.length ?? 0} department(s)
+          </div>
+        </div>
+
+        <form
+          className="space-y-3 rounded-lg border border-border/80 bg-muted/10 p-4"
+          onSubmit={(event) => { event.preventDefault(); createDepartment.mutate(); }}
+        >
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+            <div className="space-y-1.5">
+              <label htmlFor="department-name" className="text-sm font-medium">Department name <span className="text-destructive">*</span></label>
+              <Input
+                id="department-name"
+                value={departmentName}
+                onChange={(event) => setDepartmentName(event.target.value)}
+                placeholder="e.g. Robotics & AI"
+                maxLength={120}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="department-code" className="text-sm font-medium">Department code</label>
+              <Input
+                id="department-code"
+                value={departmentCode}
+                onChange={(event) => setDepartmentCode(event.target.value)}
+                placeholder="e.g. RAI"
+                maxLength={40}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="department-description" className="text-sm font-medium">Description <span className="text-muted-foreground">(optional)</span></label>
+            <Textarea
+              id="department-description"
+              value={departmentDescription}
+              onChange={(event) => setDepartmentDescription(event.target.value)}
+              placeholder="What this department covers"
+              rows={2}
+              maxLength={500}
+            />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">Departments are visible only within the institution's own scope.</p>
+            <Button type="submit" disabled={!departmentName.trim() || createDepartment.isPending || !data}>
+              {createDepartment.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Plus className="mr-2 size-4" />}
+              {createDepartment.isPending ? "Creating…" : "Create department"}
+            </Button>
+          </div>
+        </form>
+
+        {departments.isLoading ? <div className="space-y-2"><Skeleton className="h-16 rounded-lg" /><Skeleton className="h-16 rounded-lg" /></div>
+          : departments.isError ? <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{(departments.error as Error).message || "Departments could not be loaded."}</p>
+          : !departments.data?.length ? <p className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">No departments yet. Create the first department above.</p>
+          : <div className="grid gap-3 md:grid-cols-2">
+            {departments.data.map((department) => <article key={department.id} className="flex items-start gap-3 rounded-lg border border-border/80 p-4">
+              <div className="rounded-md bg-primary/10 p-2"><Layers className="size-4 text-primary" /></div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-medium">{department.name}</h3>
+                {department.code && <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground"><Tag className="size-3" />{department.code}</p>}
+                {department.description && <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{department.description}</p>}
+              </div>
+            </article>)}
+          </div>}
+      </section>
 
       <section className="panel space-y-4 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">

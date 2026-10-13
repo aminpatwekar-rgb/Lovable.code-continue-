@@ -94,14 +94,41 @@ function CreateQuizDialog() {
     queryKey: ["teacher-classes-min", user?.id],
     enabled: Boolean(user) && open,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: owned, error: ownedError } = await supabase
         .from("classes")
         .select("id, name, subject")
         .eq("teacher_id", user!.id)
         .eq("archived", false)
         .order("name");
-      if (error) throw error;
-      return data ?? [];
+      if (ownedError) throw ownedError;
+
+      // Include active classes where this user has approved co-teacher membership.
+      const { data: memberships, error: membershipError } = await supabase
+        .from("class_members")
+        .select("class_id")
+        .eq("student_id", user!.id)
+        .eq("member_role", "teacher");
+      if (membershipError) throw membershipError;
+
+      const ownedIds = new Set((owned ?? []).map((c) => c.id));
+      const coTeacherIds = (memberships ?? [])
+        .map((membership) => membership.class_id)
+        .filter((id) => !ownedIds.has(id));
+      let coTeacherClasses: typeof owned = [];
+      if (coTeacherIds.length) {
+        const { data, error } = await supabase
+          .from("classes")
+          .select("id, name, subject")
+          .in("id", coTeacherIds)
+          .eq("archived", false)
+          .order("name");
+        if (error) throw error;
+        coTeacherClasses = data ?? [];
+      }
+
+      return [...(owned ?? []), ...coTeacherClasses].sort((a, b) =>
+        a.name.localeCompare(b.name),
+      );
     },
   });
 

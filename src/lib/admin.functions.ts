@@ -482,6 +482,7 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
       invitePreviouslyFailed = false,
     ): Promise<void> => {
       const userRoles = rolesByUser.get(profile.id) ?? [];
+      const roleChanged = !userRoles.includes(row.role);
       const currentInstitution = String(profile.institution ?? "").trim();
       if (userRoles.includes("admin")) {
         outcomes.push({ line: row.line, email: row.email, status: "skipped", message: "Platform-admin accounts can never be assigned or changed by the institution CSV." });
@@ -538,6 +539,11 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
         outcomes.push({
           line: row.line, email: row.email, status: "invite_failed",
           message: "The account exists and has been attached, but invitation email delivery failed. Check custom SMTP and arrange an invitation resend.",
+        });
+      } else if (roleChanged) {
+        outcomes.push({
+          line: row.line, email: row.email, status: "assigned",
+          message: `Existing account role updated to ${row.role.replace("_", " ")} and attached to the institution; its password was not changed.`,
         });
       } else if (currentInstitution.toLowerCase() === normalizedInstitution) {
         outcomes.push({ line: row.line, email: row.email, status: "already_assigned", message: `This ${row.role.replace("_", " ")} was already assigned to the institution.` });

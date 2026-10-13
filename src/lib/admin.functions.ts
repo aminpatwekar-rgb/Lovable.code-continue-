@@ -394,6 +394,21 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
       if (!inScope) throw new Error("You can only onboard accounts for your own institution.");
     }
 
+    const configuredAppUrl = (process.env["ONYX_APP_URL"] || "https://onyxedu.lovable.app").trim();
+    let trustedOrigin: string;
+    try {
+      trustedOrigin = new URL(configuredAppUrl).origin;
+    } catch {
+      throw new Error("ONYX_APP_URL must be a valid HTTPS application URL.");
+    }
+    const requestedOrigin = new URL(data.redirectTo).origin;
+    const isLocalDevelopmentOrigin =
+      process.env["NODE_ENV"] !== "production" &&
+      (requestedOrigin.startsWith("http://localhost:") || requestedOrigin.startsWith("http://127.0.0.1:"));
+    if (requestedOrigin !== trustedOrigin && !isLocalDevelopmentOrigin) {
+      throw new Error("The invitation redirect is not on the configured ONYX application origin. Set ONYX_APP_URL to the canonical application URL.");
+    }
+
     const inputRows = csvObjects(data.csv);
     if (!inputRows.length) throw new Error("The CSV must contain a header row and at least one roster row.");
     if (inputRows.length > 500) throw new Error("Import up to 500 roster rows per batch.");

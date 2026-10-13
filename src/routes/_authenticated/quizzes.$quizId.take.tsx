@@ -266,45 +266,55 @@ function Page() {
     return () => clearInterval(timer);
   }, [quiz?.time_limit_minutes, attempt, submit]);
 
-  // ---- lockdown -----------------------------------------------------------
+  // ---- lockdown: the first departure from the quiz locks the attempt -----
+  const lockTriggeredRef = useRef(false);
   useEffect(() => {
     if (!quiz?.lockdown_enabled || !attempt || !user) return;
     let awaySince = 0;
 
-    const record = async (kind: string, awayMs: number, lock: boolean) => {
-      await supabase.from("quiz_violations").insert({
+    const record = async (kind: string, awayMs: number) => {
+      const { error } = await supabase.from("quiz_violations").insert({
         attempt_id: attempt.id,
         quiz_id: quizId,
         student_id: user.id,
         kind,
         away_ms: Math.round(awayMs),
-        locked: lock,
+        locked: true,
       });
+      if (error) console.error("Could not record quiz lockdown violation", error);
+    };
+
+    const lockAttempt = async (awayMs: number) => {
+      if (lockTriggeredRef.current) return;
+      lockTriggeredRef.current = true;
+      setWarnings(1);
+      setLocked("You switched away from the quiz. Lockdown was triggered and your attempt has been submitted.");
+      await record("tab_switch", awayMs);
+      // Flush the final answers before the database blocks writes to a locked attempt.
+      await flushSavesRef.current();
+      const { error } = await supabase
+        .from("quiz_attempts")
+        .update({ locked_at: new Date().toISOString(), lock_reason: "Tab switch" })
+        .eq("id", attempt.id)
+        .eq("status", "in_progress")
+        .is("locked_at", null);
+      if (error) {
+        console.error("Could not persist quiz lock", error);
+        toast.error("The quiz lock could not be saved. Please contact your teacher.");
+        return;
+      }
+      void submit("Attempt locked after switching away from the quiz.");
     };
 
     const onVisibility = () => {
       if (document.visibilityState === "hidden") {
-        awaySince = Date.now();
+        if (!awaySince) awaySince = Date.now();
+        void lockAttempt(0);
         return;
       }
       const away = awaySince ? Date.now() - awaySince : 0;
       awaySince = 0;
-      setWarnings((prev) => {
-        const next = prev + 1;
-        const shouldLock = next >= 3;
-        void record("tab_switch", away, shouldLock);
-        if (shouldLock) {
-          setLocked("You left the quiz too many times. The attempt has been locked and submitted.");
-          void supabase
-            .from("quiz_attempts")
-            .update({ locked_at: new Date().toISOString(), lock_reason: "Too many tab switches" })
-            .eq("id", attempt.id)
-            .then(() => submit("Attempt locked after repeated tab switches."));
-        } else {
-          toast.warning(`Stay on this tab — warning ${next} of 3.`);
-        }
-        return next;
-      });
+      if (lockTriggeredRef.current) void record("tab_switch_return", away);
     };
 
     const blockContext = (e: Event) => e.preventDefault();
@@ -423,7 +433,7 @@ function Page() {
       {warnings > 0 && !locked && (
         <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          Leaving this tab is recorded. Warning {warnings} of 3 — the attempt locks after that.
+          Leaving this tab locks and submits the attempt immediately.
         </div>
       )}
 

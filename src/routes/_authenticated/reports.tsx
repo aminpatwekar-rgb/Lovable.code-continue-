@@ -95,6 +95,12 @@ function Page() {
   const visibleTrend = (analyticsData?.trend ?? []).filter((point) =>
     analyticsCutoff === 0 || new Date(point.date).getTime() >= analyticsCutoff
   );
+  const selectedStudentAverage = averageScore(visibleTrend);
+  const selectedClassAverage = averageScore(
+    visibleTrend
+      .filter((point) => point.classAveragePct != null)
+      .map((point) => ({ scorePct: point.classAveragePct! })),
+  );
   const trendSplit = Math.floor(visibleTrend.length / 2);
   const earlyAverage = averageScore(visibleTrend.slice(0, trendSplit));
   const recentAverage = averageScore(visibleTrend.slice(trendSplit));
@@ -122,8 +128,8 @@ function Page() {
     } else {
       teacherInsights.push("Scores are broadly steady across the selected period.");
     }
-    if (analyticsData.classAveragePct != null && analyticsData.overallAveragePct != null) {
-      const gap = Math.round((analyticsData.overallAveragePct - analyticsData.classAveragePct) * 10) / 10;
+    if (selectedClassAverage != null && selectedStudentAverage != null) {
+      const gap = Math.round((selectedStudentAverage - selectedClassAverage) * 10) / 10;
       if (gap <= -8) teacherInsights.push(`The student's average is ${Math.abs(gap).toFixed(1)} points below the class average. Consider a focused check-in on the topics covered by lower-scoring assessments.`);
       else if (gap >= 8) teacherInsights.push(`The student's average is ${gap.toFixed(1)} points above the class average; review whether additional challenge would be useful.`);
       else teacherInsights.push("Overall performance is close to the class average.");
@@ -254,8 +260,8 @@ function Page() {
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-lg border border-border p-4">
                 <p className="text-xs text-muted-foreground">Overall assessment average</p>
-                <p className="mt-1 text-2xl font-semibold">{analyticsData.overallAveragePct == null ? "—" : `${analyticsData.overallAveragePct.toFixed(1)}%`}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{analyticsData.trend.length} scored assessment(s)</p>
+                <p className="mt-1 text-2xl font-semibold">{selectedStudentAverage == null ? "—" : `${selectedStudentAverage.toFixed(1)}%`}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{visibleTrend.length} scored assessment(s) in this period</p>
               </div>
               <div className="rounded-lg border border-border p-4">
                 <p className="text-xs text-muted-foreground">Improvement in selected period</p>
@@ -264,7 +270,7 @@ function Page() {
               </div>
               <div className="rounded-lg border border-border p-4">
                 <p className="text-xs text-muted-foreground">Difference from class average</p>
-                <p className="mt-1 text-2xl font-semibold">{analyticsData.overallAveragePct == null || analyticsData.classAveragePct == null ? "—" : `${analyticsData.overallAveragePct - analyticsData.classAveragePct > 0 ? "+" : ""}${(analyticsData.overallAveragePct - analyticsData.classAveragePct).toFixed(1)} pp`}</p>
+                <p className="mt-1 text-2xl font-semibold">{selectedStudentAverage == null || selectedClassAverage == null ? "—" : `${selectedStudentAverage - selectedClassAverage > 0 ? "+" : ""}${(selectedStudentAverage - selectedClassAverage).toFixed(1)} pp`}</p>
                 <p className="mt-1 text-xs text-muted-foreground">Student average minus class average</p>
               </div>
               <div className="rounded-lg border border-border p-4">
@@ -286,7 +292,7 @@ function Page() {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="label" interval={0} angle={-28} textAnchor="end" height={74} tick={{ fontSize: 10 }} />
                       <YAxis domain={[0, 100]} tickFormatter={(value: number) => `${value}%`} width={42} />
-                      <Tooltip />
+                      <Tooltip formatter={(value) => `${Number(value).toFixed(1)}%`} />
                       <Legend />
                       <Line type="monotone" dataKey="scorePct" name="Student score" stroke="#6d5efc" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
                       <Line type="monotone" dataKey="classAveragePct" name="Class average" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} connectNulls />
@@ -306,7 +312,7 @@ function Page() {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="label" interval={0} angle={-32} textAnchor="end" height={76} tick={{ fontSize: 9 }} />
                       <YAxis domain={[0, 100]} tickFormatter={(value: number) => `${value}%`} width={42} />
-                      <Tooltip />
+                      <Tooltip formatter={(value) => `${Number(value).toFixed(1)}%`} />
                       <Legend />
                       <Bar dataKey="scorePct" name="Student score" fill="#6d5efc" radius={[4, 4, 0, 0]} />
                       <Bar dataKey="classAveragePct" name="Class average" fill="#94a3b8" radius={[4, 4, 0, 0]} />
@@ -326,7 +332,7 @@ function Page() {
                       <Pie data={assignmentStatusData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={82} paddingAngle={3}>
                         {assignmentStatusData.map((item) => <Cell key={item.name} fill={item.fill} />)}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip formatter={(value) => `${Number(value).toFixed(1)}%`} />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>

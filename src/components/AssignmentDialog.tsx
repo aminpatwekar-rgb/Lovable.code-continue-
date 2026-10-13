@@ -25,6 +25,13 @@ import {
 
 const db = supabase as any;
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_EXTENSIONS = new Set([
+  "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "csv", "txt", "jpg", "jpeg", "png", "zip",
+]);
+
+function fileExtension(file: File) {
+  return file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
+}
 
 export type AssignmentDraft = {
   id: string;
@@ -121,15 +128,26 @@ export function AssignmentDialog({
   const save = useMutation({
     mutationFn: async (publish: boolean) => {
       if (!title.trim()) throw new Error("Title is required");
+      if (!editing && !rubricId) {
+        // Rubrics are optional for assignments; teachers can grade without one.
+        setRubricId("");
+      }
+      if (due && !Number.isFinite(new Date(due).getTime())) {
+        throw new Error("Enter a valid due date and time.");
+      }
       for (const file of attachmentFiles) {
         if (file.size > MAX_UPLOAD_BYTES) {
           throw new Error(`${file.name} is larger than the 50 MB per-file limit`);
         }
+        if (!ALLOWED_ATTACHMENT_EXTENSIONS.has(fileExtension(file))) {
+          throw new Error(`Unsupported file type: ${file.name}. Use PDF, Office documents, CSV, TXT, images or ZIP.`);
+        }
       }
-      if (!editing && !rubricId) throw new Error("A rubric is required when creating an assignment");
+
       const marks = Number(maxMarks);
-      if (!Number.isFinite(marks) || marks <= 0 || marks > 1000)
+      if (!Number.isFinite(marks) || marks <= 0 || marks > 1000) {
         throw new Error("Max marks must be between 1 and 1000");
+      }
       const payload = {
         title: title.trim().slice(0, 160),
         subject: subject.trim() || null,
@@ -144,35 +162,104 @@ export function AssignmentDialog({
         rubric_id: rubricId || null,
         published: publish,
       };
-      let id: string;
-      if (assignment) {
-        const { error } = await db.from("assignments").update(payload).eq("id", assignment.id);
+
+      let id = assignment?.id ?? null;
+      let createdInThisSave = false;
+      const uploadedPaths: string[] = [];
+      const attachmentRowIds: string[] = [];
+
+      // A new assignment is staged as a draft while attachments are uploaded.
+      // If any upload step fails, remove the staged row and all files from this attempt.
+      if (!id) {
+        const { data, error } = await db
+          .from("assignments")
+          .insert({
+            ...payload,
+            class_id: classId,
+            teacher_id: teacherId,
+            published: attachmentFiles.length ? false : publish,
+          })
+          .select("id")
+          .single();
         if (error) throw error;
-        id = assignment.id;
-      } else {
-        const { data, error } = await db.from("assignments").insert({ ...payload, class_id: classId, teacher_id: teacherId }).select("id").single();
-        if (error) throw error;
-        id = data.id;
+        id = data.id as string;
+        createdInThisSave = true;
       }
-      if (attachmentFiles.length) {
-        setUploadingAttachments(true);
-        try {
-          const allowed = new Set(["application/pdf","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.ms-powerpoint","application/vnd.openxmlformats-officedocument.presentationml.presentation","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","image/jpeg","image/png","application/zip"]);
+
+      try {
+        if (attachmentFiles.length) {
+          setUploadingAttachments(true);
           for (const file of attachmentFiles) {
-            if (!allowed.has(file.type)) throw new Error(`Unsupported file type: ${file.name}`);
-            if (file.size > MAX_UPLOAD_BYTES) throw new Error(`${file.name} is larger than the 50 MB per-file limit`);
-            const quota = await db.rpc("assert_storage_available", { _additional_bytes: file.size });
+            const quota = await db.rpc("assert_storage_available", {
+              _additional_bytes: file.size,
+            });
             if (quota.error) throw quota.error;
-            const ext = file.name.includes(".") ? file.name.split(".").pop() : "bin";
-            const path = `${id}/${crypto.randomUUID()}.${ext}`;
-            const { data: row, error: rowError } = await db.from("assignment_attachments").insert({ assignment_id: id, storage_path: path, file_name: file.name.slice(0, 160), mime_type: file.type || "application/octet-stream", size_bytes: file.size }).select("id").single();
+
+            const extension = fileExtension(file);
+            const path = `${id}/${crypto.randomUUID()}.${extension || "bin"}`;
+            const { error: uploadError } = await supabase.storage
+              .from("assignment-attachments")
+              .upload(path, file, {
+                contentType: file.type || "application/octet-stream",
+                upsert: false,
+              });
+            if (uploadError) throw uploadError;
+            uploadedPaths.push(path);
+
+            const { data: row, error: rowError } = await db
+              .from("assignment_attachments")
+              .insert({
+                assignment_id: id,
+                storage_path: path,
+                file_name: file.name.slice(0, 160),
+                mime_type: file.type || "application/octet-stream",
+                size_bytes: file.size,
+              })
+              .select("id")
+              .single();
             if (rowError) throw rowError;
-            const { error: uploadError } = await supabase.storage.from("assignment-attachments").upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
-            if (uploadError) { await db.from("assignment_attachments").delete().eq("id", row.id); throw uploadError; }
+            attachmentRowIds.push(row.id as string);
           }
-        } finally { setUploadingAttachments(false); }
+        }
+
+        // For edits, don't persist the new deadline/settings until every new file
+        // has uploaded. For new assignments with files, publish only at the end.
+        if (assignment || attachmentFiles.length) {
+          const { error } = await db
+            .from("assignments")
+            .update(payload)
+            .eq("id", id);
+          if (error) throw error;
+        }
+      } catch (error) {
+        // Best-effort compensation so a failed multi-file upload never leaves
+        // orphaned metadata or storage objects from this save attempt.
+        if (attachmentRowIds.length) {
+          const { error: metadataCleanupError } = await db
+            .from("assignment_attachments")
+            .delete()
+            .in("id", attachmentRowIds);
+          if (metadataCleanupError) console.error("Failed to clean attachment metadata", metadataCleanupError);
+        }
+        if (uploadedPaths.length) {
+          const { error: storageCleanupError } = await supabase.storage
+            .from("assignment-attachments")
+            .remove(uploadedPaths);
+          if (storageCleanupError) console.error("Failed to clean uploaded assignment files", storageCleanupError);
+        }
+        if (createdInThisSave && id) {
+          const { error: assignmentCleanupError } = await db
+            .from("assignments")
+            .delete()
+            .eq("id", id);
+          if (assignmentCleanupError) console.error("Failed to clean staged assignment", assignmentCleanupError);
+        }
+        throw error;
+      } finally {
+        setUploadingAttachments(false);
       }
-      return id;
+
+      return id as string;
     },
     onSuccess: (id) => {
       toast.success(editing ? "Assignment updated" : "Assignment created");
@@ -288,7 +375,7 @@ export function AssignmentDialog({
             <div className="flex items-center justify-between gap-3">
               <div><Label>Attachments</Label><p className="text-xs text-muted-foreground">PDF, Word, PowerPoint, Excel, images or ZIP · max 50MB each</p></div>
               <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById("assignment-attachments-input")?.click()} disabled={uploadingAttachments}><Paperclip className="mr-1.5 size-4" /> Add files</Button>
-              <input id="assignment-attachments-input" type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.zip" className="hidden" onChange={(e) => setAttachmentFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])])} />
+              <input id="assignment-attachments-input" type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.jpg,.jpeg,.png,.zip" className="hidden" onChange={(e) => setAttachmentFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])])} />
             </div>
             {(existingAttachments.length > 0 || attachmentFiles.length > 0) && <div className="space-y-1.5">
               {existingAttachments.map((file) => <div key={file.id} className="flex items-center gap-2 rounded-md bg-muted/40 px-2.5 py-2 text-sm"><Paperclip className="size-4 shrink-0 text-muted-foreground" /><span className="min-w-0 flex-1 truncate">{file.file_name}</span><button type="button" className="text-muted-foreground hover:text-destructive" aria-label={`Remove ${file.file_name}`} onClick={async () => { const { error } = await db.from("assignment_attachments").delete().eq("id", file.id); if (!error) { await supabase.storage.from("assignment-attachments").remove([file.storage_path]); setExistingAttachments((prev) => prev.filter((x) => x.id !== file.id)); } else toast.error(error.message); }}><X className="size-4" /></button></div>)}
@@ -325,7 +412,7 @@ export function AssignmentDialog({
             {save.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
             {editing ? "Save as draft" : "Save draft"}
           </Button>
-          <Button onClick={() => save.mutate(true)} disabled={save.isPending}>
+          <Button onClick={() => save.mutate(true)} disabled={save.isPending || uploadingAttachments}>
             {save.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
             {editing ? "Save & publish" : "Publish"}
           </Button>

@@ -160,6 +160,7 @@ export const getStudentProgressAnalytics = createServerFn({ method: "POST" })
     const assignmentRows = assignments ?? [];
     const quizRows = quizzes ?? [];
     const rosterIds = [...new Set((classRoster ?? []).map((row) => row.student_id))];
+    const rosterIdSet = new Set(rosterIds);
     const assignmentIds = assignmentRows.map((row) => row.id);
     const quizIds = quizRows.map((row) => row.id);
 
@@ -204,7 +205,7 @@ export const getStudentProgressAnalytics = createServerFn({ method: "POST" })
       const maximum = assignment.max_marks;
       const byStudent = new Map<string, (typeof submissionRows)[number]>();
       for (const row of submissionRows) {
-        if (row.assignment_id !== assignment.id || row.marks_awarded == null) continue;
+        if (row.assignment_id !== assignment.id || row.marks_awarded == null || !rosterIdSet.has(row.student_id)) continue;
         const current = byStudent.get(row.student_id);
         const currentDate = new Date(current?.reviewed_at ?? current?.submitted_at ?? 0).getTime();
         const rowDate = new Date(row.reviewed_at ?? row.submitted_at ?? 0).getTime();
@@ -236,7 +237,7 @@ export const getStudentProgressAnalytics = createServerFn({ method: "POST" })
     let quizzesGraded = 0;
 
     for (const quiz of quizRows) {
-      const quizAttempts = attemptData.filter((row) => row.quiz_id === quiz.id);
+      const quizAttempts = attemptData.filter((row) => row.quiz_id === quiz.id && rosterIdSet.has(row.student_id));
       const bestByStudent = bestAttemptPerStudent(quizAttempts);
       const classScores = [...bestByStudent.values()]
         .map((row) => percent(row.score, row.max_score))

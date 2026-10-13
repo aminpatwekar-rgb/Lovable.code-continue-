@@ -1,8 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-3.5-flash";
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const MODEL = "gemini-3.8-flash";
 type Input = { description: string; totalPoints?: number; levelCount?: number };
 
 function validate(input: Input): Input {
@@ -24,8 +24,8 @@ export const generateRubricWithAI = createServerFn({ method: "POST" })
       throw new Error("Only teachers and admins can generate rubrics.");
     }
 
-    const key = process.env["LOVABLE_API_KEY"];
-    if (!key) throw new Error("AI is not configured for this workspace.");
+    const key = process.env["GEMINI_API_KEY"];
+    if (!key) throw new Error("Gemini AI is not configured. Add GEMINI_API_KEY to the server secrets.");
     const total = data.totalPoints ?? 100;
     const levelCount = data.levelCount ?? 4;
     const prompt = [
@@ -41,7 +41,7 @@ export const generateRubricWithAI = createServerFn({ method: "POST" })
     const timer = setTimeout(() => controller.abort(), 90000);
     let response: Response;
     try {
-      response = await fetch(GATEWAY, { method: "POST", signal: controller.signal, headers: { "content-type": "application/json", authorization: "Bearer " + key }, body: JSON.stringify({ model: MODEL, messages: [{ role: "system", content: "You are an expert educator and assessment designer. Generate valid, practical rubrics and reply with JSON only." }, { role: "user", content: prompt }], response_format: { type: "json_object" } }) });
+      response = await fetch(`${GEMINI_API_BASE}/${encodeURIComponent(MODEL)}:generateContent`, { method: "POST", signal: controller.signal, headers: { "content-type": "application/json", "x-goog-api-key": key }, body: JSON.stringify({ systemInstruction: { parts: [{ text: "You are an expert educator and assessment designer. Generate valid, practical rubrics and reply with JSON only." }] }, contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } }) });
     } catch (error) {
       if ((error as Error)?.name === "AbortError") throw new Error("Rubric generation took too long. Try a shorter description.");
       throw new Error("Could not reach the AI service. Check your connection and try again.");
@@ -50,8 +50,8 @@ export const generateRubricWithAI = createServerFn({ method: "POST" })
     if (response.status === 402) throw new Error("AI credits are exhausted. Add credits in your workspace billing settings.");
     if (response.status === 401 || response.status === 403) throw new Error("The AI credentials were rejected. Contact your administrator.");
     if (!response.ok) throw new Error("Rubric generation failed (" + response.status + "). Please try again.");
-    const payload = await response.json() as { choices?: { message?: { content?: string } }[] };
-    let raw = payload.choices?.[0]?.message?.content ?? "";
+    const payload = await response.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+    let raw = payload.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
     const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (fence) raw = fence[1]!.trim();
     const start = raw.indexOf("{"); const end = raw.lastIndexOf("}");

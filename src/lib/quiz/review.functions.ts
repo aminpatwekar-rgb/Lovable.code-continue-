@@ -10,6 +10,8 @@ export type QuizReviewAttempt = {
   max_score: number | null;
   submitted_at: string | null;
   started_at: string;
+  locked_at: string | null;
+  lock_reason?: string | null;
 };
 
 export type QuizReviewResult = {
@@ -65,7 +67,7 @@ export const getQuizReviewAttempts = createServerFn({ method: "GET" })
     const { data: attempts, error: attemptsError } = await supabaseAdmin
       .from("quiz_attempts")
       .select(
-        "id, student_id, attempt_no, status, score, max_score, submitted_at, started_at",
+        "id, student_id, attempt_no, status, score, max_score, submitted_at, started_at, locked_at, lock_reason",
       )
       .eq("quiz_id", data.quizId)
       .order("submitted_at", { ascending: false, nullsFirst: false });
@@ -97,11 +99,77 @@ export const getQuizReviewAttempts = createServerFn({ method: "GET" })
         max_score: a.max_score == null ? null : Number(a.max_score),
         submitted_at: a.submitted_at,
         started_at: a.started_at,
+        locked_at: a.locked_at,
+        lock_reason: a.lock_reason,
       })),
       names,
     } satisfies QuizReviewResult;
   });
 
+
+/**
+ * Grant a teacher-authorized fresh attempt for a student whose lockdown attempt
+ * was recorded as locked. Uses the service role only after verifying quiz access.
+ */
+export const grantLockedQuizRetry = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { quizId: string; studentId: string }) => {
+    if (!input?.quizId || !input?.studentId) throw new Error("Quiz and student are required.");
+    return { quizId: input.quizId, studentId: input.studentId };
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: quiz, error: quizError } = await supabaseAdmin
+      .from("quizzes")
+      .select("id, teacher_id, class_id")
+      .eq("id", data.quizId)
+      .maybeSingle();
+    if (quizError) throw new Error(quizError.message);
+    if (!quiz) throw new Error("Quiz not found.");
+
+    const { data: adminRole, error: roleError } = await supabase
+      .from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle();
+    if (roleError) throw new Error(roleError.message);
+    if (quiz.teacher_id !== userId && !adminRole) {
+      const { data: coTeacher, error: coTeacherError } = await supabaseAdmin
+        .from("class_members").select("student_id").eq("class_id", quiz.class_id)
+        .eq("student_id", userId).eq("member_role", "teacher").maybeSingle();
+      if (coTeacherError) throw new Error(coTeacherError.message);
+      if (!coTeacher) throw new Error("You are not allowed to grant a retry for this quiz.");
+    }
+
+    const { data: lockedAttempt, error: lockedError } = await supabaseAdmin
+      .from("quiz_attempts").select("id")
+      .eq("quiz_id", data.quizId).eq("student_id", data.studentId)
+      .not("locked_at", "is", null).order("attempt_no", { ascending: false }).limit(1).maybeSingle();
+    if (lockedError) throw new Error(lockedError.message);
+    if (!lockedAttempt) throw new Error("No locked attempt was found for this student.");
+
+    const [{ data: questions, error: questionsError }, { count, error: countError }] = await Promise.all([
+      supabaseAdmin.from("quiz_questions").select("id").eq("quiz_id", data.quizId).order("position"),
+      supabaseAdmin.from("quiz_attempts").select("id", { count: "exact", head: true })
+        .eq("quiz_id", data.quizId).eq("student_id", data.studentId),
+    ]);
+    if (questionsError) throw new Error(questionsError.message);
+    if (countError) throw new Error(countError.message);
+    if (!questions?.length) throw new Error("This quiz has no questions.");
+
+    const { data: created, error: createError } = await supabaseAdmin
+      .from("quiz_attempts")
+      .insert({
+        quiz_id: data.quizId,
+        student_id: data.studentId,
+        attempt_no: (count ?? 0) + 1,
+        question_order: questions.map((question) => question.id),
+        status: "in_progress",
+        started_at: new Date().toISOString(),
+      })
+      .select("id, attempt_no")
+      .single();
+    if (createError) throw new Error(createError.message);
+    return { attemptId: created.id, attemptNo: created.attempt_no };
+  });
 
 export type QuizReviewAnswer = {
   id: string | null;

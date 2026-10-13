@@ -22,7 +22,7 @@ const db = supabase as any;
 type InstitutionRow = { id: string; name: string; code: string | null; city: string | null; created_at: string };
 type InstitutionPerson = {
   id: string; full_name: string; email: string; institution: string | null;
-  is_active: boolean; role: "student" | "teacher" | "admin" | "unknown";
+  is_active: boolean; role: "student" | "teacher" | "institution_admin" | "admin" | "unknown";
 };
 type RosterResult = { assigned: number; skipped: number; skippedRows: { email: string; reason: string }[] };
 
@@ -82,6 +82,7 @@ export function InstitutionManager() {
       return (profiles ?? []).map((profile: any) => {
         const userRoles = rolesById.get(profile.id) ?? [];
         const resolved: InstitutionPerson["role"] = userRoles.includes("admin") ? "admin"
+          : userRoles.includes("institution_admin") ? "institution_admin"
           : userRoles.includes("teacher") ? "teacher"
           : userRoles.includes("student") ? "student" : "unknown";
         return {
@@ -229,7 +230,7 @@ export function InstitutionManager() {
     const institutionName = activeInstitution.name.trim().toLowerCase();
     return (people.data ?? []).filter((person) =>
       person.institution?.toLowerCase() === institutionName &&
-      (person.role === "student" || person.role === "teacher"),
+      (person.role === "student" || person.role === "teacher" || person.role === "institution_admin"),
     );
   }, [activeInstitution, people.data]);
 
@@ -237,7 +238,7 @@ export function InstitutionManager() {
     const currentIds = new Set(currentMembers.map((person) => person.id));
     const query = personSearch.trim().toLowerCase();
     return (people.data ?? []).filter((person) => {
-      if (person.role !== "student" && person.role !== "teacher") return false;
+      if (person.role !== "student" && person.role !== "teacher" && person.role !== "institution_admin") return false;
       if (!person.is_active || currentIds.has(person.id)) return false;
       return !query || person.full_name.toLowerCase().includes(query) || person.email.toLowerCase().includes(query);
     });
@@ -298,7 +299,7 @@ export function InstitutionManager() {
           <thead className="border-b border-border bg-muted/30 text-left text-xs uppercase tracking-wide text-muted-foreground"><tr>
             <th className="p-3 font-medium">Institution</th><th className="p-3 font-medium">Code</th><th className="p-3 font-medium">City</th><th className="p-3 font-medium">Members</th><th className="p-3 font-medium">Created</th><th className="p-3 text-right font-medium">Actions</th>
           </tr></thead><tbody className="divide-y divide-border">{institutions.data.map((institution) => {
-            const count = (people.data ?? []).filter((person) => person.institution?.toLowerCase() === institution.name.trim().toLowerCase() && (person.role === "student" || person.role === "teacher")).length;
+            const count = (people.data ?? []).filter((person) => person.institution?.toLowerCase() === institution.name.trim().toLowerCase() && (person.role === "student" || person.role === "teacher" || person.role === "institution_admin")).length;
             return <tr key={institution.id} className={activeInstitutionId === institution.id ? "bg-muted/40" : "hover:bg-muted/30"}>
               <td className="p-3 font-medium">{institution.name}</td><td className="p-3 text-muted-foreground">{institution.code || "—"}</td>
               <td className="p-3 text-muted-foreground">{institution.city || "—"}</td><td className="p-3 tabular-nums">{count}</td>
@@ -376,11 +377,18 @@ export function InstitutionManager() {
               <h5 className="text-sm font-semibold">Bulk student account onboarding</h5>
               <Button type="button" size="sm" variant="outline" onClick={() => downloadCsv(
                 "onyx-student-onboarding-template.csv",
-                toCsv(["full_name", "email"], [["Aarav Sharma", "aarav@example.edu"], ["Student Two", "student2@example.edu"]]),
+                toCsv(
+                  ["full_name", "email", "role"],
+                  [
+                    ["Aarav Sharma", "aarav@example.edu", "student"],
+                    ["Dr. Asha Mehta", "asha@college.edu", "teacher"],
+                    ["Campus Administrator", "admin.office@college.edu", "institution_admin"],
+                  ],
+                ),
               )}><Download className="mr-2 size-4" />Download CSV template</Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Upload up to 500 students with <code>full_name,email</code>. ONYX creates missing student accounts, assigns the Student role, links them to this institution, and emails an invitation to set their own password. Existing student accounts are added if they are not affiliated elsewhere. Passwords are never collected or shown.
+              Upload up to 500 people with <code>full_name,email,role</code>. Use <code>student</code>, <code>teacher</code>, or <code>institution_admin</code>. ONYX creates missing accounts, assigns the selected role, links the account to this institution, and emails an invitation to set their own password. Existing accounts are linked only when their role matches and they are not affiliated elsewhere. Passwords are never collected or shown.
             </p>
             <p className="rounded-md border border-border bg-background p-3 text-xs text-muted-foreground">
               <strong>Email setup required for mass imports:</strong> Supabase's built-in email sender is limited to 2 emails per hour and team-authorized addresses. Configure custom SMTP before inviting a full student cohort, and allow your ONYX <code>/reset-password</code> URL in Supabase Auth URL Configuration. <a className="underline underline-offset-2" href="https://supabase.com/docs/guides/auth/auth-smtp" target="_blank" rel="noreferrer">SMTP setup guide</a>.
@@ -400,11 +408,11 @@ export function InstitutionManager() {
               value={csv}
               onChange={(event) => { setCsv(event.target.value); setCsvFileName(""); setStudentOnboardingResult(null); }}
               rows={5}
-              placeholder={"full_name,email\nAarav Sharma,aarav@college.edu\nStudent Two,student2@college.edu"}
+              placeholder={"full_name,email,role\nAarav Sharma,aarav@college.edu,student\nDr. Asha Mehta,asha@college.edu,teacher\nCampus Administrator,admin.office@college.edu,institution_admin"}
               aria-label="Bulk student account onboarding CSV"
             />
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs text-muted-foreground">{csvRowCount} student row(s) detected · Required columns: full_name, email</p>
+              <p className="text-xs text-muted-foreground">{csvRowCount} student row(s) detected · Required columns: full_name, email, role</p>
               <Button
                 type="button"
                 size="sm"

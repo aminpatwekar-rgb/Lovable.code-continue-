@@ -121,7 +121,7 @@ export function AssignmentGradePanel({
       const [filesResult, violationsResult] = await Promise.all([
         supabase
           .from("submission_files")
-          .select("id, storage_path, file_name, kind, caption, page_order")
+          .select("id, storage_path, file_name, mime_type, kind, caption, page_order")
           .eq("submission_id", submissionId)
           .order("page_order", { ascending: true }),
         supabase

@@ -292,71 +292,82 @@ function Page() {
     staleTime: 15_000,
   });
 
-  const save = useMutation({
-    mutationFn: async () => {
-      if (!settings) return;
-      validateAnswerKeys(questions);
-      const { error } = await supabase
-        .from("quizzes")
+  async function persistQuizDraft() {
+    if (!settings) throw new Error("Quiz settings are still loading.");
+    if (!settings.title.trim()) throw new Error("Quiz title is required.");
+    if (
+      settings.start_at &&
+      settings.end_at &&
+      new Date(settings.start_at).getTime() >= new Date(settings.end_at).getTime()
+    ) {
+      throw new Error("The closing time must be later than the opening time.");
+    }
+    validateAnswerKeys(questions);
+
+    const { error } = await supabase
+      .from("quizzes")
+      .update({
+        title: settings.title.trim(),
+        description: settings.description.trim() || null,
+        kind: settings.kind,
+        time_limit_minutes: settings.time_limit_minutes,
+        max_attempts: settings.max_attempts,
+        passing_marks: settings.passing_marks,
+        lockdown_enabled: settings.lockdown_enabled,
+        randomize_questions: settings.randomize_questions,
+        randomize_choices: settings.randomize_choices,
+        show_results: settings.show_results,
+        start_at: settings.start_at,
+        end_at: settings.end_at,
+      })
+      .eq("id", quizId);
+    if (error) throw error;
+
+    if (removed.length) {
+      const { error: delErr } = await supabase.from("quiz_questions").delete().in("id", removed);
+      if (delErr) throw delErr;
+    }
+
+    const existing = questions.filter((q) => !q.id.startsWith("draft-"));
+    const fresh = questions.filter((q) => q.id.startsWith("draft-"));
+
+    for (const q of existing) {
+      const { error: upErr } = await supabase
+        .from("quiz_questions")
         .update({
-          title: settings.title.trim(),
-          description: settings.description.trim() || null,
-          kind: settings.kind,
-          time_limit_minutes: settings.time_limit_minutes,
-          max_attempts: settings.max_attempts,
-          passing_marks: settings.passing_marks,
-          lockdown_enabled: settings.lockdown_enabled,
-          randomize_questions: settings.randomize_questions,
-          randomize_choices: settings.randomize_choices,
-          show_results: settings.show_results,
-          start_at: settings.start_at,
-          end_at: settings.end_at,
+          type: q.type,
+          difficulty: q.difficulty,
+          prompt: q.prompt.trim(),
+          options: q.options,
+          correct: q.correct,
+          explanation: q.explanation.trim() || null,
+          points: q.points,
+          position: questions.indexOf(q),
         })
-        .eq("id", quizId);
-      if (error) throw error;
+        .eq("id", q.id);
+      if (upErr) throw upErr;
+    }
 
-      if (removed.length) {
-        const { error: delErr } = await supabase.from("quiz_questions").delete().in("id", removed);
-        if (delErr) throw delErr;
-      }
+    if (fresh.length) {
+      const { error: insErr } = await supabase.from("quiz_questions").insert(
+        fresh.map((q) => ({
+          quiz_id: quizId,
+          type: q.type,
+          difficulty: q.difficulty,
+          prompt: q.prompt.trim(),
+          options: q.options,
+          correct: q.correct,
+          explanation: q.explanation.trim() || null,
+          points: q.points,
+          position: questions.indexOf(q),
+        })),
+      );
+      if (insErr) throw insErr;
+    }
+  }
 
-      const existing = questions.filter((q) => !q.id.startsWith("draft-"));
-      const fresh = questions.filter((q) => q.id.startsWith("draft-"));
-
-      for (const q of existing) {
-        const { error: upErr } = await supabase
-          .from("quiz_questions")
-          .update({
-            type: q.type,
-            difficulty: q.difficulty,
-            prompt: q.prompt.trim(),
-            options: q.options,
-            correct: q.correct,
-            explanation: q.explanation.trim() || null,
-            points: q.points,
-            position: questions.indexOf(q),
-          })
-          .eq("id", q.id);
-        if (upErr) throw upErr;
-      }
-
-      if (fresh.length) {
-        const { error: insErr } = await supabase.from("quiz_questions").insert(
-          fresh.map((q) => ({
-            quiz_id: quizId,
-            type: q.type,
-            difficulty: q.difficulty,
-            prompt: q.prompt.trim(),
-            options: q.options,
-            correct: q.correct,
-            explanation: q.explanation.trim() || null,
-            points: q.points,
-            position: questions.indexOf(q),
-          })),
-        );
-        if (insErr) throw insErr;
-      }
-    },
+  const save = useMutation({
+    mutationFn: persistQuizDraft,
     onSuccess: async () => {
       setRemoved([]);
       toast.success("Quiz saved");
@@ -369,15 +380,19 @@ function Page() {
 
   const publish = useMutation({
     mutationFn: async (published: boolean) => {
-      if (published) validateAnswerKeys(questions);
+      // Publishing is also a save action: settings, deadlines, and question edits must reach
+      // the database successfully before students can see the quiz.
+      if (published) await persistQuizDraft();
       const { error } = await supabase.from("quizzes").update({ published }).eq("id", quizId);
       if (error) throw error;
       return published;
     },
     onSuccess: async (published) => {
+      setRemoved([]);
       toast.success(published ? "Quiz published" : "Quiz unpublished");
       await qc.invalidateQueries({ queryKey: ["quiz-edit", quizId] });
       await qc.invalidateQueries({ queryKey: ["teacher-quizzes"] });
+      if (published) setSettings(null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -532,7 +547,7 @@ function Page() {
           </Button>
           <Button
             variant={published ? "ghost" : "secondary"}
-            disabled={publish.isPending || (!published && questions.length === 0)}
+            disabled={publish.isPending || save.isPending || aiGenerate.isPending || (!published && questions.length === 0) || !settings.title.trim()}
             onClick={() => publish.mutate(!published)}
           >
             {published ? "Unpublish" : "Publish"}

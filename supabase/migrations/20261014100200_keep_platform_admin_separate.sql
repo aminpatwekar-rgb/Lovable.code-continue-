@@ -21,8 +21,8 @@ BEGIN
   END IF;
 
   IF _role = 'admin'
-     AND NOT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = 'admin') THEN
-    RAISE EXCEPTION 'Only the existing platform administrator may hold platform-wide admin access. Use institution_admin for institution-level access.';
+     AND EXISTS (SELECT 1 FROM public.user_roles WHERE role = 'admin' AND user_id <> _user_id) THEN
+    RAISE EXCEPTION 'Only one platform administrator is allowed. Use institution_admin for institution-level access.';
   END IF;
 
   -- Never remove the last platform administrator.

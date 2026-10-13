@@ -128,7 +128,7 @@ function Page() {
 
       {!target ? <div className="panel p-8 text-center text-sm text-muted-foreground">Select a class to generate a report.</div>
         : report.isLoading ? <div className="panel p-8">Generating report…</div>
-        : report.isError ? <div className="panel p-5 text-sm text-destructive">Progress report couldn't be loaded. Please retry.</div>
+        : report.isError ? <div className="panel flex flex-wrap items-center justify-between gap-3 p-5 text-sm"><p role="alert" className="text-destructive">Progress report couldn't be loaded. Please retry.</p><Button size="sm" variant="outline" onClick={() => void report.refetch()} disabled={report.isFetching}>{report.isFetching ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}Retry report</Button></div>
         : <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Object.entries(report.data ?? {}).map(([key, value]) => <div className="panel p-5" key={key}>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">{key.replaceAll("_", " ")}</p>

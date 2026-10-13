@@ -297,7 +297,7 @@ export const assignInstitutionMembers = createServerFn({ method: "POST" })
       const email = String(profile.email ?? profile.id);
       const userRoles = rolesByUser.get(profile.id) ?? [];
       if (userRoles.includes("admin")) skippedRows.push({ email, reason: "Platform-admin accounts cannot be roster members." });
-      else if (!userRoles.includes("student") && !userRoles.includes("teacher")) skippedRows.push({ email, reason: "Account must already have the student or teacher role." });
+      else if (!userRoles.includes("student") && !userRoles.includes("teacher") && !userRoles.includes("institution_admin")) skippedRows.push({ email, reason: "Account must already have the student, teacher, or institution-admin role." });
       else if (profile.is_active === false) skippedRows.push({ email, reason: "Account is suspended. Reactivate it before assigning it." });
       else if (String(profile.institution ?? "").trim().toLowerCase() === institution.name.trim().toLowerCase()) skippedRows.push({ email, reason: "Already assigned to this institution." });
       else eligibleIds.push(profile.id);

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 
 const db = supabase as any;
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 export type AssignmentDraft = {
   id: string;
@@ -120,6 +121,11 @@ export function AssignmentDialog({
   const save = useMutation({
     mutationFn: async (publish: boolean) => {
       if (!title.trim()) throw new Error("Title is required");
+      for (const file of attachmentFiles) {
+        if (file.size > MAX_UPLOAD_BYTES) {
+          throw new Error(`${file.name} is larger than the 50 MB per-file limit`);
+        }
+      }
       if (!editing && !rubricId) throw new Error("A rubric is required when creating an assignment");
       const marks = Number(maxMarks);
       if (!Number.isFinite(marks) || marks <= 0 || marks > 1000)
@@ -154,7 +160,7 @@ export function AssignmentDialog({
           const allowed = new Set(["application/pdf","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.ms-powerpoint","application/vnd.openxmlformats-officedocument.presentationml.presentation","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","image/jpeg","image/png","application/zip"]);
           for (const file of attachmentFiles) {
             if (!allowed.has(file.type)) throw new Error(`Unsupported file type: ${file.name}`);
-            if (file.size > 25 * 1024 * 1024) throw new Error(`${file.name} is larger than 25MB`);
+            if (file.size > MAX_UPLOAD_BYTES) throw new Error(`${file.name} is larger than the 50 MB per-file limit`);
             const quota = await db.rpc("assert_storage_available", { _additional_bytes: file.size });
             if (quota.error) throw quota.error;
             const ext = file.name.includes(".") ? file.name.split(".").pop() : "bin";
@@ -257,7 +263,7 @@ export function AssignmentDialog({
             </Select>
             <p className="text-xs text-muted-foreground">
               {type === "handwritten"
-                ? "Students can upload photos and files such as PDF, Word, PowerPoint, Excel, CSV, TXT or ZIP (max 15MB per submission file)."
+                ? "Students can upload photos and files such as PDF, Word, PowerPoint, Excel, CSV, TXT or ZIP (max 50MB per submission file)."
                 : type === "typed"
                   ? "Students write in the answer editor. Photos may be inserted when images are enabled."
                   : "Students can choose to type their answer or upload photos and supported files."}
@@ -280,7 +286,7 @@ export function AssignmentDialog({
           </div>
           <div className="space-y-2 rounded-lg border border-border p-3">
             <div className="flex items-center justify-between gap-3">
-              <div><Label>Attachments</Label><p className="text-xs text-muted-foreground">PDF, Word, PowerPoint, Excel, images or ZIP · max 25MB each</p></div>
+              <div><Label>Attachments</Label><p className="text-xs text-muted-foreground">PDF, Word, PowerPoint, Excel, images or ZIP · max 50MB each</p></div>
               <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById("assignment-attachments-input")?.click()} disabled={uploadingAttachments}><Paperclip className="mr-1.5 size-4" /> Add files</Button>
               <input id="assignment-attachments-input" type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.zip" className="hidden" onChange={(e) => setAttachmentFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])])} />
             </div>

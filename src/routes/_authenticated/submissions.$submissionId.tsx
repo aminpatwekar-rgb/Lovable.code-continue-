@@ -70,24 +70,27 @@ function ReviewSubmission() {
           : null,
       };
 
-      const { data: files } = await supabase
+      const { data: files, error: filesError } = await supabase
         .from("submission_files")
         .select("id, storage_path, file_name, mime_type, size_bytes, kind, caption, page_order")
         .eq("submission_id", submissionId)
         .order("page_order", { ascending: true });
+      if (filesError) throw filesError;
       const signed = await Promise.all(
         (files ?? []).map(async (f) => {
-          const { data } = await supabase.storage
+          const { data, error: signedUrlError } = await supabase.storage
             .from("submissions")
             .createSignedUrl(f.storage_path, 3600);
-          return { ...f, url: data?.signedUrl ?? "" };
+          if (signedUrlError) throw signedUrlError;
+          return { ...f, url: data.signedUrl };
         }),
       );
-      const { data: violations } = await supabase
+      const { data: violations, error: violationsError } = await supabase
         .from("paste_violations")
         .select("id, kind, occurred_at")
         .eq("submission_id", submissionId)
         .order("occurred_at", { ascending: false });
+      if (violationsError) throw violationsError;
       return { sub, files: signed, violations: violations ?? [] };
     },
   });

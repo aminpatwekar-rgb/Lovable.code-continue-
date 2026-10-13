@@ -387,7 +387,6 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
     if (!institution) throw new Error("This institution no longer exists.");
     if (isInstitutionAdmin && !isPlatformAdmin) {
       const { data: inScope, error: scopeError } = await context.supabase.rpc("is_institution_admin", {
-        _user_id: context.userId,
         _institution_id: data.institutionId,
       });
       if (scopeError) throw new Error("Could not verify institution scope.");

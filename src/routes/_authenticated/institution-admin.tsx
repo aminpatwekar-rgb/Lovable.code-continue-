@@ -41,7 +41,9 @@ function InstitutionAdminConsole() {
   const [result, setResult] = useState<StudentOnboardingResult | null>(null);
 
   useEffect(() => {
-    if (!authLoading && role && role !== "institution_admin" && role !== "admin") {
+    if (!authLoading && role === "admin") {
+      void navigate({ to: "/admin", replace: true });
+    } else if (!authLoading && role && role !== "institution_admin") {
       void navigate({ to: "/dashboard", replace: true });
     }
   }, [authLoading, role, navigate]);
@@ -86,7 +88,7 @@ function InstitutionAdminConsole() {
   if (authLoading || (role === null && !overview.isError)) {
     return <div className="space-y-4"><Skeleton className="h-24 w-full rounded-xl" /><Skeleton className="h-56 w-full rounded-xl" /></div>;
   }
-  if (role !== "institution_admin" && role !== "admin") {
+  if (role !== "institution_admin") {
     return <div className="panel p-8 text-center">
       <Building2 className="mx-auto size-7 text-muted-foreground" />
       <h1 className="mt-3 font-semibold">Institution administrators only</h1>

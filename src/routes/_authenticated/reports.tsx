@@ -116,11 +116,11 @@ function Page() {
       </header>
 
       <div className="flex flex-wrap gap-3">
-        <Select value={classId} onValueChange={value => { setClassId(value); setStudentId(""); }}>
+        <Select value={classId} onValueChange={value => { setClassId(value); setStudentId(""); weaknessInsights.reset(); }}>
           <SelectTrigger className="w-60"><SelectValue placeholder="Select class" /></SelectTrigger>
           <SelectContent>{(classes.data ?? []).map((item: any) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent>
         </Select>
-        {isTeacher && <Select value={studentId || roster.data?.[0]?.student_id || ""} onValueChange={setStudentId}>
+        {isTeacher && <Select value={studentId || roster.data?.[0]?.student_id || ""} onValueChange={value => { setStudentId(value); weaknessInsights.reset(); }}>
           <SelectTrigger className="w-60"><SelectValue placeholder="Select student" /></SelectTrigger>
           <SelectContent>{(roster.data ?? []).map((item: any) => <SelectItem key={item.student_id} value={item.student_id}>{item.full_name || "Student"}</SelectItem>)}</SelectContent>
         </Select>}
@@ -153,7 +153,7 @@ function Page() {
             {weaknessInsights.isPending ? "Analyzing…" : "Generate learning insights"}
           </Button>
         </header>
-        {weaknessInsights.isError && <p role="alert" className="text-sm text-destructive">{(weaknessInsights.error as Error).message}</p>}
+        {weaknessInsights.isError && <div className="flex flex-wrap items-center gap-3 text-sm text-destructive"><p role="alert">{(weaknessInsights.error as Error).message || "Learning insights could not be generated."}</p><Button size="sm" variant="outline" onClick={() => weaknessInsights.mutate()} disabled={!target || weaknessInsights.isPending}>Retry analysis</Button></div>}
         {weaknessInsights.data && (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

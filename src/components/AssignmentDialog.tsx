@@ -128,10 +128,7 @@ export function AssignmentDialog({
   const save = useMutation({
     mutationFn: async (publish: boolean) => {
       if (!title.trim()) throw new Error("Title is required");
-      if (!editing && !rubricId) {
-        // Rubrics are optional for assignments; teachers can grade without one.
-        setRubricId("");
-      }
+      // Rubrics are optional; assignments can be created and graded without one.
       if (due && !Number.isFinite(new Date(due).getTime())) {
         throw new Error("Enter a valid due date and time.");
       }

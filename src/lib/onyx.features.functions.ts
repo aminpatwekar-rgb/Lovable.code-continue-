@@ -66,9 +66,17 @@ export const importStudentsFromCsv = createServerFn({ method: "POST" })
       srNo: text(row["sr_no"]),
     }));
 
-    const invalid = normalized.filter((r) => !r.email || !/^\S+@\S+\.\S+$/.test(r.email) || !r.fullName);
+    const invalid = normalized.filter(
+      (r) =>
+        !r.email ||
+        !/^\S+@\S+\.\S+$/.test(r.email) ||
+        !r.fullName ||
+        !(r.rollNo || r.erNo || r.srNo),
+    );
     if (invalid.length) {
-      throw new Error(`CSV contains ${invalid.length} invalid row(s). Email and full_name are required.`);
+      throw new Error(
+        `CSV contains ${invalid.length} invalid row(s). Email, full_name and at least one of roll_no, er_no or sr_no are required.`,
+      );
     }
 
     const emails = [...new Set(normalized.map((r) => r.email))];

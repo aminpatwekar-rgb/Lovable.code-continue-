@@ -36,6 +36,8 @@ export type AnnouncementRow = {
   }>;
 };
 
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
 const AUDIENCE_LABEL: Record<string, string> = {
   everyone: "Everyone",
   teachers: "Teachers",
@@ -101,6 +103,8 @@ export function Announcements({
     mutationFn: async () => {
       if (!title.trim()) throw new Error("A title is required");
       if (!user) throw new Error("Sign in to publish an announcement");
+      const oversized = files.find((file) => file.size > MAX_UPLOAD_BYTES);
+      if (oversized) throw new Error(`${oversized.name} is larger than the 50 MB per-file limit`);
       const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
       if (totalBytes > 0) {
         const quota = await (supabase as any).rpc("assert_storage_available", {
@@ -199,14 +203,23 @@ export function Announcements({
             </div>
           )}
           <div className="space-y-1.5">
-            <Label htmlFor="ann-files">Attachments</Label>
+            <Label htmlFor="ann-files">Attachments (max 50 MB each)</Label>
             <Input
               ref={fileRef}
               id="ann-files"
               type="file"
               multiple
               disabled={post.isPending}
-              onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
+              onChange={(event) => {
+                const selected = Array.from(event.target.files ?? []);
+                event.currentTarget.value = "";
+                const oversized = selected.find((file) => file.size > MAX_UPLOAD_BYTES);
+                if (oversized) {
+                  toast.error(`${oversized.name} is larger than the 50 MB per-file limit`);
+                  return;
+                }
+                setFiles((current) => [...current, ...selected]);
+              }}
             />
             {files.length > 0 && (
               <p className="text-xs text-muted-foreground">

@@ -403,7 +403,7 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
     }
     const requestedOrigin = new URL(data.redirectTo).origin;
     const isLocalDevelopmentOrigin =
-      process.env["NODE_ENV"] !== "production" &&
+      process.env["NODE_ENV"] === "development" &&
       (requestedOrigin.startsWith("http://localhost:") || requestedOrigin.startsWith("http://127.0.0.1:"));
     if (requestedOrigin !== trustedOrigin && !isLocalDevelopmentOrigin) {
       throw new Error("The invitation redirect is not on the configured ONYX application origin. Set ONYX_APP_URL to the canonical application URL.");

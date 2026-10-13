@@ -337,12 +337,29 @@ export type StudentOnboardingResult = {
  */
 export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: { institutionId: string; csv: string }) => {
+  .validator((input: { institutionId: string; csv: string; redirectTo: string }) => {
     const institutionId = validateInstitutionId(input?.institutionId);
     if (typeof input?.csv !== "string" || !input.csv.trim() || input.csv.length > 2_000_000) {
       throw new Error("Upload or paste a CSV up to 2 MB.");
     }
-    return { institutionId, csv: input.csv };
+    let redirectUrl: URL;
+    try {
+      redirectUrl = new URL(String(input?.redirectTo ?? ""));
+    } catch {
+      throw new Error("A valid ONYX password-setup redirect is required.");
+    }
+    const localDevelopment = redirectUrl.hostname === "localhost" || redirectUrl.hostname === "127.0.0.1";
+    if (
+      redirectUrl.pathname !== "/reset-password" ||
+      redirectUrl.search ||
+      redirectUrl.hash ||
+      redirectUrl.username ||
+      redirectUrl.password ||
+      (redirectUrl.protocol !== "https:" && !(localDevelopment && redirectUrl.protocol === "http:"))
+    ) {
+      throw new Error("Invitations must redirect to the ONYX /reset-password page over HTTPS.");
+    }
+    return { institutionId, csv: input.csv, redirectTo: redirectUrl.toString() };
   })
   .handler(async ({ data, context }): Promise<StudentOnboardingResult> => {
     await requireInstitutionAdmin(context.supabase, context.userId);
@@ -494,6 +511,7 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
           role: "student",
           institution: institution.name,
         },
+        redirectTo: data.redirectTo,
       });
 
       if (inviteError || !inviteData?.user?.id) {

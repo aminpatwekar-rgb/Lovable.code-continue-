@@ -955,6 +955,7 @@ export type Database = {
           id: string
           institution: string | null
           role_confirmed_at: string | null
+          role: string | null
           is_active: boolean
           updated_at: string
         }
@@ -966,6 +967,7 @@ export type Database = {
           id: string
           institution?: string | null
           role_confirmed_at?: string | null
+          role?: string | null
           is_active?: boolean
           updated_at?: string
         }
@@ -976,6 +978,8 @@ export type Database = {
           full_name?: string
           id?: string
           institution?: string | null
+          role_confirmed_at?: string | null
+          role?: string | null
           is_active?: boolean
           updated_at?: string
         }

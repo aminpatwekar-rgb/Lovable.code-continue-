@@ -301,7 +301,7 @@ function Page() {
                         : "—"}
                     </span>
                   </div>
-                  {a.locked_at && <Button size="sm" variant="outline" disabled={grantRetry.isPending} onClick={() => grantRetry.mutate(a.student_id)}>{grantRetry.isPending ? "Granting…" : "Allow re-attempt"}</Button>}
+                  {a.locked_at && <Button size="sm" variant="outline" disabled={grantRetry.isPending || attempts.some((attempt) => attempt.student_id === a.student_id && attempt.status === "in_progress")} onClick={() => grantRetry.mutate(a.student_id)}>{attempts.some((attempt) => attempt.student_id === a.student_id && attempt.status === "in_progress") ? "Retry in progress" : grantRetry.isPending ? "Granting…" : "Allow re-attempt"}</Button>}
                 </div>
               ))}
             </div>

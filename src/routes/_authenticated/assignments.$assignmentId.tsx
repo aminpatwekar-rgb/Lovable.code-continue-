@@ -325,18 +325,20 @@ function StudentSubmission({
   const submission = useQuery({
     queryKey: ["my-submission", assignment.id, userId],
     queryFn: async () => {
-      const { data: sub } = await supabase
+      const { data: sub, error: submissionError } = await supabase
         .from("submissions")
         .select("*")
         .eq("assignment_id", assignment.id)
         .eq("student_id", userId)
         .maybeSingle();
+      if (submissionError) throw submissionError;
       if (!sub) return null;
-      const { data: files } = await supabase
+      const { data: files, error: filesError } = await supabase
         .from("submission_files")
         .select("id, storage_path, file_name, mime_type, page_order, kind, caption")
         .eq("submission_id", sub.id)
         .order("page_order", { ascending: true });
+      if (filesError) throw filesError;
       const signed = await Promise.all(
         (files ?? []).map(async (f) => {
           const { data } = await supabase.storage
@@ -513,7 +515,15 @@ function StudentSubmission({
       })
       .select("id")
       .single();
-    if (rowErr) throw rowErr;
+    if (rowErr) {
+      // The object upload succeeded but its metadata insert failed. Clean up the
+      // object so retries don't leave untracked files consuming storage quota.
+      const { error: cleanupError } = await supabase.storage.from("submissions").remove([path]);
+      if (cleanupError) {
+        console.error("Failed to clean up an orphaned submission upload", cleanupError);
+      }
+      throw rowErr;
+    }
     const { data: signed } = await supabase.storage.from("submissions").createSignedUrl(path, 3600);
     return { id: row.id, path, url: signed?.signedUrl ?? "", file_name: file.name, mime_type: file.type };
   }
@@ -560,9 +570,28 @@ function StudentSubmission({
   }
 
   async function removePage(p: Page) {
-    await supabase.from("submission_files").delete().eq("id", p.id);
-    await supabase.storage.from("submissions").remove([p.storage_path]);
-    setPages((prev) => prev.filter((x) => x.id !== p.id));
+    try {
+      const { error: rowError } = await supabase
+        .from("submission_files")
+        .delete()
+        .eq("id", p.id);
+      if (rowError) throw rowError;
+
+      const { error: storageError } = await supabase.storage
+        .from("submissions")
+        .remove([p.storage_path]);
+      if (storageError) {
+        // The file record is already removed, so don't keep a dead item in the UI.
+        console.error("Submission file record removed, but storage cleanup failed", storageError);
+        toast.error("File removed from your submission, but storage cleanup failed. Please contact your teacher.");
+      } else {
+        toast.success("File removed");
+      }
+      setPages((prev) => prev.filter((x) => x.id !== p.id));
+      void qc.invalidateQueries({ queryKey: ["my-submission", assignment.id, userId] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't remove this file");
+    }
   }
 
   async function logViolation(kind: string) {
@@ -757,7 +786,11 @@ function StudentSubmission({
                 accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.zip"
                 multiple
                 className="hidden"
-                onChange={(e) => void handlePages(e.target.files)}
+                onChange={(e) => {
+                  void handlePages(e.target.files);
+                  // Allow choosing the same file again after removing it or a failed upload.
+                  e.currentTarget.value = "";
+                }}
               />
             </div>
 

@@ -169,7 +169,7 @@ export function InstitutionManager() {
   const bulkOnboardStudents = useMutation({
     mutationFn: () => {
       if (!activeInstitution) throw new Error("Select an institution first.");
-      return bulkCreateStudentsFn({ data: { institutionId: activeInstitution.id, csv } });
+      return bulkCreateStudentsFn({ data: { institutionId: activeInstitution.id, csv, redirectTo: `${window.location.origin}/reset-password` } });
     },
     onSuccess: async (result) => {
       setStudentOnboardingResult(result);
@@ -383,7 +383,7 @@ export function InstitutionManager() {
               Upload up to 500 students with <code>full_name,email</code>. ONYX creates missing student accounts, assigns the Student role, links them to this institution, and emails an invitation to set their own password. Existing student accounts are added if they are not affiliated elsewhere. Passwords are never collected or shown.
             </p>
             <p className="rounded-md border border-border bg-background p-3 text-xs text-muted-foreground">
-              <strong>Email setup required for mass imports:</strong> Supabase's built-in email sender is limited to 2 emails per hour and team-authorized addresses. Configure custom SMTP before inviting a full student cohort. <a className="underline underline-offset-2" href="https://supabase.com/docs/guides/auth/auth-smtp" target="_blank" rel="noreferrer">SMTP setup guide</a>.
+              <strong>Email setup required for mass imports:</strong> Supabase's built-in email sender is limited to 2 emails per hour and team-authorized addresses. Configure custom SMTP before inviting a full student cohort, and allow your ONYX <code>/reset-password</code> URL in Supabase Auth URL Configuration. <a className="underline underline-offset-2" href="https://supabase.com/docs/guides/auth/auth-smtp" target="_blank" rel="noreferrer">SMTP setup guide</a>.
             </p>
             <label className="flex flex-wrap items-center gap-2 text-sm">
               <FileUp className="size-4" />Choose student CSV

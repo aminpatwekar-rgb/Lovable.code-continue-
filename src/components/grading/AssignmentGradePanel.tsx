@@ -118,7 +118,7 @@ export function AssignmentGradePanel({
         .maybeSingle();
       if (error) throw error;
       if (!sub) return null;
-      const [{ data: files }, { data: violations }] = await Promise.all([
+      const [filesResult, violationsResult] = await Promise.all([
         supabase
           .from("submission_files")
           .select("id, storage_path, file_name, kind, caption, page_order")
@@ -130,15 +130,18 @@ export function AssignmentGradePanel({
           .eq("submission_id", submissionId)
           .order("occurred_at", { ascending: false }),
       ]);
+      if (filesResult.error) throw filesResult.error;
+      if (violationsResult.error) throw violationsResult.error;
       const signed = await Promise.all(
-        (files ?? []).map(async (f) => {
-          const { data } = await supabase.storage
+        (filesResult.data ?? []).map(async (f) => {
+          const { data, error: signedUrlError } = await supabase.storage
             .from("submissions")
             .createSignedUrl(f.storage_path, 3600);
-          return { ...f, url: data?.signedUrl ?? "" };
+          if (signedUrlError) throw signedUrlError;
+          return { ...f, url: data.signedUrl };
         }),
       );
-      return { sub, files: signed, violations: violations ?? [] };
+      return { sub, files: signed, violations: violationsResult.data ?? [] };
     },
   });
 

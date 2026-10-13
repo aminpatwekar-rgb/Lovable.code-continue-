@@ -32,7 +32,7 @@ export const getQuizReviewAttempts = createServerFn({ method: "GET" })
     // Authorization is checked on the server before using the service role.
     const { data: quiz, error: quizError } = await supabaseAdmin
       .from("quizzes")
-      .select("id, teacher_id")
+      .select("id, teacher_id, class_id")
       .eq("id", data.quizId)
       .maybeSingle();
 
@@ -51,7 +51,15 @@ export const getQuizReviewAttempts = createServerFn({ method: "GET" })
     const isOwner = quiz.teacher_id === userId;
     const isAdmin = Boolean(adminRole);
     if (!isOwner && !isAdmin) {
-      throw new Error("You are not allowed to review this quiz.");
+      const { data: coTeacher, error: coTeacherError } = await supabaseAdmin
+        .from("class_members")
+        .select("student_id")
+        .eq("class_id", quiz.class_id)
+        .eq("student_id", userId)
+        .eq("member_role", "teacher")
+        .maybeSingle();
+      if (coTeacherError) throw new Error(coTeacherError.message);
+      if (!coTeacher) throw new Error("You are not allowed to review this quiz.");
     }
 
     const { data: attempts, error: attemptsError } = await supabaseAdmin
@@ -139,7 +147,7 @@ export const getQuizReviewAttempt = createServerFn({ method: "GET" })
 
     const { data: quiz, error: quizError } = await supabaseAdmin
       .from("quizzes")
-      .select("id, teacher_id")
+      .select("id, teacher_id, class_id")
       .eq("id", attempt.quiz_id)
       .maybeSingle();
 
@@ -156,7 +164,15 @@ export const getQuizReviewAttempt = createServerFn({ method: "GET" })
     if (roleError) throw new Error(roleError.message);
 
     if (quiz.teacher_id !== userId && !adminRole) {
-      throw new Error("You are not allowed to review this attempt.");
+      const { data: coTeacher, error: coTeacherError } = await supabaseAdmin
+        .from("class_members")
+        .select("student_id")
+        .eq("class_id", quiz.class_id)
+        .eq("student_id", userId)
+        .eq("member_role", "teacher")
+        .maybeSingle();
+      if (coTeacherError) throw new Error(coTeacherError.message);
+      if (!coTeacher) throw new Error("You are not allowed to review this attempt.");
     }
 
     const [{ data: questions, error: questionsError }, { data: answers, error: answersError }, { data: profile, error: profileError }] =

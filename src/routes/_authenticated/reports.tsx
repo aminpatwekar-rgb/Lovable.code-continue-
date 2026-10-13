@@ -66,27 +66,31 @@ function Page() {
       const assignments = assignmentsResult.data ?? [];
       if (!assignments.length) return { rows: [], events: [] };
       const ids = assignments.map((item: any) => item.id);
-      const [submissionsResult, eventsResult] = await Promise.all([
-        db.from("submissions")
-          .select("id, student_id, assignment_id, status, submitted_at, paste_violation_count")
-          .in("assignment_id", ids)
-          .order("submitted_at", { ascending: false }),
-        db.from("paste_violations")
-          .select("id, submission_id, kind, occurred_at")
-          .in("submission_id", (await db.from("submissions").select("id").in("assignment_id", ids)).data?.map((item: any) => item.id) ?? [])
-          .order("occurred_at", { ascending: false }),
-      ]);
+      const submissionsResult = await db.from("submissions")
+        .select("id, student_id, assignment_id, status, submitted_at, paste_violation_count")
+        .in("assignment_id", ids)
+        .order("submitted_at", { ascending: false });
       if (submissionsResult.error) throw submissionsResult.error;
-      if (eventsResult.error) throw eventsResult.error;
+      const submissionRows = submissionsResult.data ?? [];
+      const submissionIds = submissionRows.map((item: any) => item.id);
+      let eventRows: any[] = [];
+      if (submissionIds.length) {
+        const eventsResult = await db.from("paste_violations")
+          .select("id, submission_id, kind, occurred_at")
+          .in("submission_id", submissionIds)
+          .order("occurred_at", { ascending: false });
+        if (eventsResult.error) throw eventsResult.error;
+        eventRows = eventsResult.data ?? [];
+      }
       const names = new Map<string, string>((roster.data ?? []).map((item: any) => [item.student_id, item.full_name || "Student"]));
       const titles = new Map<string, string>(assignments.map((item: any) => [item.id, item.title || "Assignment"]));
       const eventsBySubmission = new Map<string, any[]>();
-      for (const event of eventsResult.data ?? []) {
+      for (const event of eventRows) {
         const list = eventsBySubmission.get(event.submission_id) ?? [];
         list.push(event);
         eventsBySubmission.set(event.submission_id, list);
       }
-      const rows = (submissionsResult.data ?? []).map((submission: any) => ({
+      const rows = submissionRows.map((submission: any) => ({
         submission_id: submission.id,
         student: names.get(submission.student_id) ?? "Student",
         assignment: titles.get(submission.assignment_id) ?? "Assignment",
@@ -96,7 +100,7 @@ function Page() {
         event_count: (eventsBySubmission.get(submission.id) ?? []).length,
         event_types: [...new Set((eventsBySubmission.get(submission.id) ?? []).map((event: any) => event.kind))].join(", "),
       }));
-      return { rows, events: eventsResult.data ?? [] };
+      return { rows, events: eventRows };
     },
   });
 

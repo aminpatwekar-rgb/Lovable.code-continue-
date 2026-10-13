@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useMutation } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download, Printer, ShieldAlert } from "lucide-react";
+import { BookOpenCheck, Download, Loader2, Printer, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useViewRole } from "@/lib/viewRole";
@@ -9,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { PlanGate } from "@/components/PlanGate";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { downloadCsv, toCsv } from "@/lib/csv";
+import { getStudentWeaknessInsights } from "@/lib/differentiation.functions";
 
 const db = supabase as any;
 
@@ -54,6 +57,14 @@ function Page() {
       const q = await db.rpc("get_progress_report", { _student_id: target, _class_id: classId || null });
       if (q.error) throw q.error;
       return q.data as Record<string, unknown>;
+    },
+  });
+
+  const getWeaknessInsights = useServerFn(getStudentWeaknessInsights);
+  const weaknessInsights = useMutation({
+    mutationFn: () => {
+      if (!classId || !target) throw new Error("Select a class and student first.");
+      return getWeaknessInsights({ data: { classId, studentId: target } });
     },
   });
 
@@ -156,6 +167,67 @@ function Page() {
             <p className="mt-2 text-2xl font-semibold">{String(value)}</p>
           </div>)}
         </div>}
+
+      {isTeacher && classId && <section className="panel space-y-4 p-5">
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-semibold"><BookOpenCheck className="size-5" /> Learning insights</h2>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Summarizes this student's completed quiz results and question types with lower observed accuracy. It is a study-support signal, not a diagnosis or a final judgement of ability. Results depend on how many questions have been graded.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => weaknessInsights.mutate()}
+            disabled={!target || weaknessInsights.isPending}
+          >
+            {weaknessInsights.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <BookOpenCheck className="mr-2 size-4" />}
+            {weaknessInsights.isPending ? "Analyzing…" : "Generate learning insights"}
+          </Button>
+        </header>
+        {weaknessInsights.isError && <p role="alert" className="text-sm text-destructive">{(weaknessInsights.error as Error).message}</p>}
+        {weaknessInsights.data && (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Quizzes available</p><p className="mt-1 text-2xl font-semibold">{weaknessInsights.data.quizzesAvailable}</p></div>
+              <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Quizzes completed</p><p className="mt-1 text-2xl font-semibold">{weaknessInsights.data.quizzesCompleted}</p></div>
+              <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Average completed score</p><p className="mt-1 text-2xl font-semibold">{weaknessInsights.data.averagePct == null ? "—" : `${weaknessInsights.data.averagePct}%`}</p></div>
+              <div className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Incorrect graded responses</p><p className="mt-1 text-2xl font-semibold">{weaknessInsights.data.weakQuestionCount}</p></div>
+            </div>
+            {weaknessInsights.data.quizzesCompleted === 0 ? (
+              <p className="rounded-lg border border-border p-4 text-sm text-muted-foreground">No completed quiz attempts are available for this student yet.</p>
+            ) : (
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold">Accuracy by question type</h3>
+                  {weaknessInsights.data.questionTypes.length === 0 ? <p className="text-sm text-muted-foreground">No answered and graded question data is available yet.</p> : (
+                    <div className="overflow-x-auto rounded-lg border border-border">
+                      <table className="w-full text-sm">
+                        <thead className="border-b border-border bg-muted/30 text-left text-xs text-muted-foreground"><tr><th className="p-2.5">Question type</th><th className="p-2.5 text-right">Graded</th><th className="p-2.5 text-right">Accuracy</th></tr></thead>
+                        <tbody className="divide-y divide-border">
+                          {weaknessInsights.data.questionTypes.map((item) => <tr key={item.type}><td className="p-2.5 capitalize">{item.type}</td><td className="p-2.5 text-right tabular-nums">{item.graded}</td><td className="p-2.5 text-right tabular-nums">{item.accuracyPct == null ? "—" : `${item.accuracyPct}%`}</td></tr>)}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold">Questions to revisit</h3>
+                  {weaknessInsights.data.weakQuestions.length === 0 ? <p className="text-sm text-muted-foreground">No incorrect graded responses were identified in the available attempts.</p> : (
+                    <ul className="max-h-80 space-y-2 overflow-y-auto">
+                      {weaknessInsights.data.weakQuestions.map((item) => <li key={item.questionId} className="rounded-lg border border-border p-3">
+                        <p className="text-xs text-muted-foreground">{item.quizTitle} · {item.questionType}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm">{item.prompt}</p>
+                        <p className="mt-2 text-xs text-muted-foreground">{item.awardedPoints == null ? "Not scored" : `${item.awardedPoints} / ${item.maxPoints} points`}</p>
+                      </li>)}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </section>}
 
       {isTeacher && classId && <section className="panel space-y-4 p-5">
         <header className="flex flex-wrap items-start justify-between gap-3">

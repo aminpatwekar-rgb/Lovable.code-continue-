@@ -1,4 +1,8 @@
-import { Download, FileUp, ShieldAlert } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { useMutation } from "@tanstack/react-query";
+import { Download, FileUp, Loader2, ScanText, ShieldAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { analyzeHandwritingFile } from "@/lib/differentiation.functions";
 import { RenderMathText } from "@/components/math/RenderMathText";
 import { formatDue } from "@/lib/assignments";
 
@@ -18,6 +22,68 @@ function isPhotoFile(file: ViewerFile) {
     file.mime_type?.startsWith("image/") ||
       /\.(avif|bmp|gif|heic|heif|jpe?g|png|webp)$/i.test(file.file_name ?? ""),
   );
+}
+
+function HandwritingAssist({ file }: { file: ViewerFile }) {
+  const analyze = useServerFn(analyzeHandwritingFile);
+  const mutation = useMutation({
+    mutationFn: () => analyze({ data: { fileId: file.id } }),
+  });
+
+  return (
+    <div className="space-y-2 border-t border-border p-3">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => mutation.mutate()}
+        disabled={mutation.isPending}
+      >
+        {mutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <ScanText className="mr-2 size-4" />}
+        {mutation.isPending ? "Transcribing…" : "Assist with transcription"}
+      </Button>
+      <p className="text-xs text-muted-foreground">
+        AI transcription is a draft for the teacher to verify. It does not grade the answer or change marks.
+      </p>
+      {mutation.isError && (
+        <p role="alert" className="text-sm text-destructive">
+          {(mutation.error as Error).message || "Handwriting transcription failed."}
+        </p>
+      )}
+      {mutation.data && (
+        <div className="space-y-3 rounded-md bg-muted/40 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium">Transcription draft</p>
+            <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
+              {mutation.data.confidence} confidence
+            </span>
+          </div>
+          <p className="whitespace-pre-wrap break-words text-sm leading-6">{mutation.data.transcription}</p>
+          {mutation.data.unclearSegments.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">Please verify these segments</p>
+              <ul className="mt-1 list-disc space-y-1 pl-5 text-xs">
+                {mutation.data.unclearSegments.map((segment, index) => <li key={`${index}-${segment}`}>{segment}</li>)}
+              </ul>
+            </div>
+          )}
+          {mutation.data.observations.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">Image legibility</p>
+              <ul className="mt-1 list-disc space-y-1 pl-5 text-xs">
+                {mutation.data.observations.map((observation, index) => <li key={`${index}-${observation}`}>{observation}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function supportsHandwritingAssist(file: ViewerFile) {
+  const mime = file.mime_type?.toLowerCase();
+  return mime ? ["image/jpeg", "image/png", "image/webp"].includes(mime) : /\.(jpe?g|png|webp)$/i.test(file.file_name ?? "");
 }
 
 /** The student's work: photographed pages, typed answer with equations, and paste warnings. */
@@ -82,6 +148,7 @@ export function SubmissionViewer({
                   </a>
                 )}
                 <figcaption className="break-words px-3 py-2 text-xs text-muted-foreground">{p.file_name || `File ${i + 1}`}</figcaption>
+                {isPhotoFile(p) && supportsHandwritingAssist(p) && <HandwritingAssist file={p} />}
               </figure>
             ))}
           </div>

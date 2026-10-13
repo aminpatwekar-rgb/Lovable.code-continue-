@@ -333,7 +333,8 @@ export type StudentOnboardingResult = {
  * Create or attach institution roster accounts from a CSV and send invitations.
  * Platform admins may appoint student, teacher, or institution-admin roles;
  * institution admins may only onboard students and teachers in their own institution.
- * Existing accounts are never silently promoted/demoted, and global admins are protected.
+ * Platform admins may explicitly set a mismatched existing account role through the CSV role column;
+ * institution admins can only attach existing accounts whose role already matches. Global admins are protected.
  */
 export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -494,10 +495,10 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
         outcomes.push({ line: row.line, email: row.email, status: "skipped", message: "The existing account is affiliated with a different institution. No affiliation was changed." });
         return;
       }
-      if (userRoles.length && !userRoles.includes(row.role)) {
+      if (userRoles.length && !userRoles.includes(row.role) && !isPlatformAdmin) {
         outcomes.push({
           line: row.line, email: row.email, status: "skipped",
-          message: `Existing role is ${userRoles.join(", ")}; this import requests ${row.role}. Existing accounts are not silently promoted or demoted.`,
+          message: `Existing role is ${userRoles.join(", ")}; this import requests ${row.role}. Only the platform administrator may explicitly change an existing account's role through the role column.`,
         });
         return;
       }

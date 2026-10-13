@@ -26,6 +26,8 @@ function formatSize(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
 export function ClassResources({ classId, canManage }: { classId: string; canManage: boolean }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -65,6 +67,8 @@ export function ClassResources({ classId, canManage }: { classId: string; canMan
   const upload = useMutation({
     mutationFn: async (files: File[]) => {
       if (!user) throw new Error("Sign in to upload resources");
+      const oversized = files.find((file) => file.size > MAX_UPLOAD_BYTES);
+      if (oversized) throw new Error(`${oversized.name} is larger than the 50 MB per-file limit`);
       const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
       const quota = await (supabase as any).rpc("assert_storage_available", {
         _additional_bytes: totalBytes,
@@ -131,6 +135,7 @@ export function ClassResources({ classId, canManage }: { classId: string; canMan
               disabled={upload.isPending}
               onChange={(event) => {
                 const files = Array.from(event.target.files ?? []);
+                event.currentTarget.value = "";
                 if (files.length) upload.mutate(files);
               }}
             />

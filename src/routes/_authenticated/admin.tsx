@@ -456,13 +456,6 @@ function AdminConsole() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-52">
-                            {u.role !== "admin" && (
-                              <DropdownMenuItem
-                                onSelect={() => setRole.mutate({ userId: u.id, next: "admin" })}
-                              >
-                                <ShieldCheck className="mr-2 size-4" /> Promote to admin
-                              </DropdownMenuItem>
-                            )}
                             {u.role !== "teacher" && (
                               <DropdownMenuItem
                                 onSelect={() => setRole.mutate({ userId: u.id, next: "teacher" })}

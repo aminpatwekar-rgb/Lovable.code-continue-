@@ -657,6 +657,18 @@ function StudentSubmission({
   });
 
   if (submission.isLoading) return <Skeleton className="h-64 w-full rounded-xl" />;
+  if (submission.isError) {
+    return (
+      <section className="panel p-6">
+        <p className="text-sm text-muted-foreground">
+          We couldn't load your existing submission. Your work hasn't been changed. Please try again before uploading or submitting.
+        </p>
+        <Button className="mt-3" variant="outline" onClick={() => void submission.refetch()}>
+          Try again
+        </Button>
+      </section>
+    );
+  }
 
   const sub = submission.data?.sub;
 

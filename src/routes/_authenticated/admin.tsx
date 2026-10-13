@@ -21,6 +21,7 @@ import { fetchProfileEmails } from "@/lib/profile-emails";
 
 import { useAuth, type AppRole } from "@/lib/auth";
 import { deletePlatformUser } from "@/lib/admin.functions";
+import { InstitutionReadiness } from "@/components/admin/InstitutionReadiness";
 import { formatDue } from "@/lib/assignments";
 import { DueDateChip } from "@/components/DueDateChip";
 import { Announcements } from "@/components/Announcements";
@@ -354,6 +355,7 @@ function AdminConsole() {
           <TabsTrigger value="users">Users ({all.length})</TabsTrigger>
           <TabsTrigger value="classes">Classes ({counts.classes})</TabsTrigger>
           <TabsTrigger value="assignments">Assignments ({counts.assignments})</TabsTrigger>
+          <TabsTrigger value="institution-readiness">Institution readiness</TabsTrigger>
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
         </TabsList>
 
@@ -604,6 +606,10 @@ function AdminConsole() {
               ))}
             </ul>
           )}
+        </TabsContent>
+
+        <TabsContent value="institution-readiness" className="mt-5">
+          <InstitutionReadiness />
         </TabsContent>
 
         <TabsContent value="announcements" className="mt-5">

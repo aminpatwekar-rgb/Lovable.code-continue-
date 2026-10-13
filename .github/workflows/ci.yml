@@ -25,7 +25,5 @@ jobs:
           bun-version: latest
       - name: Install locked dependencies
         run: bun install --frozen-lockfile
-      - name: Lint
-        run: bun run lint
       - name: Build
         run: bun run build

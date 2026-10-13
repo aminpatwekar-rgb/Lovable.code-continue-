@@ -185,7 +185,7 @@ export function InstitutionManager() {
       if (result.inviteFailed || result.setupFailed || result.skipped) {
         toast.info("Student onboarding finished with items to review. " + summary);
       } else if (result.invited || result.assignedExisting) {
-        toast.success("Student onboarding completed. " + summary);
+        toast.success("Institution onboarding completed. " + summary);
       } else {
         toast.info("No new changes were needed. " + summary);
       }
@@ -195,7 +195,7 @@ export function InstitutionManager() {
         qc.invalidateQueries({ queryKey: ["admin-institutions"] }),
       ]);
     },
-    onError: (error: Error) => toast.error(error.message || "Bulk student onboarding failed."),
+    onError: (error: Error) => toast.error(error.message || "Bulk institution onboarding failed."),
   });
 
   const removeMember = useMutation({
@@ -376,7 +376,7 @@ export function InstitutionManager() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h5 className="text-sm font-semibold">Bulk student account onboarding</h5>
               <Button type="button" size="sm" variant="outline" onClick={() => downloadCsv(
-                "onyx-student-onboarding-template.csv",
+                "onyx-institution-roster-template.csv",
                 toCsv(
                   ["full_name", "email", "role"],
                   [
@@ -391,7 +391,7 @@ export function InstitutionManager() {
               Upload up to 500 people with <code>full_name,email,role</code>. Use <code>student</code>, <code>teacher</code>, or <code>institution_admin</code>. ONYX creates missing accounts, assigns the selected role, links the account to this institution, and emails an invitation to set their own password. Existing accounts are linked only when their role matches and they are not affiliated elsewhere. Passwords are never collected or shown.
             </p>
             <p className="rounded-md border border-border bg-background p-3 text-xs text-muted-foreground">
-              <strong>Email setup required for mass imports:</strong> Supabase's built-in email sender is limited to 2 emails per hour and team-authorized addresses. Configure custom SMTP before inviting a full student cohort, and allow your ONYX <code>/reset-password</code> URL in Supabase Auth URL Configuration. <a className="underline underline-offset-2" href="https://supabase.com/docs/guides/auth/auth-smtp" target="_blank" rel="noreferrer">SMTP setup guide</a>.
+              <strong>Email setup required for mass imports:</strong> Supabase's built-in email sender is limited to 2 emails per hour and team-authorized addresses. Configure custom SMTP before inviting a full institution roster, and allow your ONYX <code>/reset-password</code> URL in Supabase Auth URL Configuration. <a className="underline underline-offset-2" href="https://supabase.com/docs/guides/auth/auth-smtp" target="_blank" rel="noreferrer">SMTP setup guide</a>.
             </p>
             <label className="flex flex-wrap items-center gap-2 text-sm">
               <FileUp className="size-4" />Choose student CSV

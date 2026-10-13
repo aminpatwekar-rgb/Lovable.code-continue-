@@ -31,11 +31,23 @@ function Page() {
     queryKey: ["report-classes", user?.id, isTeacher],
     enabled: Boolean(user),
     queryFn: async () => {
-      const q = isTeacher
-        ? await db.from("classes").select("id, name").eq("teacher_id", user!.id).eq("archived", false).order("name")
-        : await db.from("class_members").select("class_id, classes(id, name)").eq("student_id", user!.id);
-      if (q.error) throw q.error;
-      return (q.data ?? []).map((x: any) => isTeacher ? x : x.classes).filter(Boolean);
+      if (!isTeacher) {
+        const q = await db.from("class_members").select("class_id, classes(id, name)").eq("student_id", user!.id);
+        if (q.error) throw q.error;
+        return (q.data ?? []).map((item: any) => item.classes).filter(Boolean);
+      }
+      const [owned, coTaught] = await Promise.all([
+        db.from("classes").select("id, name").eq("teacher_id", user!.id).eq("archived", false).order("name"),
+        db.from("class_members").select("class_id, classes(id, name)").eq("student_id", user!.id).eq("member_role", "teacher"),
+      ]);
+      if (owned.error) throw owned.error;
+      if (coTaught.error) throw coTaught.error;
+      const unique = new Map<string, any>();
+      for (const item of owned.data ?? []) unique.set(item.id, item);
+      for (const item of coTaught.data ?? []) {
+        if (item.classes?.id) unique.set(item.classes.id, item.classes);
+      }
+      return [...unique.values()].sort((a, b) => a.name.localeCompare(b.name));
     },
   });
 

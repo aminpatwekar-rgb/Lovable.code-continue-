@@ -37,8 +37,15 @@ async function requireClassManager(
   return { supabaseAdmin, classId, userId: context.userId };
 }
 
-function strings(value: unknown): string[] {
-  return Array.isArray(value) ? value.map((part) => String(part)) : [];
+function hasResponse(value: unknown): boolean {
+  if (typeof value === "string") return value.trim().length > 0;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "boolean") return true;
+  if (Array.isArray(value)) return value.some((part) => hasResponse(part));
+  if (value && typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).some((part) => hasResponse(part));
+  }
+  return false;
 }
 
 function isAttemptComplete(status: string) {
@@ -174,7 +181,7 @@ export const getStudentWeaknessInsights = createServerFn({ method: "POST" })
       const attempt = attemptById.get(answer.attempt_id);
       if (!question || !attempt) continue;
 
-      const response = strings(answer.response).some((part) => part.trim().length > 0);
+      const response = hasResponse(answer.response);
       if (!response) continue;
 
       const type = String(question.type ?? "unknown").replaceAll("_", " ");

@@ -96,7 +96,7 @@ function BulkGradingWorkspace() {
     );
   }
 
-  const markDone = (status: "reviewed" | "returned") => {
+  const markDone = () => {
     if (!selected) return;
     setCompletedIds((current) => new Set(current).add(selected.submission_id));
     const index = visible.findIndex((row) => row.submission_id === selected.submission_id);

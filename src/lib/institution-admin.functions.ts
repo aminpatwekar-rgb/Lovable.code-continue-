@@ -57,7 +57,6 @@ export const getInstitutionAdminOverview = createServerFn({ method: "GET" })
     if (!institution) throw new Error("Your assigned institution could not be found. Contact the platform administrator.");
 
     const { data: verifiedScope, error: scopeError } = await context.supabase.rpc("is_institution_admin", {
-      _user_id: context.userId,
       _institution_id: institution.id,
     });
     if (scopeError) throw new Error("Could not verify institution access.");

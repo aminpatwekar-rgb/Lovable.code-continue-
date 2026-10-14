@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useViewRole } from "@/lib/viewRole";
 import { Button } from "@/components/ui/button";
-import { PlanGate } from "@/components/PlanGate";
+import { Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_authenticated/attendance")({
   component: Page,
 });
 
-type ClassRow = { id: string; name: string; subject: string | null; section: string | null };
+type ClassRow = { id: string; name: string; subject: string | null; section: string | null; teacher_id: string };
 type RosterRow = { student_id: string; full_name: string | null; roll_no: string | null; er_no: string | null; sr_no: string | null };
 type SavedRecord = { student_id: string; status: AttendanceStatus; note: string | null };
 
@@ -47,14 +47,43 @@ function classLabel(c: ClassRow) {
   return c.section ? `${c.name} (${c.section})` : c.name;
 }
 
+/**
+ * Attendance is a plan feature that belongs to the class owner: a class can take attendance
+ * when its owner's plan includes it, whoever is marking (the owner or a co-teacher).
+ * Returns owner id -> whether that owner's plan includes attendance.
+ */
+function useOwnerAttendanceAccess(ownerIds: string[], skip = false) {
+  const key = [...new Set(ownerIds)].sort();
+  return useQuery({
+    queryKey: ["attendance-owner-plans", key],
+    enabled: !skip && key.length > 0,
+    queryFn: async (): Promise<Record<string, boolean>> => {
+      const results = await Promise.all(
+        key.map(async (id) => {
+          const r = await db.rpc("plan_has_feature", { _user_id: id, _key: "attendance" });
+          if (r.error) throw r.error;
+          return [id, Boolean(r.data)] as const;
+        }),
+      );
+      return Object.fromEntries(results);
+    },
+  });
+}
+
+function UpgradePanel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="panel mx-auto max-w-xl p-10 text-center">
+      <Sparkles className="mx-auto size-6 text-primary" />
+      <h2 className="mt-3 text-xl font-semibold">Attendance isn't available here</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{children}</p>
+    </div>
+  );
+}
+
 function Page() {
   const { effectiveRole } = useViewRole();
   const isTeacher = effectiveRole === "teacher" || effectiveRole === "admin";
-  return (
-    <PlanGate feature="attendance">
-      {isTeacher ? <TeacherView isAdmin={effectiveRole === "admin"} /> : <StudentView />}
-    </PlanGate>
-  );
+  return isTeacher ? <TeacherView isAdmin={effectiveRole === "admin"} /> : <StudentView />;
 }
 
 /* ------------------------------------------------------------------ teacher */
@@ -71,13 +100,13 @@ function TeacherView({ isAdmin }: { isAdmin: boolean }) {
     enabled: Boolean(user),
     queryFn: async (): Promise<ClassRow[]> => {
       if (isAdmin) {
-        const all = await db.from("classes").select("id,name,subject,section").eq("archived", false).order("name").limit(300);
+        const all = await db.from("classes").select("id,name,subject,section,teacher_id").eq("archived", false).order("name").limit(300);
         if (all.error) throw all.error;
         return all.data ?? [];
       }
       const [owned, co] = await Promise.all([
-        db.from("classes").select("id,name,subject,section").eq("teacher_id", user!.id).eq("archived", false),
-        db.from("class_members").select("classes(id,name,subject,section,archived)").eq("student_id", user!.id).eq("member_role", "teacher"),
+        db.from("classes").select("id,name,subject,section,teacher_id").eq("teacher_id", user!.id).eq("archived", false),
+        db.from("class_members").select("classes(id,name,subject,section,teacher_id,archived)").eq("student_id", user!.id).eq("member_role", "teacher"),
       ]);
       if (owned.error) throw owned.error;
       if (co.error) throw co.error;
@@ -90,10 +119,17 @@ function TeacherView({ isAdmin }: { isAdmin: boolean }) {
     },
   });
 
-  // Pick the only class automatically.
+  const access = useOwnerAttendanceAccess((classes.data ?? []).map((c) => c.teacher_id), isAdmin);
+  const usable = (c: ClassRow) => isAdmin || access.data?.[c.teacher_id] === true;
+  const usableClasses = (classes.data ?? []).filter(usable);
+  const checkingPlans = !isAdmin && (classes.isLoading || (Boolean(classes.data?.length) && access.isLoading));
+  const noneUsable = !checkingPlans && Boolean(classes.data?.length) && usableClasses.length === 0;
+  const ownsLockedClass = (classes.data ?? []).some((c) => c.teacher_id === user?.id && !usable(c));
+
+  // Pick the only usable class automatically.
   useEffect(() => {
-    if (!classId && classes.data?.length === 1) setClassId(classes.data[0]!.id);
-  }, [classes.data, classId]);
+    if (!classId && usableClasses.length === 1) setClassId(usableClasses[0]!.id);
+  }, [usableClasses, classId]);
 
   function confirmLeave(): boolean {
     return !dirtyRef.current || window.confirm("You have unsaved attendance changes. Discard them?");
@@ -115,7 +151,11 @@ function TeacherView({ isAdmin }: { isAdmin: boolean }) {
         >
           <SelectTrigger className="w-full sm:w-[280px]"><SelectValue placeholder={classes.isLoading ? "Loading classes…" : "Select class"} /></SelectTrigger>
           <SelectContent>
-            {(classes.data ?? []).map((c) => <SelectItem value={c.id} key={c.id}>{classLabel(c)}</SelectItem>)}
+            {(classes.data ?? []).map((c) => (
+              <SelectItem value={c.id} key={c.id} disabled={!checkingPlans && !usable(c)}>
+                {classLabel(c)}{!checkingPlans && !usable(c) ? " — not in plan" : ""}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <div className="inline-flex rounded-lg border border-border p-0.5" role="tablist" aria-label="Attendance view">
@@ -139,7 +179,16 @@ function TeacherView({ isAdmin }: { isAdmin: boolean }) {
       {classes.data && classes.data.length === 0 && (
         <div className="panel p-8 text-center text-sm text-muted-foreground">You don't have any active classes yet.</div>
       )}
-      {!classId && classes.data && classes.data.length > 1 && (
+      {checkingPlans && <div className="panel p-8 text-sm text-muted-foreground">Checking plans…</div>}
+      {access.isError && <p role="alert" className="text-sm text-destructive">Couldn't verify which classes include attendance. Try again.</p>}
+      {noneUsable && (
+        <UpgradePanel>
+          {ownsLockedClass
+            ? "Attendance isn't included in your current plan. Upgrade to take attendance for your classes."
+            : "Attendance isn't included in the plan of the teachers who own your classes. Ask them to upgrade."}
+        </UpgradePanel>
+      )}
+      {!classId && !checkingPlans && usableClasses.length > 1 && (
         <div className="panel p-8 text-center text-sm text-muted-foreground">Select a class to begin.</div>
       )}
       {classId && tab === "mark" && <MarkTab key={classId} classId={classId} userId={user!.id} dirtyRef={dirtyRef} />}
@@ -464,7 +513,7 @@ function HistoryTab({ classId, className }: { classId: string; className: string
 
 /* ------------------------------------------------------------------ student */
 
-type StudentRecord = { class_id: string; attendance_date: string; status: AttendanceStatus; note: string | null; classes: { name: string } | null };
+type StudentRecord = { class_id: string; attendance_date: string; status: AttendanceStatus; note: string | null; classes: { name: string; teacher_id: string } | null };
 type Period = "all" | "month" | "30";
 
 function StudentView() {
@@ -475,18 +524,28 @@ function StudentView() {
     queryKey: ["attendance-mine", user?.id],
     enabled: Boolean(user),
     queryFn: async (): Promise<StudentRecord[]> => {
-      const q = await db.from("attendance_records").select("class_id,attendance_date,status,note,classes(name)").eq("student_id", user!.id).order("attendance_date", { ascending: false }).limit(3000);
+      const q = await db.from("attendance_records").select("class_id,attendance_date,status,note,classes(name,teacher_id)").eq("student_id", user!.id).order("attendance_date", { ascending: false }).limit(3000);
       if (q.error) throw q.error;
       return q.data ?? [];
     },
   });
 
+  // A class's attendance shows when its owner's plan includes attendance.
+  const owners = (records.data ?? []).map((r) => r.classes?.teacher_id).filter((id): id is string => Boolean(id));
+  const access = useOwnerAttendanceAccess(owners);
+  const visible = useMemo(
+    () => (records.data ?? []).filter((r) => r.classes?.teacher_id && access.data?.[r.classes.teacher_id] === true),
+    [records.data, access.data],
+  );
+  const loading = records.isLoading || (owners.length > 0 && access.isLoading);
+  const hiddenByPlan = !loading && (records.data?.length ?? 0) > 0 && visible.length === 0 && !access.isError;
+
   const filtered = useMemo(() => {
-    const all = records.data ?? [];
+    const all = visible;
     if (period === "all") return all;
     const from = period === "month" ? `${currentMonth()}-01` : shiftDate(localDateString(), -29);
     return all.filter((r) => r.attendance_date >= from);
-  }, [records.data, period]);
+  }, [visible, period]);
 
   const perClass = useMemo(() => {
     const groups = new Map<string, { name: string; statuses: AttendanceStatus[] }>();
@@ -517,8 +576,10 @@ function StudentView() {
         </Select>
       </header>
 
-      {records.isLoading ? <Skeleton className="h-40 w-full rounded-xl" /> : records.isError ? (
+      {loading ? <Skeleton className="h-40 w-full rounded-xl" /> : records.isError || access.isError ? (
         <p role="alert" className="text-sm text-destructive">Couldn't load your attendance. Try again.</p>
+      ) : hiddenByPlan ? (
+        <UpgradePanel>Attendance isn't turned on for your classes yet. Ask your teacher about it.</UpgradePanel>
       ) : !filtered.length ? (
         <div className="panel p-8 text-center text-sm text-muted-foreground">No attendance has been recorded for this period.</div>
       ) : (

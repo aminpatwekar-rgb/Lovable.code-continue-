@@ -44,6 +44,9 @@ function relationships(zip: Record<string, Uint8Array>, path: string, baseDir: s
 function textFromNode(node: Element) {
   return all(node, "t").map((t) => t.textContent ?? "").join("");
 }
+function slideText(node: Element) {
+  return all(node, "p").map((paragraph) => all(paragraph, "t").map((t) => t.textContent ?? "").join("")).join("\n");
+}
 function colIndex(cellRef: string) {
   const letters = cellRef.match(/^[A-Z]+/i)?.[0]?.toUpperCase() ?? "A";
   let index = 0;
@@ -177,7 +180,7 @@ export function OfficePreview({ url, fileName }: { url: string; fileName: string
 
   useEffect(() => {
     let active = true;
-    setLoading(true); setError(""); setSlides([]); setBlocks([]); setSheets([]); setSheetIndex(0); setSlideIndex(0);
+    setLoading(true); setError(""); setSlides([]); setBlocks([]); setSheets([]); setSheetIndex(0); setSlideIndex(0); setSheetIndex(0); setSlideIndex(0);
     fetch(url).then((response) => {
       if (!response.ok) throw new Error("The private file link expired. Close and reopen the submission to refresh it.");
       return response.arrayBuffer();

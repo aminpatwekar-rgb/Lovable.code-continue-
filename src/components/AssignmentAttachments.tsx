@@ -18,7 +18,8 @@ function formatSize(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function AssignmentAttachments({ assignmentId }: { assignmentId: string }) {\n  const [previewFile, setPreviewFile] = useState<PreviewableFile | null>(null);
+export function AssignmentAttachments({ assignmentId }: { assignmentId: string }) {
+  const [previewFile, setPreviewFile] = useState<PreviewableFile | null>(null);
   const q = useQuery({
     queryKey: ["assignment-attachments", assignmentId],
     queryFn: async () => {

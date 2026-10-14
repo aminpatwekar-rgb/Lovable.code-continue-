@@ -469,6 +469,7 @@ function StudentQuizzes() {
     const a = best.get(x.id);
     const count = counts.get(x.id) ?? 0;
     const used = attempts.filter((t) => t.quiz_id === x.id).length;
+    const activeAttempt = attempts.find((t) => t.quiz_id === x.id && t.status === "in_progress");
     const exhausted = used >= (x.max_attempts ?? 1);
     const notOpen = x.start_at ? new Date(x.start_at) > new Date() : false;
     const closed = x.end_at ? new Date(x.end_at) < new Date() : false;
@@ -519,11 +520,13 @@ function StudentQuizzes() {
                 ? "Not open yet"
                 : closed
                   ? "Closed"
-                  : exhausted
-                    ? "View result"
-                    : a
-                      ? "Retake"
-                      : "Start"}
+                  : activeAttempt
+                    ? "Resume attempt"
+                    : exhausted
+                      ? "View result"
+                      : a
+                        ? "Retake"
+                        : "Start"}
             </Link>
           </Button>
         </div>

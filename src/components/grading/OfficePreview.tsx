@@ -8,9 +8,8 @@ type Slide = { width: number; height: number; elements: SlideElement[] };
 type DocBlock = { type: "paragraph"; text: string; heading?: boolean } | { type: "table"; rows: string[][] };
 type Sheet = { name: string; rows: string[][] };
 
-const xmlParser = new DOMParser();
 function parseXml(xml: string): Document {
-  const doc = xmlParser.parseFromString(xml, "application/xml");
+  const doc = new DOMParser().parseFromString(xml, "application/xml");
   if (doc.getElementsByTagName("parsererror").length) throw new Error("This Office file contains invalid or unsupported XML.");
   return doc;
 }
@@ -75,8 +74,7 @@ function readPresentation(zip: Record<string, Uint8Array>): Slide[] {
   const slideW = Number(size?.getAttribute("cx") ?? 9144000);
   const slideH = Number(size?.getAttribute("cy") ?? 5143500);
   const rels = relationships(zip, "ppt/_rels/presentation.xml.rels", "ppt");
-  const ids = all(presentation, "sldId").map((el) => el.getAttribute("id") ?? "");
-  const slideOrder = all(presentation, "sldId").map((el) => rels.get(el.getAttribute("id") ?? "")).filter((p): p is string => Boolean(p));
+  const slideOrder = all(presentation, "sldId").map((el) => rels.get(el.getAttribute("r:id") ?? el.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id") ?? "")).filter((p): p is string => Boolean(p));
   const paths = slideOrder.length ? slideOrder : Object.keys(zip).filter((p) => /^ppt\/slides\/slide\d+\.xml$/.test(p)).sort((a, b) => Number(a.match(/slide(\d+)/)?.[1]) - Number(b.match(/slide(\d+)/)?.[1]));
   if (!paths.length) throw new Error("No slides were found in this presentation.");
   return paths.map((path, slideIndex) => {
@@ -145,13 +143,12 @@ function readWorkbook(zip: Record<string, Uint8Array>): Sheet[] {
   const shared = sharedDoc ? all(sharedDoc, "si").map(textFromNode) : [];
   return all(workbook, "sheet").map((sheet) => {
     const name = sheet.getAttribute("name") || "Sheet";
-    const relId = sheet.getAttribute("id") ?? sheet.getAttribute("r:id") ?? "";
+    const relId = sheet.getAttribute("r:id") ?? sheet.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id") ?? "";
     const path = workbookRels.get(relId);
     if (!path || !zip[path]) return { name, rows: [] };
     const doc = parseXml(strFromU8(zip[path]));
     const matrix: string[][] = [];
     for (const row of all(doc, "row").slice(0, 250)) {
-      const rowIndex = Math.max(0, Number(row.getAttribute("r") ?? matrix.length + 1) - 1);
       const cells: string[] = [];
       for (const cell of all(row, "c")) {
         const idx = colIndex(cell.getAttribute("r") ?? "A1");
@@ -162,7 +159,7 @@ function readWorkbook(zip: Record<string, Uint8Array>): Sheet[] {
         if (type === "b") val = val === "1" ? "TRUE" : "FALSE";
         cells[idx] = val;
       }
-      matrix[rowIndex] = cells;
+      matrix.push(cells);
     }
     return { name, rows: matrix.map((row) => row ?? []) };
   });
@@ -177,7 +174,6 @@ export function OfficePreview({ url, fileName }: { url: string; fileName: string
   const [slideIndex, setSlideIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [truncated, setTruncated] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -226,7 +222,6 @@ export function OfficePreview({ url, fileName }: { url: string; fileName: string
             <p className="text-xs text-muted-foreground">Showing up to 250 rows and 50 columns per worksheet. Formula results are shown as saved in the file.</p>
           </div>
         ) : null}
-      {truncated && <p className="text-xs text-muted-foreground">Preview limited for performance.</p>}
     </div>
   );
 }

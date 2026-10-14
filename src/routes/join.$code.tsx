@@ -99,6 +99,9 @@ function JoinPage() {
               <RoleIcon className="mt-1 size-6 text-primary" />
               <div>
                 <h1 className="text-2xl font-semibold">Join {preview.institutionName}</h1>
+                {preview.departmentName && (
+                  <p className="text-sm text-muted-foreground">Department: {preview.departmentName}</p>
+                )}
                 <p className="mt-1 text-sm text-muted-foreground">
                   You're joining as a <span className="font-medium text-foreground">{roleLabel}</span>.
                   {preview.requiresApproval ? " An administrator will approve your request first." : ""}

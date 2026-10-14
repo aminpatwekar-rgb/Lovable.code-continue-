@@ -17,11 +17,12 @@ export type JoinLink = {
 
 export type JoinPreview =
   | { valid: false }
-  | { valid: true; institutionName: string; role: JoinRole; requiresApproval: boolean };
+  | { valid: true; institutionName: string; departmentName?: string | null; role: JoinRole; requiresApproval: boolean };
 
 export type JoinResult = {
   status: "joined" | "pending" | "already_member";
   institutionName: string;
+  departmentName?: string | null;
   role: JoinRole;
 };
 
@@ -102,7 +103,11 @@ export async function fetchJoinRequests(institutionId: string): Promise<JoinRequ
   return (data ?? []) as JoinRequest[];
 }
 
-export async function decideJoinRequest(requestId: string, approve: boolean): Promise<void> {
-  const { error } = await db.rpc("decide_institution_join_request", { _request_id: requestId, _approve: approve });
+export async function decideJoinRequest(requestId: string, approve: boolean, departmentId: string | null = null): Promise<void> {
+  const { error } = await db.rpc("decide_institution_join_request", {
+    _request_id: requestId,
+    _approve: approve,
+    _department_id: departmentId,
+  });
   if (error) throw new Error(error.message);
 }

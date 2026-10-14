@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useViewRole } from "@/lib/viewRole";
 import { makeJoinCode } from "@/lib/assignments";
+import { fetchMyDepartments } from "@/lib/institution-departments";
 import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,7 @@ function Classes() {
   const [section, setSection] = useState("");
   const [description, setDescription] = useState("");
   const [code, setCode] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
   const [studentName, setStudentName] = useState("");
   const [rollNo, setRollNo] = useState("");
   const [erNo, setErNo] = useState("");
@@ -108,9 +110,20 @@ function Classes() {
     },
   });
 
+  // Departments this teacher belongs to (set up by their institution admin). Empty for independent teachers.
+  const myDepartments = useQuery({
+    queryKey: ["my-departments", user?.id],
+    queryFn: fetchMyDepartments,
+    enabled: !!user,
+    retry: false,
+  });
+  const departments = myDepartments.data ?? [];
+  const effectiveDepartmentId = departmentId || (departments.length === 1 ? (departments[0]?.id ?? "") : "");
+
   const create = useMutation({
     mutationFn: async () => {
       if (!name.trim()) throw new Error("Class name is required");
+      if (departments.length > 0 && !effectiveDepartmentId) throw new Error("Choose a department for this class");
       const { error } = await supabase.from("classes").insert({
         name: name.trim().slice(0, 120),
         subject: subject.trim() || null,
@@ -118,6 +131,8 @@ function Classes() {
         description: description.trim() || null,
         join_code: makeJoinCode(),
         teacher_id: user!.id,
+        // Only sent for department classes, so creating a class never depends on the new column otherwise.
+        ...(effectiveDepartmentId ? { department_id: effectiveDepartmentId } : {}),
       });
       if (error) throw error;
     },
@@ -128,6 +143,7 @@ function Classes() {
       setSubject("");
       setSection("");
       setDescription("");
+      setDepartmentId("");
       void qc.invalidateQueries({ queryKey: ["classes"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -260,6 +276,29 @@ function Classes() {
                     placeholder="Physics 101"
                   />
                 </div>
+                {departments.length > 0 ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="cdept">Department</Label>
+                    <select
+                      id="cdept"
+                      value={effectiveDepartmentId}
+                      onChange={(e) => setDepartmentId(e.target.value)}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      {departments.length > 1 && <option value="">Choose a department…</option>}
+                      {departments.map((d) => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      Students of this department can be added to the class without sharing the code.
+                    </p>
+                  </div>
+                ) : profile?.institution ? (
+                  <p className="rounded-md border border-dashed border-border p-2.5 text-xs text-muted-foreground">
+                    You're not in a department yet. Ask your institution admin to add you, then new classes can be linked to it.
+                  </p>
+                ) : null}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="csub">Subject</Label>

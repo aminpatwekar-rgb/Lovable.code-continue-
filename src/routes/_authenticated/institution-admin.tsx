@@ -10,6 +10,7 @@ import { createInstitutionDepartment, getInstitutionAdminOverview, listInstituti
 import { bulkCreateInstitutionStudents, type StudentOnboardingResult } from "@/lib/admin.functions";
 import { csvObjects, downloadCsv, toCsv } from "@/lib/csv";
 import { InstitutionJoinLinks } from "@/components/institution/InstitutionJoinLinks";
+import { DepartmentPeople } from "@/components/institution/DepartmentPeople";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -235,6 +236,8 @@ function InstitutionAdminConsole() {
             </article>)}
           </div>}
       </section>
+
+      <DepartmentPeople institutionId={data.institution.id} departments={(departments.data ?? []).map((d) => ({ id: d.id, name: d.name, code: d.code ?? null }))} />
 
       <section className="panel space-y-4 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">

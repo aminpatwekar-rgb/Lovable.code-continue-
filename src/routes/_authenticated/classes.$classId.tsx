@@ -28,6 +28,7 @@ import { DueDateChip } from "@/components/DueDateChip";
 import { Announcements } from "@/components/Announcements";
 import { ClassDiscussion } from "@/components/ClassDiscussion";
 import { ClassSettingsDialog, type ClassRecord } from "@/components/ClassSettingsDialog";
+import { EnrollDepartmentStudents } from "@/components/institution/EnrollDepartmentStudents";
 import { ClassResources } from "@/components/ClassResources";
 import { Button } from "@/components/ui/button";
 import {
@@ -121,6 +122,23 @@ function ClassDetail() {
       if (error) throw error;
       return data as ClassRecord | null;
     },
+  });
+
+  // The class's department, if any. Kept separate (and failure-tolerant) so the class page
+  // keeps working even where the departments migration has not been applied yet.
+  const classDept = useQuery({
+    queryKey: ["class-department", classId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("classes")
+        .select("department_id, departments(name)")
+        .eq("id", classId)
+        .maybeSingle();
+      if (error || !data) return null;
+      const row = data as unknown as { department_id: string | null; departments: { name: string } | null };
+      return row.department_id ? { id: row.department_id, name: row.departments?.name ?? "this department" } : null;
+    },
+    retry: false,
   });
 
   const bannerPath = klass.data?.banner_url ?? null;
@@ -557,6 +575,15 @@ function ClassDetail() {
                   Import Students
                 </Link>
               </Button>
+            </div>
+          )}
+          {isTeacher && classDept.data && (
+            <div className="mb-4">
+              <EnrollDepartmentStudents
+                classId={classId}
+                departmentId={classDept.data.id}
+                departmentName={classDept.data.name}
+              />
             </div>
           )}
           {roster.isLoading ? (

@@ -783,6 +783,7 @@ export type Database = {
           archived: boolean
           banner_url: string | null
           created_at: string
+          department_id: string | null
           description: string | null
           id: string
           join_code: string
@@ -796,6 +797,7 @@ export type Database = {
           archived?: boolean
           banner_url?: string | null
           created_at?: string
+          department_id?: string | null
           description?: string | null
           id?: string
           join_code: string
@@ -809,6 +811,7 @@ export type Database = {
           archived?: boolean
           banner_url?: string | null
           created_at?: string
+          department_id?: string | null
           description?: string | null
           id?: string
           join_code?: string

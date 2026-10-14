@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { supabase } from "@/integrations/supabase/client";
 import {
   decideJoinRequest, fetchJoinLinks, fetchJoinRequests, joinUrl, regenerateJoinLink, updateJoinLink,
   type JoinLink, type JoinRole,
@@ -144,17 +145,33 @@ function LinkCard({ institutionId, link }: { institutionId: string; link: JoinLi
 
 function PendingRequests({ institutionId }: { institutionId: string }) {
   const qc = useQueryClient();
+  const [departmentFor, setDepartmentFor] = useState<Record<string, string>>({});
+  const departments = useQuery({
+    queryKey: ["institution-departments-simple", institutionId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("departments")
+        .select("id, name")
+        .eq("institution_id", institutionId)
+        .order("name");
+      if (error) throw error;
+      return (data ?? []) as { id: string; name: string }[];
+    },
+    retry: false,
+  });
   const requests = useQuery({
     queryKey: ["institution-join-requests", institutionId],
     queryFn: () => fetchJoinRequests(institutionId),
   });
   const decide = useMutation({
-    mutationFn: (v: { id: string; approve: boolean }) => decideJoinRequest(v.id, v.approve),
+    mutationFn: (v: { id: string; approve: boolean; departmentId?: string | null }) =>
+      decideJoinRequest(v.id, v.approve, v.departmentId ?? null),
     onSuccess: async (_d, v) => {
       toast.success(v.approve ? "Approved" : "Declined");
       await qc.invalidateQueries({ queryKey: ["institution-join-requests", institutionId] });
       await qc.invalidateQueries({ queryKey: ["institution-admin-overview"] });
       await qc.invalidateQueries({ queryKey: ["admin-institution-people"] });
+      await qc.invalidateQueries({ queryKey: ["institution-people"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -175,8 +192,19 @@ function PendingRequests({ institutionId }: { institutionId: string }) {
               <p className="truncate text-sm font-medium">{r.fullName || "Unnamed"}</p>
               <p className="truncate text-xs text-muted-foreground">{r.email ?? "No email"} · wants to join as {r.role}</p>
             </div>
-            <div className="flex gap-2">
-              <Button size="sm" disabled={decide.isPending} onClick={() => decide.mutate({ id: r.id, approve: true })}>
+            <div className="flex flex-wrap items-center gap-2">
+              {!!departments.data?.length && (
+                <select
+                  aria-label={`Department for ${r.fullName || "this person"}`}
+                  value={departmentFor[r.id] ?? ""}
+                  onChange={(e) => setDepartmentFor((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                >
+                  <option value="">No department yet</option>
+                  {departments.data.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              )}
+              <Button size="sm" disabled={decide.isPending} onClick={() => decide.mutate({ id: r.id, approve: true, departmentId: departmentFor[r.id] || null })}>
                 <Check className="mr-1 size-4" />Approve
               </Button>
               <Button size="sm" variant="outline" disabled={decide.isPending} onClick={() => decide.mutate({ id: r.id, approve: false })}>

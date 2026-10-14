@@ -235,6 +235,7 @@ function AuthPage() {
             <div>
               <h1 className="text-2xl font-semibold">
                 Join {activeJoin.institutionName}
+                {activeJoin.departmentName ? ` · ${activeJoin.departmentName}` : ""}
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">
                 You're joining as a{" "}

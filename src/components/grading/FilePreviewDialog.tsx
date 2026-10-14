@@ -3,12 +3,14 @@ import { Download, FileText, Loader2, Maximize2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OfficePreview } from "@/components/grading/OfficePreview";
 import { PdfPreview } from "@/components/grading/PdfPreview";
+import { useProxiedFileUrl, type PreviewFileSource } from "@/components/grading/useProxiedFileUrl";
 
 export type PreviewableFile = {
   id: string;
   file_name: string;
   mime_type?: string | null;
-  url: string;
+  url?: string | null;
+  source?: PreviewFileSource;
 };
 
 function extension(name: string) {
@@ -65,14 +67,17 @@ export function FilePreviewDialog({ file, onClose }: { file: PreviewableFile | n
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const type = file ? kind(file) : "other";
+  const { url: previewUrl, loading: proxyLoading, error: proxyError } = useProxiedFileUrl(
+    file ? { id: file.id, source: file.source } : null,
+  );
 
   useEffect(() => {
     let active = true;
     setText(null);
     setError("");
-    if (!file || (type !== "text" && type !== "csv")) return;
+    if (!file || !previewUrl || (type !== "text" && type !== "csv")) return;
     setLoading(true);
-    fetch(file.url)
+    fetch(previewUrl)
       .then((response) => {
         if (!response.ok) throw new Error("The file link may have expired. Reopen the submission to refresh it.");
         return response.text();
@@ -81,7 +86,7 @@ export function FilePreviewDialog({ file, onClose }: { file: PreviewableFile | n
       .catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : "Could not preview this file."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [file?.id, file?.url, type]);
+  }, [file?.id, previewUrl, type]);
 
   useEffect(() => {
     if (!file) return;
@@ -100,15 +105,23 @@ export function FilePreviewDialog({ file, onClose }: { file: PreviewableFile | n
             <p className="truncate text-sm font-semibold">{file.file_name}</p>
             <p className="text-xs text-muted-foreground">Private in-app preview</p>
           </div>
-          <Button variant="outline" size="sm" asChild>
-            <a href={file.url} download={file.file_name}><Download className="mr-1.5 size-4" /> Download</a>
-          </Button>
+          {previewUrl ? (
+            <Button variant="outline" size="sm" asChild>
+              <a href={previewUrl} download={file.file_name}><Download className="mr-1.5 size-4" /> Download</a>
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" disabled>
+              <Loader2 className="mr-1.5 size-4 animate-spin" /> Preparing file…
+            </Button>
+          )}
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close preview"><X className="size-5" /></Button>
         </header>
         <main className="min-h-0 flex-1 overflow-auto bg-muted/20">
-          {type === "image" && <div className="flex h-full items-center justify-center p-3"><img src={file.url} alt={file.file_name} className="max-h-full max-w-full object-contain" /></div>}
-          {type === "pdf" && <PdfPreview url={file.url} fileName={file.file_name} />}
-          {type === "csv" && (
+          {proxyLoading && <div className="flex h-full min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Preparing private preview…</div>}
+          {proxyError && <div className="mx-auto max-w-lg p-8 text-center"><p role="alert" className="text-sm text-destructive">{proxyError}</p></div>}
+          {type === "image" && previewUrl && <div className="flex h-full items-center justify-center p-3"><img src={previewUrl} alt={file.file_name} className="max-h-full max-w-full object-contain" /></div>}
+          {type === "pdf" && previewUrl && <PdfPreview url={previewUrl} fileName={file.file_name} />}
+          {type === "csv" && previewUrl && (
             <div className="h-full overflow-auto p-3">
               {loading ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -134,20 +147,20 @@ export function FilePreviewDialog({ file, onClose }: { file: PreviewableFile | n
               <p className="mt-2 text-xs text-muted-foreground">Showing up to 300 rows and 30 columns.</p>
             </div>
           )}
-          {type === "text" && (
+          {type === "text" && previewUrl && (
             <div className="h-full overflow-auto p-4">
               {loading ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Loading preview…</div>
                 : error ? <p role="alert" className="text-sm text-destructive">{error}</p>
                 : <pre className="whitespace-pre-wrap break-words rounded-lg border border-border bg-background p-4 font-mono text-xs leading-5">{text ?? ""}{text && text.length >= 1_000_000 ? "\n\n[Preview truncated at 1 MB of text]" : ""}</pre>}
             </div>
           )}
-          {type === "office" && <OfficePreview url={file.url} fileName={file.file_name} />}
-          {type === "other" && (
+          {type === "office" && previewUrl && <OfficePreview url={previewUrl} fileName={file.file_name} />}
+          {type === "other" && previewUrl && (
             <div className="mx-auto flex h-full max-w-lg flex-col items-center justify-center gap-3 p-8 text-center">
               <Maximize2 className="size-10 text-muted-foreground" />
-              <h3 className="text-lg font-semibold">{type === "office" ? "Office file preview needs conversion" : "Preview isn't available for this file type"}</h3>
-              <p className="text-sm text-muted-foreground">{type === "office" ? "This PowerPoint, Word, or Excel file is private. ONYX needs a secure server-side renderer to display it here; opening it in a public online viewer could expose student work." : "You can download this file to open it in a compatible application."}</p>
-              <Button asChild><a href={file.url} download={file.file_name}><Download className="mr-2 size-4" /> Download file</a></Button>
+              <h3 className="text-lg font-semibold">Preview isn't available for this file type</h3>
+              <p className="text-sm text-muted-foreground">You can download this file to open it in a compatible application.</p>
+              <Button asChild><a href={previewUrl} download={file.file_name}><Download className="mr-2 size-4" /> Download file</a></Button>
             </div>
           )}
         </main>

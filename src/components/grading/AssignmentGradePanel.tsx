@@ -132,16 +132,8 @@ export function AssignmentGradePanel({
       ]);
       if (filesResult.error) throw filesResult.error;
       if (violationsResult.error) throw violationsResult.error;
-      const signed = await Promise.all(
-        (filesResult.data ?? []).map(async (f) => {
-          const { data, error: signedUrlError } = await supabase.storage
-            .from("submissions")
-            .createSignedUrl(f.storage_path, 3600);
-          if (signedUrlError) throw signedUrlError;
-          return { ...f, url: data.signedUrl };
-        }),
-      );
-      return { sub, files: signed, violations: violationsResult.data ?? [] };
+      const files = (filesResult.data ?? []).map((file) => ({ ...file, url: "" }));
+      return { sub, files, violations: violationsResult.data ?? [] };
     },
   });
 

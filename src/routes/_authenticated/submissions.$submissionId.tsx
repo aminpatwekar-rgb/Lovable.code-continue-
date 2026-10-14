@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FilePreviewDialog, type PreviewableFile } from "@/components/grading/FilePreviewDialog";
+import { ProxiedFileImage } from "@/components/grading/useProxiedFileUrl";
 
 function isPhotoFile(file: { mime_type?: string | null; file_name?: string | null }) {
   return Boolean(
@@ -49,6 +51,7 @@ function ReviewSubmission() {
   const [notes, setNotes] = useState("");
   const [released, setReleased] = useState(true);
   const [hydrated, setHydrated] = useState(false);
+  const [previewFile, setPreviewFile] = useState<PreviewableFile | null>(null);
 
   const q = useQuery({
     queryKey: ["submission", submissionId],
@@ -76,15 +79,7 @@ function ReviewSubmission() {
         .eq("submission_id", submissionId)
         .order("page_order", { ascending: true });
       if (filesError) throw filesError;
-      const signed = await Promise.all(
-        (files ?? []).map(async (f) => {
-          const { data, error: signedUrlError } = await supabase.storage
-            .from("submissions")
-            .createSignedUrl(f.storage_path, 3600);
-          if (signedUrlError) throw signedUrlError;
-          return { ...f, url: data.signedUrl };
-        }),
-      );
+      const signed = (files ?? []).map((file) => ({ ...file, url: "" }));
       const { data: violations, error: violationsError } = await supabase
         .from("paste_violations")
         .select("id, kind, occurred_at")
@@ -257,15 +252,15 @@ function ReviewSubmission() {
             {pages.map((p, i) => (
               <figure key={p.id} className="panel min-w-0 overflow-hidden p-0">
                 {isPhotoFile(p) ? (
-                  <a href={p.url} target="_blank" rel="noreferrer" aria-label={`Open ${p.file_name || `photo ${i + 1}`}`}>
-                    <img src={p.url} alt={p.file_name || `Photo ${i + 1}`} className="max-h-[70vh] w-full bg-muted/20 object-contain" />
-                  </a>
+                  <button type="button" onClick={() => setPreviewFile(p)} aria-label={`Preview ${p.file_name || `photo ${i + 1}`}`} className="block w-full cursor-zoom-in">
+                    <ProxiedFileImage fileId={p.id} alt={p.file_name || `Photo ${i + 1}`} className="max-h-[70vh] w-full bg-muted/20 object-contain" />
+                  </button>
                 ) : (
-                  <a href={p.url} target="_blank" rel="noreferrer" className="flex min-h-32 items-center gap-3 p-4 hover:bg-accent/40">
+                  <button type="button" onClick={() => setPreviewFile(p)} className="flex min-h-32 w-full items-center gap-3 p-4 text-left hover:bg-accent/40">
                     <FileUp className="size-6 shrink-0 text-muted-foreground" />
                     <span className="min-w-0 flex-1 break-words text-sm font-medium">{p.file_name}</span>
-                    <Download className="size-4 shrink-0 text-muted-foreground" />
-                  </a>
+                    <span className="text-xs font-medium text-primary">Preview</span>
+                  </button>
                 )}
                 <figcaption className="break-words px-3 py-2 text-xs text-muted-foreground">{p.file_name || `File ${i + 1}`}</figcaption>
               </figure>
@@ -279,13 +274,11 @@ function ReviewSubmission() {
           <h2 className="text-lg font-semibold">Attached files</h2>
           <div className="panel divide-y divide-border">
             {attachments.map((file) => (
-              <a
+              <button
                 key={file.id}
-                href={file.url || undefined}
-                target="_blank"
-                rel="noreferrer"
-                download={file.file_name}
-                className="flex items-center gap-3 p-4 transition-colors hover:bg-muted/40"
+                type="button"
+                onClick={() => setPreviewFile(file)}
+                className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/40"
               >
                 <FileText className="size-5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
@@ -295,8 +288,8 @@ function ReviewSubmission() {
                     {file.size_bytes ? ` · ${formatFileSize(file.size_bytes)}` : ""}
                   </p>
                 </div>
-                <Download className="size-4 shrink-0 text-muted-foreground" />
-              </a>
+                <span className="text-xs font-medium text-primary">Preview</span>
+              </button>
             ))}
           </div>
         </section>
@@ -310,8 +303,8 @@ function ReviewSubmission() {
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               {inline.map((f) => (
                 <figure key={f.id}>
-                  <img
-                    src={f.url}
+                  <ProxiedFileImage
+                    fileId={f.id}
                     alt={f.caption || "Student illustration"}
                     className="w-full rounded-md border border-border object-cover"
                   />
@@ -326,6 +319,8 @@ function ReviewSubmission() {
           )}
         </section>
       )}
+
+      <FilePreviewDialog file={previewFile} onClose={() => setPreviewFile(null)} />
 
       {isTeacher ? (
         <section className="panel space-y-4 p-6">

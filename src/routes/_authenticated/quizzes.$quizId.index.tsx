@@ -23,7 +23,7 @@ import {
   type QuizKind,
 } from "@/lib/quiz/types";
 import { DeleteQuizButton } from "@/components/DeleteQuizButton";
-import { getQuizReviewAttempts, grantLockedQuizRetry } from "@/lib/quiz/review.functions";
+import { getQuizReviewAttempts, grantQuizRetry } from "@/lib/quiz/review.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -61,9 +61,9 @@ function Page() {
   const [attemptView, setAttemptView] = useState<"all" | "locked">("all");
 
   const grantRetry = useMutation({
-    mutationFn: (studentId: string) => grantLockedQuizRetry({ data: { quizId, studentId } }),
+    mutationFn: (studentId: string) => grantQuizRetry({ data: { quizId, studentId } }),
     onSuccess: (result) => {
-      toast.success(`Retry granted (attempt ${result.attemptNo}). The student can resume it now.`);
+      toast.success(`Quiz assigned again (attempt ${result.attemptNo}). The student can start it now.`);
       void qc.invalidateQueries({ queryKey: ["quiz-detail", quizId] });
     },
     onError: (error: Error) => toast.error(error.message || "Could not grant a retry."),
@@ -170,6 +170,13 @@ function Page() {
   const openAttempt = myAttempts.find((a) => a.status === "in_progress");
   const lockedAttempts = attempts.filter((a) => Boolean(a.locked_at));
   const visibleAttempts = attemptView === "locked" ? lockedAttempts : attempts;
+  const latestVisibleAttemptByStudent = new Map<string, (typeof attempts)[number]>();
+  for (const attempt of visibleAttempts) {
+    const latest = latestVisibleAttemptByStudent.get(attempt.student_id);
+    if (!latest || attempt.attempt_no > latest.attempt_no) {
+      latestVisibleAttemptByStudent.set(attempt.student_id, attempt);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -279,31 +286,57 @@ function Page() {
             </p>
           ) : (
             <div className="panel divide-y divide-border">
-              {visibleAttempts.map((a) => (
-                <div key={a.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {names[a.student_id] ?? "Student"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Attempt {a.attempt_no} ·{" "}
-                      {a.submitted_at ? fmt(a.submitted_at) : "in progress"}
-                    </p>
-                    {a.locked_at && <p className="mt-1 text-xs text-destructive">Locked: {a.lock_reason || "Tab switch"}</p>}
+              {visibleAttempts.map((a) => {
+                const isLatestVisibleAttempt =
+                  latestVisibleAttemptByStudent.get(a.student_id)?.id === a.id;
+                const studentHasActiveAttempt = attempts.some(
+                  (attempt) =>
+                    attempt.student_id === a.student_id && attempt.status === "in_progress",
+                );
+
+                return (
+                  <div key={a.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {names[a.student_id] ?? "Student"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Attempt {a.attempt_no} ·{" "}
+                        {a.submitted_at ? fmt(a.submitted_at) : "in progress"}
+                      </p>
+                      {a.locked_at && (
+                        <p className="mt-1 text-xs text-destructive">
+                          Locked: {a.lock_reason || "Tab switch"}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-sm">
+                      <Badge variant={a.status === "graded" ? "default" : "outline"}>
+                        {a.status.replace("_", " ")}
+                      </Badge>
+                      <span className="tabular-nums">
+                        {a.score != null && a.max_score
+                          ? `${a.score}/${a.max_score} · ${percent(a.score, a.max_score)}%`
+                          : "—"}
+                      </span>
+                    </div>
+                    {isLatestVisibleAttempt && a.status !== "in_progress" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={grantRetry.isPending || studentHasActiveAttempt}
+                        onClick={() => grantRetry.mutate(a.student_id)}
+                      >
+                        {studentHasActiveAttempt
+                          ? "Attempt in progress"
+                          : grantRetry.isPending
+                            ? "Assigning…"
+                            : "Assign again"}
+                      </Button>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3 text-sm">
-                    <Badge variant={a.status === "graded" ? "default" : "outline"}>
-                      {a.status.replace("_", " ")}
-                    </Badge>
-                    <span className="tabular-nums">
-                      {a.score != null && a.max_score
-                        ? `${a.score}/${a.max_score} · ${percent(a.score, a.max_score)}%`
-                        : "—"}
-                    </span>
-                  </div>
-                  {a.locked_at && <Button size="sm" variant="outline" disabled={grantRetry.isPending || attempts.some((attempt) => attempt.student_id === a.student_id && attempt.status === "in_progress")} onClick={() => grantRetry.mutate(a.student_id)}>{attempts.some((attempt) => attempt.student_id === a.student_id && attempt.status === "in_progress") ? "Retry in progress" : grantRetry.isPending ? "Granting…" : "Allow re-attempt"}</Button>}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>

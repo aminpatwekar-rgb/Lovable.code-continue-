@@ -70,6 +70,7 @@ export function AssignmentAttachments({ assignmentId }: { assignmentId: string }
           </button>
         ))}
       </div>
+      <FilePreviewDialog file={previewFile} onClose={() => setPreviewFile(null)} />
     </section>
   );
 }

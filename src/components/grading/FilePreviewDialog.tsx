@@ -14,7 +14,40 @@ function extension(name: string) {
   return name.split(".").pop()?.toLowerCase() ?? "";
 }
 
-function parseCsv(source: string): string[][] {\n  const rows: string[][] = [];\n  let row: string[] = [];\n  let cell = "";\n  let quoted = false;\n  for (let i = 0; i < source.length; i++) {\n    const ch = source[i];\n    if (ch === "\\"" && quoted && source[i + 1] === "\\"") { cell += "\\""; i++; }\n    else if (ch === "\\"") quoted = !quoted;\n    else if (ch === "," && !quoted) { row.push(cell); cell = ""; }\n    else if ((ch === "\\n" || ch === "\\r") && !quoted) {\n      if (ch === "\\r" && source[i + 1] === "\\n") i++;\n      row.push(cell); rows.push(row); row = []; cell = "";\n      if (rows.length >= 300) break;\n    } else cell += ch;\n  }\n  if (cell.length || row.length) { row.push(cell); rows.push(row); }\n  return rows.map((r) => r.slice(0, 30));\n}\n\nfunction kind(file: PreviewableFile) {
+function parseCsv(source: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === '"' && quoted && source[i + 1] === '"') {
+      cell += '"';
+      i++;
+    } else if (ch === '"') {
+      quoted = !quoted;
+    } else if (ch === ',' && !quoted) {
+      row.push(cell);
+      cell = "";
+    } else if ((ch === '\n' || ch === '\r') && !quoted) {
+      if (ch === '\r' && source[i + 1] === '\n') i++;
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+      if (rows.length >= 300) break;
+    } else {
+      cell += ch;
+    }
+  }
+  if (cell.length || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
+  return rows.map((r) => r.slice(0, 30));
+}
+
+function kind(file: PreviewableFile) {
   const mime = file.mime_type?.toLowerCase() ?? "";
   const ext = extension(file.file_name);
   if (mime.startsWith("image/") || /^(avif|bmp|gif|heic|heif|jpe?g|png|webp)$/.test(ext)) return "image";
@@ -74,7 +107,33 @@ export function FilePreviewDialog({ file, onClose }: { file: PreviewableFile | n
         <main className="min-h-0 flex-1 overflow-auto bg-muted/20">
           {type === "image" && <div className="flex h-full items-center justify-center p-3"><img src={file.url} alt={file.file_name} className="max-h-full max-w-full object-contain" /></div>}
           {type === "pdf" && <iframe title={`PDF preview: ${file.file_name}`} src={file.url} className="h-full min-h-[60vh] w-full bg-white" />}
-          {type === "csv" && (\n            <div className="h-full overflow-auto p-3">\n              {loading ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Loading spreadsheet preview…</div>\n                : error ? <p role="alert" className="text-sm text-destructive">{error}</p>\n                : <div className="max-h-full overflow-auto rounded-md border border-border bg-background"><table className="w-full border-collapse text-sm"><tbody>{parseCsv(text ?? "").map((row, ri) => <tr key={ri} className="border-b border-border last:border-0">{row.map((cell, ci) => <td key={ci} className="min-w-24 border-r border-border px-3 py-2 align-top last:border-0">{cell}</td>)}</tr>)}</tbody></table></div>}\n              <p className="mt-2 text-xs text-muted-foreground">Showing up to 300 rows and 30 columns.</p>\n            </div>\n          )}\n          {type === "text" && (
+          {type === "csv" && (
+            <div className="h-full overflow-auto p-3">
+              {loading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" /> Loading spreadsheet preview…
+                </div>
+              ) : error ? (
+                <p role="alert" className="text-sm text-destructive">{error}</p>
+              ) : (
+                <div className="max-h-full overflow-auto rounded-md border border-border bg-background">
+                  <table className="w-full border-collapse text-sm">
+                    <tbody>
+                      {parseCsv(text ?? "").map((row, ri) => (
+                        <tr key={ri} className="border-b border-border last:border-0">
+                          {row.map((cell, ci) => (
+                            <td key={ci} className="min-w-24 border-r border-border px-3 py-2 align-top last:border-0">{cell}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <p className="mt-2 text-xs text-muted-foreground">Showing up to 300 rows and 30 columns.</p>
+            </div>
+          )}
+          {type === "text" && (
             <div className="h-full overflow-auto p-4">
               {loading ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Loading preview…</div>
                 : error ? <p role="alert" className="text-sm text-destructive">{error}</p>

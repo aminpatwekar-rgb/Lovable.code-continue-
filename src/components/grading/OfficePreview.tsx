@@ -162,7 +162,7 @@ function readWorkbook(zip: Record<string, Uint8Array>): Sheet[] {
         if (type === "b") val = val === "1" ? "TRUE" : "FALSE";
         cells[idx] = val;
       }
-      matrix.push(cells);
+      matrix.push(Array.from({ length: cells.length }, (_, idx) => cells[idx] ?? ""));
     }
     return { name, rows: matrix.map((row) => row ?? []) };
   });

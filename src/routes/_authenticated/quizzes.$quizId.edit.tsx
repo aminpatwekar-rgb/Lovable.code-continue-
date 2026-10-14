@@ -19,6 +19,7 @@ import { generateQuizQuestions, regenerateQuizQuestion } from "@/lib/quiz/ai.fun
 import {
   getQuizReviewAttempt,
   getQuizReviewAttempts,
+  grantQuizRetry,
   type QuizReviewAttemptDetail,
 } from "@/lib/quiz/review.functions";
 import { percent } from "@/lib/quiz/types";
@@ -301,6 +302,19 @@ function Page() {
     enabled: Boolean(user),
     queryFn: () => reviewAttempts({ data: { quizId } }),
     staleTime: 15_000,
+  });
+
+  const grantRetry = useMutation({
+    mutationFn: (studentId: string) => grantQuizRetry({ data: { quizId, studentId } }),
+    onSuccess: async (result) => {
+      toast.success(
+        `Quiz assigned again (attempt ${result.attemptNo}). The student can start it now.`,
+      );
+      await qc.invalidateQueries({ queryKey: ["quiz-review-attempts", quizId] });
+      await qc.invalidateQueries({ queryKey: ["quiz-detail", quizId] });
+    },
+    onError: (error: Error) =>
+      toast.error(error.message || "Could not assign this quiz again."),
   });
 
   async function persistQuizDraft() {
@@ -768,41 +782,92 @@ function Page() {
                   ) : (
                     <>
                       <div className="panel divide-y divide-border">
-                        {rows.map((a) => (
-                          <button
-                            key={a.id}
-                            type="button"
-                            onClick={() => setSelectedAttemptId(a.id)}
-                            className="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-muted/40"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium">
-                                {names[a.student_id] ?? "Student"}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Attempt {a.attempt_no} ·{" "}
-                                {a.submitted_at
-                                  ? new Date(a.submitted_at).toLocaleString()
-                                  : "In progress"}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-3 text-sm">
-                              <Badge
-                                variant={a.status === "graded" ? "default" : "outline"}
+                        {(() => {
+                          const latestAttemptByStudent = new Map<
+                            string,
+                            (typeof rows)[number]
+                          >();
+                          for (const attempt of rows) {
+                            const latest = latestAttemptByStudent.get(attempt.student_id);
+                            if (!latest || attempt.attempt_no > latest.attempt_no) {
+                              latestAttemptByStudent.set(attempt.student_id, attempt);
+                            }
+                          }
+
+                          return rows.map((a) => {
+                            const isLatestAttempt =
+                              latestAttemptByStudent.get(a.student_id)?.id === a.id;
+                            const studentHasActiveAttempt = rows.some(
+                              (attempt) =>
+                                attempt.student_id === a.student_id &&
+                                attempt.status === "in_progress" &&
+                                !attempt.locked_at,
+                            );
+                            const canAssignAgain =
+                              isLatestAttempt &&
+                              (a.status !== "in_progress" || Boolean(a.locked_at));
+
+                            return (
+                              <div
+                                key={a.id}
+                                className="flex flex-wrap items-center gap-3 p-4"
                               >
-                                {a.status.replace("_", " ")}
-                              </Badge>
-                              <span className="tabular-nums font-medium">
-                                {a.score != null && a.max_score != null
-                                  ? `${a.score}/${a.max_score} · ${percent(
-                                      a.score,
-                                      a.max_score,
-                                    )}%`
-                                  : "Not graded"}
-                              </span>
-                            </div>
-                          </button>
-                        ))}
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedAttemptId(a.id)}
+                                  className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 rounded-md text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  aria-label={`Review ${names[a.student_id] ?? "student"} attempt ${a.attempt_no}`}
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-medium">
+                                      {names[a.student_id] ?? "Student"}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Attempt {a.attempt_no} ·{" "}
+                                      {a.submitted_at
+                                        ? new Date(a.submitted_at).toLocaleString()
+                                        : "In progress"}
+                                    </p>
+                                    {a.locked_at && (
+                                      <p className="mt-1 text-xs text-destructive">
+                                        Locked: {a.lock_reason || "Lockdown"}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-3 text-sm">
+                                    <Badge
+                                      variant={a.status === "graded" ? "default" : "outline"}
+                                    >
+                                      {a.status.replace("_", " ")}
+                                    </Badge>
+                                    <span className="tabular-nums font-medium">
+                                      {a.score != null && a.max_score != null
+                                        ? `${a.score}/${a.max_score} · ${percent(
+                                            a.score,
+                                            a.max_score,
+                                          )}%`
+                                        : "Not graded"}
+                                    </span>
+                                  </div>
+                                </button>
+                                {canAssignAgain && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={grantRetry.isPending || studentHasActiveAttempt}
+                                    onClick={() => grantRetry.mutate(a.student_id)}
+                                  >
+                                    {studentHasActiveAttempt
+                                      ? "Attempt in progress"
+                                      : grantRetry.isPending
+                                        ? "Assigning…"
+                                        : "Assign again"}
+                                  </Button>
+                                )}
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
 
                       {selectedAttemptId && (

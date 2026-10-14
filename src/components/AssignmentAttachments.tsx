@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download, FileText, Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { FilePreviewDialog, type PreviewableFile } from "@/components/grading/FilePreviewDialog";
 
 type Attachment = {
   id: string;
@@ -16,7 +18,7 @@ function formatSize(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function AssignmentAttachments({ assignmentId }: { assignmentId: string }) {
+export function AssignmentAttachments({ assignmentId }: { assignmentId: string }) {\n  const [previewFile, setPreviewFile] = useState<PreviewableFile | null>(null);
   const q = useQuery({
     queryKey: ["assignment-attachments", assignmentId],
     queryFn: async () => {
@@ -27,14 +29,11 @@ export function AssignmentAttachments({ assignmentId }: { assignmentId: string }
         .order("created_at", { ascending: true });
       if (error) throw error;
 
-      return Promise.all(
-        (data ?? []).map(async (file) => {
-          const { data: signed } = await supabase.storage
-            .from("assignment-attachments")
-            .createSignedUrl(file.storage_path, 3600);
-          return { ...file, url: signed?.signedUrl ?? "" };
-        }),
-      );
+      return (data ?? []).map((file) => ({
+        ...file,
+        url: "",
+        source: "assignment" as const,
+      }));
     },
   });
 
@@ -54,13 +53,11 @@ export function AssignmentAttachments({ assignmentId }: { assignmentId: string }
       <h2 className="text-sm font-semibold">Attachments</h2>
       <div className="panel divide-y divide-border">
         {files.map((file) => (
-          <a
+          <button
             key={file.id}
-            href={file.url || undefined}
-            target="_blank"
-            rel="noreferrer"
-            download={file.file_name}
-            className="flex items-center gap-3 p-3 transition-colors hover:bg-muted/40"
+            type="button"
+            onClick={() => setPreviewFile({ id: file.id, file_name: file.file_name, mime_type: file.mime_type, url: "", source: "assignment" })}
+            className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-muted/40"
           >
             <FileText className="size-5 shrink-0 text-muted-foreground" />
             <div className="min-w-0 flex-1">
@@ -69,8 +66,8 @@ export function AssignmentAttachments({ assignmentId }: { assignmentId: string }
                 {file.mime_type || "File"}{file.size_bytes ? ` · ${formatSize(file.size_bytes)}` : ""}
               </p>
             </div>
-            <Download className="size-4 shrink-0 text-muted-foreground" />
-          </a>
+            <span className="text-xs font-medium text-primary">Preview</span>
+          </button>
         ))}
       </div>
     </section>

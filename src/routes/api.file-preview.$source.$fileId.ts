@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createFileRoute } from "@tanstack/react-router";
 import type { Database } from "@/integrations/supabase/types";
 
-type FileSource = "submission" | "assignment";
+type FileSource = "submission" | "assignment" | "resource" | "announcement";
 type StoredFile = {
   storage_path: string;
   file_name: string;
@@ -33,7 +33,7 @@ export const Route = createFileRoute("/api/file-preview/$source/$fileId")({
         if (!token) return errorResponse("Sign in to preview this file.", 401);
 
         const { source, fileId } = params as { source: string; fileId: string };
-        if (source !== "submission" && source !== "assignment") {
+        if (source !== "submission" && source !== "assignment" && source !== "resource" && source !== "announcement") {
           return errorResponse("Unsupported file source.", 400);
         }
         if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fileId)) {
@@ -57,7 +57,7 @@ export const Route = createFileRoute("/api/file-preview/$source/$fileId")({
         }
 
         let file: StoredFile | null = null;
-        let bucket: "submissions" | "assignment-attachments";
+        let bucket: "submissions" | "assignment-attachments" | "class-resources" | "announcement-attachments";
         if (source === "submission") {
           const { data, error } = await supabase
             .from("submission_files")
@@ -67,7 +67,7 @@ export const Route = createFileRoute("/api/file-preview/$source/$fileId")({
           if (error) return errorResponse("Unable to verify submission-file access.", 403);
           file = data;
           bucket = "submissions";
-        } else {
+        } else if (source === "assignment") {
           const { data, error } = await supabase
             .from("assignment_attachments")
             .select("storage_path, file_name, mime_type, size_bytes")
@@ -76,6 +76,24 @@ export const Route = createFileRoute("/api/file-preview/$source/$fileId")({
           if (error) return errorResponse("Unable to verify attachment access.", 403);
           file = data;
           bucket = "assignment-attachments";
+        } else if (source === "resource") {
+          const { data, error } = await supabase
+            .from("class_resources")
+            .select("storage_path, file_name, mime_type, size_bytes")
+            .eq("id", fileId)
+            .maybeSingle();
+          if (error) return errorResponse("Unable to verify class-resource access.", 403);
+          file = data;
+          bucket = "class-resources";
+        } else {
+          const { data, error } = await supabase
+            .from("announcement_attachments")
+            .select("storage_path, file_name, mime_type, size_bytes")
+            .eq("id", fileId)
+            .maybeSingle();
+          if (error) return errorResponse("Unable to verify announcement-attachment access.", 403);
+          file = data;
+          bucket = "announcement-attachments";
         }
 
         // RLS-filtered rows appear as not found to users without access.

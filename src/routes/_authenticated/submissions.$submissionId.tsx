@@ -78,15 +78,7 @@ function ReviewSubmission() {
         .eq("submission_id", submissionId)
         .order("page_order", { ascending: true });
       if (filesError) throw filesError;
-      const signed = await Promise.all(
-        (files ?? []).map(async (f) => {
-          const { data, error: signedUrlError } = await supabase.storage
-            .from("submissions")
-            .createSignedUrl(f.storage_path, 3600);
-          if (signedUrlError) throw signedUrlError;
-          return { ...f, url: data.signedUrl };
-        }),
-      );
+      const signed = (files ?? []).map((file) => ({ ...file, url: "" }));
       const { data: violations, error: violationsError } = await supabase
         .from("paste_violations")
         .select("id, kind, occurred_at")

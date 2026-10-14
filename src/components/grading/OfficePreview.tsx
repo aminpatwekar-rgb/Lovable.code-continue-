@@ -104,7 +104,7 @@ function readPresentation(zip: Record<string, Uint8Array>): Slide[] {
         };
         if (shape.localName === "pic") {
           const blip = first(shape, "blip");
-          const relId = blip?.getAttribute("embed") ?? "";
+          const relId = blip?.getAttribute("r:embed") ?? blip?.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "embed") ?? "";
           const mediaPath = relsForSlide.get(relId);
           const src = mediaPath ? imageData(zip, mediaPath) : undefined;
           if (src) elements.push({ ...base, imageSrc: src });

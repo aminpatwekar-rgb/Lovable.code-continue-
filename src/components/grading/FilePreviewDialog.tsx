@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Download, FileText, Loader2, Maximize2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { OfficePreview } from "@/components/grading/OfficePreview";
 
 export type PreviewableFile = {
   id: string;
@@ -79,7 +80,8 @@ export function FilePreviewDialog({ file, onClose }: { file: PreviewableFile | n
                 : <pre className="whitespace-pre-wrap break-words rounded-lg border border-border bg-background p-4 font-mono text-xs leading-5">{text ?? ""}{text && text.length >= 1_000_000 ? "\n\n[Preview truncated at 1 MB of text]" : ""}</pre>}
             </div>
           )}
-          {(type === "office" || type === "other") && (
+          {type === "office" && <OfficePreview url={file.url} fileName={file.file_name} />}
+          {type === "other" && (
             <div className="mx-auto flex h-full max-w-lg flex-col items-center justify-center gap-3 p-8 text-center">
               <Maximize2 className="size-10 text-muted-foreground" />
               <h3 className="text-lg font-semibold">{type === "office" ? "Office file preview needs conversion" : "Preview isn't available for this file type"}</h3>

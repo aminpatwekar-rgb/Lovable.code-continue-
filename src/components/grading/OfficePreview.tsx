@@ -106,7 +106,7 @@ function readPresentation(zip: Record<string, Uint8Array>): Slide[] {
           const src = mediaPath ? imageData(zip, mediaPath) : undefined;
           if (src) elements.push({ ...base, imageSrc: src });
         } else {
-          const text = textFromNode(shape);
+          const text = slideText(shape);
           if (text.trim()) elements.push({ ...base, text });
         }
       });
@@ -177,7 +177,7 @@ export function OfficePreview({ url, fileName }: { url: string; fileName: string
 
   useEffect(() => {
     let active = true;
-    setLoading(true); setError(""); setSlides([]); setBlocks([]); setSheets([]);
+    setLoading(true); setError(""); setSlides([]); setBlocks([]); setSheets([]); setSheetIndex(0); setSlideIndex(0);
     fetch(url).then((response) => {
       if (!response.ok) throw new Error("The private file link expired. Close and reopen the submission to refresh it.");
       return response.arrayBuffer();

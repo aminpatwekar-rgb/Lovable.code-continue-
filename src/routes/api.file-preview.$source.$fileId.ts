@@ -19,6 +19,26 @@ function errorResponse(message: string, status: number) {
   });
 }
 
+function contentTypeFor(file: StoredFile) {
+  if (file.mime_type) return file.mime_type;
+  const extension = file.file_name.split(".").pop()?.toLowerCase() ?? "";
+  const types: Record<string, string> = {
+    pdf: "application/pdf",
+    pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    csv: "text/csv; charset=utf-8",
+    txt: "text/plain; charset=utf-8",
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    webp: "image/webp",
+    gif: "image/gif",
+    bmp: "image/bmp",
+  };
+  return types[extension] ?? "application/octet-stream";
+}
+
 /**
  * Streams a file through the ONYX origin so browser privacy filters do not need
  * to open a Supabase-hosted URL. Access is checked with the signed-in user's
@@ -117,7 +137,7 @@ export const Route = createFileRoute("/api/file-preview/$source/$fileId")({
 
         const safeName = file.file_name.replace(/[\r\n"\\]/g, "_").slice(0, 180) || "preview-file";
         const headers = new Headers({
-          "Content-Type": file.mime_type || "application/octet-stream",
+          "Content-Type": contentTypeFor(file),
           "Content-Disposition": `attachment; filename="${safeName}"`,
           "Cache-Control": "private, no-store, max-age=0",
           "Pragma": "no-cache",
@@ -125,8 +145,6 @@ export const Route = createFileRoute("/api/file-preview/$source/$fileId")({
           "Content-Security-Policy": "sandbox; default-src 'none'",
           "Referrer-Policy": "no-referrer",
         });
-        const length = upstream.headers.get("content-length");
-        if (length) headers.set("Content-Length", length);
         return new Response(upstream.body, { status: 200, headers });
       },
     },

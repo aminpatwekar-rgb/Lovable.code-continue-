@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { analyzeHandwritingFile } from "@/lib/differentiation.functions";
 import { FilePreviewDialog, type PreviewableFile } from "@/components/grading/FilePreviewDialog";
 import { useState } from "react";
+import { ProxiedFileImage } from "@/components/grading/useProxiedFileUrl";
 import { RenderMathText } from "@/components/math/RenderMathText";
 import { formatDue } from "@/lib/assignments";
 
@@ -141,7 +142,7 @@ export function SubmissionViewer({
               <figure key={p.id} className="panel min-w-0 overflow-hidden p-0">
                 {isPhotoFile(p) ? (
                   <button type="button" onClick={() => setPreviewFile(p)} aria-label={`Preview ${p.file_name || `photo ${i + 1}`}`} className="block w-full cursor-zoom-in">
-                    <img src={p.url} alt={p.file_name || `Photo ${i + 1}`} loading="lazy" className="max-h-[70vh] w-full bg-muted/30 object-contain" />
+                    <ProxiedFileImage fileId={p.id} alt={p.file_name || `Photo ${i + 1}`} className="max-h-[70vh] w-full bg-muted/30 object-contain" />
                   </button>
                 ) : (
                   <button type="button" onClick={() => setPreviewFile(p)} className="flex min-h-28 w-full items-center gap-3 p-4 text-left hover:bg-accent/40">
@@ -171,10 +172,9 @@ export function SubmissionViewer({
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               {inline.map((f) => (
                 <figure key={f.id}>
-                  <img
-                    src={f.url}
+                  <ProxiedFileImage
+                    fileId={f.id}
                     alt={f.caption || "Student illustration"}
-                    loading="lazy"
                     className="w-full rounded-md border border-border object-cover"
                   />
                   {f.caption && (

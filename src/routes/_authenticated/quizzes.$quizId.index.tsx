@@ -291,7 +291,9 @@ function Page() {
                   latestVisibleAttemptByStudent.get(a.student_id)?.id === a.id;
                 const studentHasActiveAttempt = attempts.some(
                   (attempt) =>
-                    attempt.student_id === a.student_id && attempt.status === "in_progress",
+                    attempt.student_id === a.student_id &&
+                    attempt.status === "in_progress" &&
+                    !attempt.locked_at,
                 );
 
                 return (
@@ -320,7 +322,7 @@ function Page() {
                           : "—"}
                       </span>
                     </div>
-                    {isLatestVisibleAttempt && a.status !== "in_progress" && (
+                    {isLatestVisibleAttempt && (a.status !== "in_progress" || Boolean(a.locked_at)) && (
                       <Button
                         size="sm"
                         variant="outline"

@@ -1,12 +1,13 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, FileText, Loader2, Trash2, Upload } from "lucide-react";
+import { FileText, Loader2, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FilePreviewDialog, type PreviewableFile } from "@/components/grading/FilePreviewDialog";
 
 type Resource = {
   id: string;
@@ -32,6 +33,7 @@ export function ClassResources({ classId, canManage }: { classId: string; canMan
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [previewFile, setPreviewFile] = useState<PreviewableFile | null>(null);
 
   const resources = useQuery({
     queryKey: ["class-resources", classId],
@@ -44,24 +46,6 @@ export function ClassResources({ classId, canManage }: { classId: string; canMan
       if (error) throw error;
       return (data ?? []) as Resource[];
     },
-  });
-
-  const download = useMutation({
-    mutationFn: async (resource: Resource) => {
-      const { data, error } = await supabase.storage
-        .from("class-resources")
-        .download(resource.storage_path);
-      if (error) throw error;
-      const url = URL.createObjectURL(data);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = resource.file_name;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
-    },
-    onError: (error: Error) => toast.error(error.message),
   });
 
   const upload = useMutation({
@@ -169,10 +153,15 @@ export function ClassResources({ classId, canManage }: { classId: string; canMan
               <Button
                 variant="outline"
                 size="sm"
-                disabled={download.isPending}
-                onClick={() => download.mutate(resource)}
+                onClick={() => setPreviewFile({
+                  id: resource.id,
+                  file_name: resource.file_name,
+                  mime_type: resource.mime_type,
+                  url: "",
+                  source: "resource",
+                })}
               >
-                <Download className="mr-1.5 size-4" /> Download
+                Preview / Download
               </Button>
               {canManage && (
                 <Button
@@ -189,6 +178,7 @@ export function ClassResources({ classId, canManage }: { classId: string; canMan
           ))}
         </ul>
       )}
+      <FilePreviewDialog file={previewFile} onClose={() => setPreviewFile(null)} />
     </div>
   );
 }

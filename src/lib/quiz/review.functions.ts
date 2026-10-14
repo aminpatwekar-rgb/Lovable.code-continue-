@@ -188,6 +188,7 @@ export const grantQuizRetry = createServerFn({ method: "POST" })
         .eq("quiz_id", data.quizId)
         .eq("student_id", data.studentId)
         .eq("status", "in_progress")
+        .is("locked_at", null)
         .limit(1)
         .maybeSingle(),
       supabaseAdmin

@@ -3,6 +3,8 @@ import { useMutation } from "@tanstack/react-query";
 import { Download, FileUp, Loader2, ScanText, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { analyzeHandwritingFile } from "@/lib/differentiation.functions";
+import { FilePreviewDialog, type PreviewableFile } from "@/components/grading/FilePreviewDialog";
+import { useState } from "react";
 import { RenderMathText } from "@/components/math/RenderMathText";
 import { formatDue } from "@/lib/assignments";
 
@@ -98,7 +100,8 @@ export function SubmissionViewer({
   violations: ViewerViolation[];
   violationCount: number;
 }) {
-  const pages = files.filter((f) => f.kind === "page");
+  const [previewFile, setPreviewFile] = useState<PreviewableFile | null>(null);
+  const pages = files.filter((f) => f.kind === "page" || f.kind === "attachment");
   const inline = files.filter((f) => f.kind === "inline_image");
   const hasWork = pages.length > 0 || Boolean(typedContent);
 
@@ -137,23 +140,26 @@ export function SubmissionViewer({
             {pages.map((p, i) => (
               <figure key={p.id} className="panel min-w-0 overflow-hidden p-0">
                 {isPhotoFile(p) ? (
-                  <a href={p.url} target="_blank" rel="noreferrer" aria-label={`Open ${p.file_name || `photo ${i + 1}`}`}>
+                  <button type="button" onClick={() => setPreviewFile(p)} aria-label={`Preview ${p.file_name || `photo ${i + 1}`}`} className="block w-full cursor-zoom-in">
                     <img src={p.url} alt={p.file_name || `Photo ${i + 1}`} loading="lazy" className="max-h-[70vh] w-full bg-muted/30 object-contain" />
-                  </a>
+                  </button>
                 ) : (
-                  <a href={p.url} target="_blank" rel="noreferrer" className="flex min-h-28 items-center gap-3 p-4 hover:bg-accent/40">
+                  <button type="button" onClick={() => setPreviewFile(p)} className="flex min-h-28 w-full items-center gap-3 p-4 text-left hover:bg-accent/40">
                     <FileUp className="size-6 shrink-0 text-muted-foreground" />
                     <span className="min-w-0 flex-1 break-words text-sm font-medium">{p.file_name}</span>
-                    <Download className="size-4 shrink-0 text-muted-foreground" />
-                  </a>
+                    <span className="text-xs font-medium text-primary">Preview</span>
+                  </button>
                 )}
                 <figcaption className="break-words px-3 py-2 text-xs text-muted-foreground">{p.file_name || `File ${i + 1}`}</figcaption>
+                <div className="flex flex-wrap items-center justify-between gap-2 px-3 pb-3"><Button type="button" variant="outline" size="sm" onClick={() => setPreviewFile(p)}>Preview file</Button></div>
                 {isPhotoFile(p) && supportsHandwritingAssist(p) && <HandwritingAssist file={p} />}
               </figure>
             ))}
           </div>
         </section>
       )}
+
+      <FilePreviewDialog file={previewFile} onClose={() => setPreviewFile(null)} />
 
       {typedContent && (
         <section className="panel p-5 sm:p-6">

@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { fetchProfileEmails } from "@/lib/profile-emails";
 import { csvObjects, downloadCsv, toCsv } from "@/lib/csv";
 import { assignInstitutionMembers, bulkCreateInstitutionStudents, deleteInstitution, removeInstitutionMember, updateInstitutionDetails, type StudentOnboardingResult } from "@/lib/admin.functions";
+import { InstitutionAdminsCard } from "@/components/admin/InstitutionAdminsCard";
 import { InstitutionJoinLinks } from "@/components/institution/InstitutionJoinLinks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -370,6 +371,8 @@ export function InstitutionManager() {
           <Input id="edit-institution-city" value={editCity} onChange={(event) => setEditCity(event.target.value)} maxLength={100} /></div>
         <div className="sm:col-span-2 lg:col-span-3"><Button type="submit" disabled={!editName.trim() || saveDetails.isPending}>{saveDetails.isPending ? "Saving…" : "Save institution details"}</Button></div>
       </form>
+
+      <InstitutionAdminsCard institutionId={activeInstitution.id} institutionName={activeInstitution.name} people={people.data ?? []} />
 
       <InstitutionJoinLinks institutionId={activeInstitution.id} />
 

@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { fetchProfileEmails } from "@/lib/profile-emails";
 import { csvObjects, downloadCsv, toCsv } from "@/lib/csv";
 import { assignInstitutionMembers, bulkCreateInstitutionStudents, deleteInstitution, removeInstitutionMember, updateInstitutionDetails, type StudentOnboardingResult } from "@/lib/admin.functions";
+import { InstitutionJoinLinks } from "@/components/institution/InstitutionJoinLinks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,6 +40,8 @@ export function InstitutionManager() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [city, setCity] = useState("");
+  const [adminName, setAdminName] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
   const [activeInstitutionId, setActiveInstitutionId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editCode, setEditCode] = useState("");
@@ -118,6 +121,13 @@ export function InstitutionManager() {
     mutationFn: async () => {
       const cleanName = name.trim();
       if (!cleanName) throw new Error("Enter an institution name.");
+      const cleanAdminEmail = adminEmail.trim().toLowerCase();
+      const cleanAdminName = adminName.trim();
+      if (cleanAdminEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanAdminEmail)) {
+        throw new Error("Enter a valid email for the institution admin.");
+      }
+      if (cleanAdminEmail && !cleanAdminName) throw new Error("Enter the institution admin's name.");
+
       const { data, error } = await db.from("institutions").insert({
         name: cleanName, code: code.trim() || null, city: city.trim() || null, created_by: user?.id ?? null,
       }).select("id").single();
@@ -125,13 +135,40 @@ export function InstitutionManager() {
         if (error.code === "23505") throw new Error("An institution with that name already exists.");
         throw error;
       }
-      return data as { id: string };
+      const created = data as { id: string };
+
+      // One step: invite (or attach) the institution admin right away.
+      let adminOutcome: { ok: boolean; message: string } | null = null;
+      if (cleanAdminEmail) {
+        try {
+          const result = await bulkCreateStudentsFn({ data: {
+            institutionId: created.id,
+            csv: toCsv(["email", "full_name", "role"], [[cleanAdminEmail, cleanAdminName, "institution_admin"]]),
+            redirectTo: `${window.location.origin}/reset-password`,
+          } });
+          const row = result.rows[0];
+          const ok = Boolean(result.invited || result.assignedExisting || result.alreadyAssigned);
+          adminOutcome = { ok, message: row?.message ?? (ok ? "Institution admin added." : "Could not add the institution admin.") };
+        } catch (adminError) {
+          adminOutcome = { ok: false, message: adminError instanceof Error ? adminError.message : "Could not add the institution admin." };
+        }
+      }
+      return { id: created.id, adminOutcome };
     },
     onSuccess: async (created) => {
-      setName(""); setCode(""); setCity("");
+      setName(""); setCode(""); setCity(""); setAdminName(""); setAdminEmail("");
       setActiveInstitutionId(created.id);
-      toast.success("Institution created. Next, add students and staff.");
-      await qc.invalidateQueries({ queryKey: ["admin-institutions"] });
+      if (!created.adminOutcome) {
+        toast.success("Institution created. Share its join links below, or add an institution admin.");
+      } else if (created.adminOutcome.ok) {
+        toast.success("Institution created. " + created.adminOutcome.message);
+      } else {
+        toast.warning("Institution created, but the admin step needs attention: " + created.adminOutcome.message);
+      }
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["admin-institutions"] }),
+        qc.invalidateQueries({ queryKey: ["admin-institution-people"] }),
+      ]);
     },
     onError: (error: Error) => toast.error(error.message || "Couldn't create the institution."),
   });
@@ -267,7 +304,7 @@ export function InstitutionManager() {
       <div className="flex items-start gap-3">
         <div className="rounded-lg bg-primary/10 p-2"><Building2 className="size-5 text-primary" /></div>
         <div><h3 className="font-semibold">Create an institution</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Creating an institution does not create accounts or grant administrator access.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Add the institution admin\u2019s email to invite them at the same time. Students and teachers then join through the institution\u2019s own links.</p>
         </div>
       </div>
       <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" onSubmit={(event) => { event.preventDefault(); createInstitution.mutate(); }}>
@@ -277,6 +314,10 @@ export function InstitutionManager() {
           <Input id="new-institution-code" value={code} onChange={(event) => setCode(event.target.value)} placeholder="e.g. EXU" maxLength={40} /></div>
         <div className="space-y-1.5"><label htmlFor="new-institution-city" className="text-sm font-medium">City (optional)</label>
           <Input id="new-institution-city" value={city} onChange={(event) => setCity(event.target.value)} placeholder="e.g. Pune" maxLength={100} /></div>
+        <div className="space-y-1.5 sm:col-span-2"><label htmlFor="new-institution-admin-name" className="text-sm font-medium">Institution admin name (optional)</label>
+          <Input id="new-institution-admin-name" value={adminName} onChange={(event) => setAdminName(event.target.value)} placeholder="e.g. Priya Sharma" maxLength={100} autoComplete="off" /></div>
+        <div className="space-y-1.5 sm:col-span-2"><label htmlFor="new-institution-admin-email" className="text-sm font-medium">Institution admin email (optional)</label>
+          <Input id="new-institution-admin-email" type="email" value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} placeholder="admin@school.edu" maxLength={255} autoComplete="off" /></div>
         <div className="sm:col-span-2 lg:col-span-4"><Button type="submit" disabled={!name.trim() || createInstitution.isPending}>
           <Plus className="mr-2 size-4" />{createInstitution.isPending ? "Creating…" : "Create institution"}
         </Button></div>
@@ -329,6 +370,8 @@ export function InstitutionManager() {
           <Input id="edit-institution-city" value={editCity} onChange={(event) => setEditCity(event.target.value)} maxLength={100} /></div>
         <div className="sm:col-span-2 lg:col-span-3"><Button type="submit" disabled={!editName.trim() || saveDetails.isPending}>{saveDetails.isPending ? "Saving…" : "Save institution details"}</Button></div>
       </form>
+
+      <InstitutionJoinLinks institutionId={activeInstitution.id} />
 
       <div className="grid gap-5 xl:grid-cols-2">
         <section className="space-y-3">

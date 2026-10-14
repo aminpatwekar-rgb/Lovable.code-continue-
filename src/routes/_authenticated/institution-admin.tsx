@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { createInstitutionDepartment, getInstitutionAdminOverview, listInstitutionDepartments, type InstitutionAdminOverview } from "@/lib/institution-admin.functions";
 import { bulkCreateInstitutionStudents, type StudentOnboardingResult } from "@/lib/admin.functions";
 import { csvObjects, downloadCsv, toCsv } from "@/lib/csv";
+import { InstitutionJoinLinks } from "@/components/institution/InstitutionJoinLinks";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -159,6 +160,8 @@ function InstitutionAdminConsole() {
         <Metric icon={ClipboardList} label="Assignments" value={data.assignments} />
         <Metric icon={Users} label="Recorded submissions" value={data.submissions} />
       </div>
+
+      <InstitutionJoinLinks institutionId={data.institution.id} />
 
       <section className="panel space-y-4 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">

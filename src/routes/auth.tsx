@@ -14,6 +14,13 @@ import { cn } from "@/lib/utils";
 import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
 import onyxMark from "@/assets/onyx-mark.png.asset.json";
 import {
+  clearPendingJoinCode,
+  joinWithCode,
+  previewJoin,
+  readPendingJoinCode,
+  type JoinPreview,
+} from "@/lib/institution-join";
+import {
   clearSessionConfirmation,
   isSessionConfirmed,
   markSessionConfirmed,
@@ -58,6 +65,21 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [joinCode, setJoinCode] = useState<string | null>(null);
+  const [joinPreview, setJoinPreview] = useState<JoinPreview | null>(null);
+  const [skipJoin, setSkipJoin] = useState(false);
+
+  // A join link the person opened earlier decides their role and institution.
+  useEffect(() => {
+    const code = readPendingJoinCode();
+    if (!code) return;
+    setJoinCode(code);
+    void previewJoin(code).then((preview) => {
+      setJoinPreview(preview);
+      if (!preview.valid) clearPendingJoinCode();
+    });
+  }, []);
+  const activeJoin = !skipJoin && joinCode && joinPreview?.valid ? joinPreview : null;
 
   const confirmed = isSessionConfirmed(session?.user.id);
   // Only an explicitly confirmed account is allowed through to the app.
@@ -153,6 +175,27 @@ function AuthPage() {
     }
   }
 
+  async function confirmJoin() {
+    if (!joinCode) return;
+    setBusy(true);
+    try {
+      const result = await joinWithCode(joinCode);
+      clearPendingJoinCode();
+      await refresh();
+      markSessionConfirmed(session?.user.id);
+      toast.success(
+        result.status === "pending"
+          ? `Request sent. ${result.institutionName} will approve you shortly.`
+          : `You joined ${result.institutionName}.`,
+      );
+      navigate({ to: "/dashboard", replace: true });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not use this join link.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function forgot() {
     const parsed = z.string().email().safeParse(email.trim());
     if (!parsed.success) {
@@ -187,7 +230,32 @@ function AuthPage() {
           <span className="font-semibold tracking-tight">ONYX</span>
         </Link>
 
-        {needsRoleConfirmation ? (
+        {needsRoleConfirmation && activeJoin ? (
+          <div className="space-y-5">
+            <div>
+              <h1 className="text-2xl font-semibold">
+                Join {activeJoin.institutionName}
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                You're joining as a{" "}
+                <span className="font-medium text-foreground">
+                  {activeJoin.role === "teacher" ? "teacher" : "student"}
+                </span>
+                .{activeJoin.requiresApproval ? " An administrator will approve your request before you appear in the institution." : ""}
+              </p>
+            </div>
+            <Button className="w-full" disabled={busy} onClick={() => void confirmJoin()}>
+              {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Join as {activeJoin.role === "teacher" ? "Teacher" : "Student"}
+            </Button>
+            <Button variant="outline" className="w-full" disabled={busy} onClick={() => { clearPendingJoinCode(); setSkipJoin(true); }}>
+              Not joining an institution
+            </Button>
+            <Button variant="ghost" className="w-full" disabled={busy} onClick={() => void handleUseAnotherAccount()}>
+              Use another account
+            </Button>
+          </div>
+        ) : needsRoleConfirmation ? (
           <div className="space-y-5">
             <div>
               <h1 className="text-2xl font-semibold">How will you use ONYX?</h1>
@@ -282,6 +350,12 @@ function AuthPage() {
             <h1 className="text-2xl font-semibold">
               {mode === "signup" ? "Create your account" : "Welcome back"}
             </h1>
+            {activeJoin && (
+              <div className="mt-3 rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm">
+                You're joining <span className="font-semibold">{activeJoin.institutionName}</span> as a{" "}
+                {activeJoin.role === "teacher" ? "teacher" : "student"}.
+              </div>
+            )}
             <p className="mt-1 text-sm text-muted-foreground">
               {mode === "signup"
                 ? "Create your account first. You will confirm your role in the next step."

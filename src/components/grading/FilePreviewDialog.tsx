@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Download, FileText, Loader2, Maximize2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OfficePreview } from "@/components/grading/OfficePreview";
+import { PdfPreview } from "@/components/grading/PdfPreview";
 
 export type PreviewableFile = {
   id: string;
@@ -106,7 +107,7 @@ export function FilePreviewDialog({ file, onClose }: { file: PreviewableFile | n
         </header>
         <main className="min-h-0 flex-1 overflow-auto bg-muted/20">
           {type === "image" && <div className="flex h-full items-center justify-center p-3"><img src={file.url} alt={file.file_name} className="max-h-full max-w-full object-contain" /></div>}
-          {type === "pdf" && <iframe title={`PDF preview: ${file.file_name}`} src={file.url} className="h-full min-h-[60vh] w-full bg-white" />}
+          {type === "pdf" && <PdfPreview url={file.url} fileName={file.file_name} />}
           {type === "csv" && (
             <div className="h-full overflow-auto p-3">
               {loading ? (

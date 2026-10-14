@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type PreviewFileSource = "submission" | "assignment";
+export type PreviewFileSource = "submission" | "assignment" | "resource" | "announcement";
 
 export type PreviewFileRef = {
   id: string;

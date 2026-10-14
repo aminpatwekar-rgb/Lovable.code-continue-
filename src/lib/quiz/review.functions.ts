@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { shuffle } from "@/lib/quiz/types";
 
 export type QuizReviewAttempt = {
   id: string;
@@ -108,66 +109,128 @@ export const getQuizReviewAttempts = createServerFn({ method: "GET" })
 
 
 /**
- * Grant a teacher-authorized fresh attempt for a student whose lockdown attempt
- * was recorded as locked. Uses the service role only after verifying quiz access.
+ * Grant a teacher-authorized fresh attempt for a student who has already taken
+ * the quiz. This is intentionally not limited to lockdown violations: teachers
+ * can reassign a quiz after any submitted attempt. Previous attempts and grades
+ * remain untouched.
  */
-export const grantLockedQuizRetry = createServerFn({ method: "POST" })
+export const grantQuizRetry = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { quizId: string; studentId: string }) => {
-    if (!input?.quizId || !input?.studentId) throw new Error("Quiz and student are required.");
+    if (!input?.quizId || !input?.studentId) {
+      throw new Error("Quiz and student are required.");
+    }
     return { quizId: input.quizId, studentId: input.studentId };
   })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
     const { data: quiz, error: quizError } = await supabaseAdmin
       .from("quizzes")
-      .select("id, teacher_id, class_id")
+      .select("id, teacher_id, class_id, published, start_at, end_at, randomize_questions")
       .eq("id", data.quizId)
       .maybeSingle();
     if (quizError) throw new Error(quizError.message);
     if (!quiz) throw new Error("Quiz not found.");
 
     const { data: adminRole, error: roleError } = await supabase
-      .from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle();
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
     if (roleError) throw new Error(roleError.message);
+
     if (quiz.teacher_id !== userId && !adminRole) {
       const { data: coTeacher, error: coTeacherError } = await supabaseAdmin
-        .from("class_members").select("student_id").eq("class_id", quiz.class_id)
-        .eq("student_id", userId).eq("member_role", "teacher").maybeSingle();
+        .from("class_members")
+        .select("student_id")
+        .eq("class_id", quiz.class_id)
+        .eq("student_id", userId)
+        .eq("member_role", "teacher")
+        .maybeSingle();
       if (coTeacherError) throw new Error(coTeacherError.message);
-      if (!coTeacher) throw new Error("You are not allowed to grant a retry for this quiz.");
+      if (!coTeacher) throw new Error("You are not allowed to assign this quiz again.");
     }
 
-    const { data: lockedAttempt, error: lockedError } = await supabaseAdmin
-      .from("quiz_attempts").select("id")
-      .eq("quiz_id", data.quizId).eq("student_id", data.studentId)
-      .not("locked_at", "is", null).order("attempt_no", { ascending: false }).limit(1).maybeSingle();
-    if (lockedError) throw new Error(lockedError.message);
-    if (!lockedAttempt) throw new Error("No locked attempt was found for this student.");
+    const { data: enrolledStudent, error: enrollmentError } = await supabaseAdmin
+      .from("class_members")
+      .select("student_id")
+      .eq("class_id", quiz.class_id)
+      .eq("student_id", data.studentId)
+      .eq("member_role", "student")
+      .maybeSingle();
+    if (enrollmentError) throw new Error(enrollmentError.message);
+    if (!enrolledStudent) {
+      throw new Error("This student is not enrolled in the quiz's class.");
+    }
 
-    const [{ data: questions, error: questionsError }, { count, error: countError }] = await Promise.all([
-      supabaseAdmin.from("quiz_questions").select("id").eq("quiz_id", data.quizId).order("position"),
-      supabaseAdmin.from("quiz_attempts").select("id", { count: "exact", head: true })
-        .eq("quiz_id", data.quizId).eq("student_id", data.studentId),
+    if (!quiz.published) {
+      throw new Error("Publish the quiz before assigning it again.");
+    }
+    const now = new Date();
+    if (quiz.start_at && new Date(quiz.start_at) > now) {
+      throw new Error("This quiz has not opened yet. Update its schedule before assigning it again.");
+    }
+    if (quiz.end_at && new Date(quiz.end_at) < now) {
+      throw new Error("This quiz has closed. Update its schedule before assigning it again.");
+    }
+
+    const [
+      { data: activeAttempt, error: activeError },
+      { count, error: countError },
+      { data: questions, error: questionsError },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("quiz_attempts")
+        .select("id")
+        .eq("quiz_id", data.quizId)
+        .eq("student_id", data.studentId)
+        .eq("status", "in_progress")
+        .limit(1)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("quiz_attempts")
+        .select("id", { count: "exact", head: true })
+        .eq("quiz_id", data.quizId)
+        .eq("student_id", data.studentId),
+      supabaseAdmin
+        .from("quiz_questions")
+        .select("id")
+        .eq("quiz_id", data.quizId)
+        .order("position"),
     ]);
-    if (questionsError) throw new Error(questionsError.message);
+
+    if (activeError) throw new Error(activeError.message);
+    if (activeAttempt) throw new Error("This student already has an attempt in progress.");
     if (countError) throw new Error(countError.message);
+    if ((count ?? 0) === 0) {
+      throw new Error("This student has not attempted the quiz yet.");
+    }
+    if (questionsError) throw new Error(questionsError.message);
     if (!questions?.length) throw new Error("This quiz has no questions.");
+
+    const attemptNo = (count ?? 0) + 1;
+    const questionIds = questions.map((question) => question.id);
+    const questionOrder = quiz.randomize_questions
+      ? shuffle(questionIds, `${data.studentId}:${data.quizId}:${attemptNo}`)
+      : questionIds;
 
     const { data: created, error: createError } = await supabaseAdmin
       .from("quiz_attempts")
       .insert({
         quiz_id: data.quizId,
         student_id: data.studentId,
-        attempt_no: (count ?? 0) + 1,
-        question_order: questions.map((question) => question.id),
+        attempt_no: attemptNo,
+        question_order: questionOrder,
         status: "in_progress",
-        started_at: new Date().toISOString(),
+        started_at: now.toISOString(),
       })
       .select("id, attempt_no")
       .single();
     if (createError) throw new Error(createError.message);
+
     return { attemptId: created.id, attemptNo: created.attempt_no };
   });
 

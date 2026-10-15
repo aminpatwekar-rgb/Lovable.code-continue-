@@ -1,0 +1,46 @@
+-- Remove default PUBLIC/anonymous EXECUTE on exposed SECURITY DEFINER functions.
+REVOKE EXECUTE ON FUNCTION public.bootstrap_initial_admin() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.current_plan_code(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.enforce_assignment_quota() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.enforce_class_limit() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.enforce_csv_import_feature(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.enforce_feature_on_attendance() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.enforce_feature_on_rubric() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.enforce_question_bank_limit() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.enforce_quiz_quota() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.enforce_students_limit() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_auth_user_role() FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.get_progress_report(uuid,uuid) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.get_storage_usage(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.is_admin_bootstrap_available() FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.notify_class_assignment() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.notify_grade_release() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.notify_submission_teacher() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.plan_has_feature(uuid,text) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.plan_limit(uuid,text) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.plan_remove_branding(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.prevent_profile_role_escalation() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.protect_quiz_answer_grading() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.protect_quiz_attempt_grading() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.protect_submission_grading() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.settle_ai_questions(uuid,integer,text,text,integer,integer) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.update_student_identifiers(text,text,text,text) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.user_has_feature(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.bootstrap_first_admin() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_auth_user_role() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_progress_report(uuid,uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_admin_bootstrap_available() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.update_student_identifiers(text,text,text,text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.user_has_feature(text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.enforce_csv_import_feature(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.current_plan_code(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_storage_usage(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.plan_has_feature(uuid,text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.plan_limit(uuid,text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.plan_remove_branding(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.settle_ai_questions(uuid,integer,text,text,integer,integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.bootstrap_initial_admin() TO service_role;
+REVOKE EXECUTE ON FUNCTION public.bootstrap_initial_admin() FROM authenticated;
+
+ALTER FUNCTION public.prevent_profile_role_escalation() SET search_path = public, pg_catalog;

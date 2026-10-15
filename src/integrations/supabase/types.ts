@@ -740,7 +740,6 @@ export type Database = {
       classes: {
         Row: {
           archived: boolean
-          banner_url: string | null
           created_at: string
           department_id: string | null
           description: string | null
@@ -754,7 +753,6 @@ export type Database = {
         }
         Insert: {
           archived?: boolean
-          banner_url?: string | null
           created_at?: string
           department_id?: string | null
           description?: string | null
@@ -768,7 +766,6 @@ export type Database = {
         }
         Update: {
           archived?: boolean
-          banner_url?: string | null
           created_at?: string
           department_id?: string | null
           description?: string | null
@@ -1121,6 +1118,27 @@ export type Database = {
         }
         Relationships: []
       }
+      onyx_pre_migration_backup_20261015: {
+        Row: {
+          backup_id: string
+          created_at: string
+          metadata: Json
+          table_rows: Json
+        }
+        Insert: {
+          backup_id?: string
+          created_at?: string
+          metadata?: Json
+          table_rows: Json
+        }
+        Update: {
+          backup_id?: string
+          created_at?: string
+          metadata?: Json
+          table_rows?: Json
+        }
+        Relationships: []
+      }
       paste_violations: {
         Row: {
           id: string
@@ -1185,39 +1203,48 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           email: string | null
+          er_no: string | null
           full_name: string
           id: string
           institution: string | null
           institution_id: string | null
           is_active: boolean
-          role: string | null
+          role: string
           role_confirmed_at: string | null
+          roll_no: string | null
+          sr_no: string | null
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
           email?: string | null
+          er_no?: string | null
           full_name?: string
           id: string
           institution?: string | null
           institution_id?: string | null
           is_active?: boolean
-          role?: string | null
+          role?: string
           role_confirmed_at?: string | null
+          roll_no?: string | null
+          sr_no?: string | null
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
           email?: string | null
+          er_no?: string | null
           full_name?: string
           id?: string
           institution?: string | null
           institution_id?: string | null
           is_active?: boolean
-          role?: string | null
+          role?: string
           role_confirmed_at?: string | null
+          roll_no?: string | null
+          sr_no?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2044,6 +2071,24 @@ export type Database = {
           },
         ]
       }
+      system_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -2095,10 +2140,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      admin_transfer_class: {
-        Args: { _class_id: string; _new_teacher: string }
-        Returns: undefined
-      }
       assert_storage_available: {
         Args: { _additional_bytes: number }
         Returns: boolean
@@ -2108,6 +2149,7 @@ export type Database = {
         Returns: Json
       }
       bootstrap_first_admin: { Args: never; Returns: boolean }
+      bootstrap_initial_admin: { Args: never; Returns: Json }
       can_view_announcement: {
         Args: { _announcement_id: string; _user_id: string }
         Returns: boolean
@@ -2122,6 +2164,10 @@ export type Database = {
       }
       can_view_submission: {
         Args: { _submission_id: string; _user_id: string }
+        Returns: boolean
+      }
+      confirm_account_role: {
+        Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
       current_plan_code: { Args: { _user_id: string }; Returns: string }
@@ -2142,6 +2188,7 @@ export type Database = {
         Returns: Json
       }
       generate_due_reminders: { Args: never; Returns: number }
+      get_auth_user_role: { Args: never; Returns: string }
       get_class_roster: {
         Args: { _class_id: string }
         Returns: {
@@ -2164,24 +2211,9 @@ export type Database = {
         Args: { _institution_id: string }
         Returns: Json
       }
-      get_profile_emails: {
-        Args: { _ids: string[] }
-        Returns: {
-          email: string
-          id: string
-        }[]
-      }
       get_progress_report: {
         Args: { _class_id?: string; _student_id: string }
         Returns: Json
-      }
-      get_quiz_explanations: {
-        Args: { _attempt_id: string }
-        Returns: {
-          correct: Json
-          explanation: string
-          question_id: string
-        }[]
       }
       get_quiz_question_counts: {
         Args: { _quiz_ids: string[] }
@@ -2189,18 +2221,6 @@ export type Database = {
           question_count: number
           quiz_id: string
           total_points: number
-        }[]
-      }
-      get_quiz_questions_for_student: {
-        Args: { _quiz_id: string }
-        Returns: {
-          difficulty: Database["public"]["Enums"]["quiz_difficulty"]
-          id: string
-          options: Json
-          points: number
-          prompt: string
-          q_position: number
-          type: Database["public"]["Enums"]["quiz_question_type"]
         }[]
       }
       get_storage_usage: { Args: { _user_id?: string }; Returns: number }
@@ -2211,6 +2231,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin_bootstrap_available: { Args: never; Returns: boolean }
       is_assignment_owner: {
         Args: { _assignment_id: string; _user_id: string }
         Returns: boolean
@@ -2270,10 +2291,6 @@ export type Database = {
       }
       owns_submission: {
         Args: { _submission_id: string; _user_id: string }
-        Returns: boolean
-      }
-      owns_submission_for_assignment: {
-        Args: { _assignment_id: string; _user_id: string }
         Returns: boolean
       }
       plan_has_feature: {
@@ -2346,6 +2363,15 @@ export type Database = {
           _max_uses: number
           _requires_approval: boolean
           _role: string
+        }
+        Returns: undefined
+      }
+      update_student_identifiers: {
+        Args: {
+          _er_no: string
+          _full_name: string
+          _roll_no: string
+          _sr_no: string
         }
         Returns: undefined
       }

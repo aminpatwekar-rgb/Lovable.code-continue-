@@ -134,7 +134,7 @@ const plans: Plan[] = [
 ];
 
 const apexDetails: FeatureDetail[] = [
-  { title: "Institution-wide deployment", description: "Plan an ONYX rollout for an entire institution or multiple departments, with a maximum of 100 students per class." },
+  { title: "Institution-wide deployment", description: "Plan an ONYX rollout for an entire institution or multiple departments, with custom class capacity based on institutional requirements." },
   { title: "Custom branding and domain", description: "Discuss a branded experience and custom domain for your institution." },
   { title: "Institutional onboarding and oversight", description: "Coordinate setup and onboarding around the institution's workflows." },
   { title: "Tailored integrations and support", description: "Scope integrations and support to suit institutional requirements." },
@@ -224,7 +224,7 @@ export function BusinessModelPlans() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <ul className="space-y-2">
-              {["Institution-wide deployment", "Maximum 100 students per class", "Custom branding and domain", "Institutional onboarding and oversight", "Tailored integrations and support"].map((feature) => (
+              {["Institution-wide deployment", "Custom branding and domain", "Institutional onboarding and oversight", "Tailored integrations and support"].map((feature) => (
                 <li key={feature} className="flex gap-2">
                   <Check className="mt-0.5 size-4 shrink-0 text-primary" />
                   <span>{feature}</span>

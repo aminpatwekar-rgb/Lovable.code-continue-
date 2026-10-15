@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
@@ -146,12 +145,19 @@ function AuthPage() {
   }
 
   async function google() {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: `${window.location.origin}/auth?mode=signup`,
-    });
-    if (result.error) {
-      toast.error("Google sign-in failed");
-      return;
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          // Complete OAuth on ONYX so the auth screen can restore the pending join flow.
+          redirectTo: `${window.location.origin}/auth?mode=signup`,
+        },
+      });
+      if (error) throw error;
+    } catch {
+      toast.error("Google sign-in failed. Please try again or use email instead.");
+      setBusy(false);
     }
   }
 

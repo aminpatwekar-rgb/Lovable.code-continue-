@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
@@ -75,7 +76,10 @@ function AuthPage() {
     setJoinCode(code);
     void previewJoin(code).then((preview) => {
       setJoinPreview(preview);
-      if (!preview.valid) clearPendingJoinCode();
+      if (!preview.valid) {
+        clearPendingJoinCode();
+        setJoinCode(null);
+      }
     });
   }, []);
   const activeJoin = !skipJoin && joinCode && joinPreview?.valid ? joinPreview : null;
@@ -86,9 +90,10 @@ function AuthPage() {
   const needsConfirm = Boolean(session) && !confirmed && !switching;
 
   useEffect(() => {
-    if (!loading && session && confirmed && profile?.role_confirmed_at && !switching)
+    // A pending institution link must be completed before sending the user to the dashboard.
+    if (!loading && session && confirmed && profile?.role_confirmed_at && !switching && !joinCode)
       navigate({ to: "/dashboard", replace: true });
-  }, [loading, session, confirmed, profile?.role_confirmed_at, switching, navigate]);
+  }, [loading, session, confirmed, profile?.role_confirmed_at, switching, joinCode, navigate]);
 
   async function handleUseAnotherAccount() {
     setSwitching(true);
@@ -147,14 +152,11 @@ function AuthPage() {
   async function google() {
     setBusy(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          // Complete OAuth on ONYX so the auth screen can restore the pending join flow.
-          redirectTo: `${window.location.origin}/auth?mode=signup`,
-        },
+      const result = await lovable.auth.signInWithOAuth("google", {
+        // Use Lovable-managed Google authentication and return to ONYX.
+        redirect_uri: `${window.location.origin}/auth?mode=signup`,
       });
-      if (error) throw error;
+      if (result.error) throw result.error;
     } catch {
       toast.error("Google sign-in failed. Please try again or use email instead.");
       setBusy(false);
@@ -192,7 +194,9 @@ function AuthPage() {
       toast.success(
         result.status === "pending"
           ? `Request sent. ${result.institutionName} will approve you shortly.`
-          : `You joined ${result.institutionName}.`,
+          : result.status === "already_member"
+            ? `You're already part of ${result.institutionName}.`
+            : `You joined ${result.institutionName}.`,
       );
       navigate({ to: "/dashboard", replace: true });
     } catch (err) {
@@ -236,7 +240,33 @@ function AuthPage() {
           <span className="font-semibold tracking-tight">ONYX</span>
         </Link>
 
-        {needsRoleConfirmation && activeJoin ? (
+        {activeJoin && profile?.role_confirmed_at && confirmed ? (
+          <div className="space-y-5">
+            <div>
+              <h1 className="text-2xl font-semibold">
+                Join {activeJoin.institutionName}
+                {activeJoin.departmentName ? ` · ${activeJoin.departmentName}` : ""}
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                You're signed in as {profile.full_name?.trim() || session?.user.email} and joining as a{" "}
+                <span className="font-medium text-foreground">
+                  {activeJoin.role === "teacher" ? "teacher" : "student"}
+                </span>.
+                {activeJoin.requiresApproval ? " An administrator will approve your request before you appear in the institution." : ""}
+              </p>
+            </div>
+            <Button className="w-full" disabled={busy} onClick={() => void confirmJoin()}>
+              {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Join as {activeJoin.role === "teacher" ? "Teacher" : "Student"}
+            </Button>
+            <Button variant="outline" className="w-full" disabled={busy} onClick={() => { clearPendingJoinCode(); setJoinCode(null); setSkipJoin(true); }}>
+              Not joining an institution
+            </Button>
+            <Button variant="ghost" className="w-full" disabled={busy} onClick={() => void handleUseAnotherAccount()}>
+              Use another account
+            </Button>
+          </div>
+        ) : needsRoleConfirmation && activeJoin ? (
           <div className="space-y-5">
             <div>
               <h1 className="text-2xl font-semibold">
@@ -321,10 +351,16 @@ function AuthPage() {
               className="w-full"
               onClick={() => {
                 markSessionConfirmed(session!.user.id);
-                navigate({ to: "/dashboard", replace: true });
+                if (activeJoin) {
+                  void confirmJoin();
+                } else {
+                  navigate({ to: "/dashboard", replace: true });
+                }
               }}
             >
-              Continue as {profile?.full_name?.trim().split(" ")[0] || session?.user.email}
+              {activeJoin
+                ? `Continue and join as ${activeJoin.role === "teacher" ? "Teacher" : "Student"}`
+                : `Continue as ${profile?.full_name?.trim().split(" ")[0] || session?.user.email}`}
             </Button>
             <Button
               variant="outline"

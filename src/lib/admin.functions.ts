@@ -405,9 +405,13 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
     const isLocalDevelopmentOrigin =
       process.env["NODE_ENV"] === "development" &&
       (requestedOrigin.startsWith("http://localhost:") || requestedOrigin.startsWith("http://127.0.0.1:"));
-    if (requestedOrigin !== trustedOrigin && !isLocalDevelopmentOrigin) {
-      throw new Error("The invitation redirect is not on the configured ONYX application origin. Set ONYX_APP_URL to the canonical application URL.");
-    }
+    // An invitation link must only ever lead to the trusted application. If the request came
+    // from another address (for example the editor preview or an old domain), the invitation
+    // goes to the trusted application instead of failing, so it can never point anywhere else.
+    const inviteRedirectTo =
+      requestedOrigin === trustedOrigin || isLocalDevelopmentOrigin
+        ? data.redirectTo
+        : new URL("/reset-password", trustedOrigin).toString();
 
     const inputRows = csvObjects(data.csv);
     if (!inputRows.length) throw new Error("The CSV must contain a header row and at least one roster row.");
@@ -565,7 +569,7 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
           role: row.role,
           institution: institution.name,
         },
-        redirectTo: data.redirectTo,
+        redirectTo: inviteRedirectTo,
       });
 
       if (inviteError || !inviteData?.user?.id) {

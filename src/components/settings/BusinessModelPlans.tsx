@@ -52,10 +52,20 @@ export function BusinessModelPlans() {
                   {highlighted && <Crown className="size-4 text-primary" />}
                 </div>
                 <div className="pt-1">
-                  <span className="text-2xl font-bold">₹{Number(p.monthly_price_inr).toLocaleString("en-IN")}</span>
-                  <span className="text-sm text-muted-foreground"> / month</span>
+                  {p.code === "apex" ? (
+                    <span className="text-2xl font-bold">Bespoke</span>
+                  ) : (
+                    <>
+                      <span className="text-2xl font-bold">₹{Number(p.monthly_price_inr).toLocaleString("en-IN")}</span>
+                      <span className="text-sm text-muted-foreground"> / month</span>
+                    </>
+                  )}
                 </div>
-                <CardDescription>₹{Number(p.annual_price_inr).toLocaleString("en-IN")} / year</CardDescription>
+                <CardDescription>
+                  {p.code === "apex"
+                    ? "Custom institutional agreement"
+                    : `₹${Number(p.annual_price_inr).toLocaleString("en-IN")} / year`}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <ul className="space-y-2 text-sm">
@@ -70,7 +80,9 @@ export function BusinessModelPlans() {
                 ) : role === "admin" ? (
                   <Button variant="outline" className="w-full" disabled>Admin — unlimited access</Button>
                 ) : (
-                  <Button asChild className="w-full"><Link to="/settings">Upgrade</Link></Button>
+                  <Button asChild className="w-full">
+                    <Link to="/settings">{p.code === "apex" ? "Contact for APEX" : "Upgrade"}</Link>
+                  </Button>
                 )}
               </CardContent>
             </Card>

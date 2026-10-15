@@ -96,7 +96,7 @@ const plans: Plan[] = [
     ],
     featured: true,
     details: [
-      { title: "10 classes · 150 students/class", description: "Manage multiple cohorts with capacity for up to 100 students in each class." },
+      { title: "10 classes · 100 students/class", description: "Manage multiple cohorts with capacity for up to 100 students in each class." },
       { title: "10 GB cloud storage", description: "More space for course resources, assignment attachments and student submissions." },
       { title: "200 AI quiz questions/month", description: "Generate up to 200 quiz questions with AI each month." },
       { title: "Advanced grading and rubrics", description: "Use rubric-oriented grading workflows to assess work against defined criteria." },
@@ -122,7 +122,7 @@ const plans: Plan[] = [
       "Priority support for larger deployments",
     ],
     details: [
-      { title: "30 classes · 400 students/class", description: "Support a larger multi-class deployment with up to 100 students in each class." },
+      { title: "30 classes · 100 students/class", description: "Support a larger multi-class deployment with up to 100 students in each class." },
       { title: "30 GB cloud storage", description: "A larger storage allowance for materials and submitted work across classes." },
       { title: "1,000 AI quiz questions/month", description: "Generate up to 1,000 quiz questions with AI each month." },
       { title: "Department-level oversight and analytics", description: "Designed for wider oversight of teaching activity and performance across cohorts." },

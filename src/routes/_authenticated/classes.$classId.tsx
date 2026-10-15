@@ -17,8 +17,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 
 import { useAuth } from "@/lib/auth";
-import { CoTeacherRequests } from "@/components/CoTeacherRequests";
-import { CoTeacherCode } from "@/components/CoTeacherCode";
 import { downloadCsv, toCsv } from "@/lib/csv";
 import { Pagination } from "@/components/Pagination";
 import { useViewRole } from "@/lib/viewRole";
@@ -28,7 +26,6 @@ import { DueDateChip } from "@/components/DueDateChip";
 import { Announcements } from "@/components/Announcements";
 import { ClassDiscussion } from "@/components/ClassDiscussion";
 import { ClassSettingsDialog, type ClassRecord } from "@/components/ClassSettingsDialog";
-import { EnrollDepartmentStudents } from "@/components/institution/EnrollDepartmentStudents";
 import { ClassResources } from "@/components/ClassResources";
 import { Button } from "@/components/ui/button";
 import {
@@ -122,23 +119,6 @@ function ClassDetail() {
       if (error) throw error;
       return data as ClassRecord | null;
     },
-  });
-
-  // The class's department, if any. Kept separate (and failure-tolerant) so the class page
-  // keeps working even where the departments migration has not been applied yet.
-  const classDept = useQuery({
-    queryKey: ["class-department", classId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("classes")
-        .select("department_id, departments(name)")
-        .eq("id", classId)
-        .maybeSingle();
-      if (error || !data) return null;
-      const row = data as unknown as { department_id: string | null; departments: { name: string } | null };
-      return row.department_id ? { id: row.department_id, name: row.departments?.name ?? "this department" } : null;
-    },
-    retry: false,
   });
 
   const bannerPath = klass.data?.banner_url ?? null;
@@ -279,7 +259,6 @@ function ClassDetail() {
 
   // Only the class owner and platform admins may edit or delete a class.
   const canManage = role === "admin" || klass.data.teacher_id === user?.id;
-  const isCoTeacher = isTeacher && !canManage && klass.data.teacher_id !== user?.id;
   const rosterRows = roster.data ?? [];
   const rosterPageSize = 20;
   const rosterPageCount = Math.max(1, Math.ceil(rosterRows.length / rosterPageSize));
@@ -363,7 +342,7 @@ function ClassDetail() {
             {[klass.data.subject, klass.data.section].filter(Boolean).join(" · ") || "No subject"}
           </p>
         </div>
-        {(!isTeacher || isCoTeacher) && (
+        {!isTeacher && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline">
@@ -406,7 +385,6 @@ function ClassDetail() {
               {klass.data.join_code}
               <Copy className="size-3.5" />
             </button>
-            <CoTeacherCode classId={classId} />
             <Button
               variant="outline"
               className="hidden sm:inline-flex"
@@ -520,8 +498,6 @@ function ClassDetail() {
         )}
       </header>
 
-      {canManage && <CoTeacherRequests classId={classId} />}
-
       <Tabs defaultValue="assignments">
         <TabsList>
           <TabsTrigger value="assignments">Assignments ({active.length})</TabsTrigger>
@@ -575,15 +551,6 @@ function ClassDetail() {
                   Import Students
                 </Link>
               </Button>
-            </div>
-          )}
-          {isTeacher && classDept.data && (
-            <div className="mb-4">
-              <EnrollDepartmentStudents
-                classId={classId}
-                departmentId={classDept.data.id}
-                departmentName={classDept.data.name}
-              />
             </div>
           )}
           {roster.isLoading ? (

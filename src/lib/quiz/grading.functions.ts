@@ -44,10 +44,7 @@ export const finalizeQuizAttempt = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const [
-      { data: questions, error: questionsError },
-      { data: answers, error: answersError },
-    ] = await Promise.all([
+    const [{ data: questions }, { data: answers }] = await Promise.all([
       supabaseAdmin
         .from("quiz_questions")
         .select("id, type, correct, points")
@@ -57,8 +54,6 @@ export const finalizeQuizAttempt = createServerFn({ method: "POST" })
         .select("id, question_id, response")
         .eq("attempt_id", attempt.id),
     ]);
-    if (questionsError) throw new Error(questionsError.message);
-    if (answersError) throw new Error(answersError.message);
 
     const byQuestion = new Map((answers ?? []).map((a) => [a.question_id, a]));
     let score = 0;
@@ -79,24 +74,22 @@ export const finalizeQuizAttempt = createServerFn({ method: "POST" })
       if (!given) continue;
       if (result === null) {
         needsManual = true;
-        const { error: answerUpdateError } = await supabaseAdmin
+        await supabaseAdmin
           .from("quiz_answers")
           .update({ is_correct: null, awarded_points: null })
           .eq("id", given.id);
-        if (answerUpdateError) throw new Error(answerUpdateError.message);
         continue;
       }
       score += result.points;
-      const { error: answerUpdateError } = await supabaseAdmin
+      await supabaseAdmin
         .from("quiz_answers")
         .update({ is_correct: result.correct, awarded_points: result.points })
         .eq("id", given.id);
-      if (answerUpdateError) throw new Error(answerUpdateError.message);
     }
 
     // Claim the attempt: only one request can move it out of "in_progress".
     const now = new Date().toISOString();
-    const { data: claimed, error: claimError } = await supabaseAdmin
+    const { data: claimed } = await supabaseAdmin
       .from("quiz_attempts")
       .update({
         status: needsManual ? "submitted" : "graded",
@@ -110,7 +103,6 @@ export const finalizeQuizAttempt = createServerFn({ method: "POST" })
       .eq("status", "in_progress")
       .is("max_score", null)
       .select("id");
-    if (claimError) throw new Error(claimError.message);
     if (!claimed || claimed.length === 0) {
       // A parallel request already graded this attempt; award nothing twice.
       return { score, max, needsManual, badges: [] as string[] };

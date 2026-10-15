@@ -18,19 +18,16 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authenticated/attendance'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedInstitutionAdminRouteImport } from './routes/_authenticated/institution-admin'
 import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenticated/leaderboard'
 import { Route as AuthenticatedQuestionBankRouteImport } from './routes/_authenticated/question-bank'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedRubricsRouteImport } from './routes/_authenticated/rubrics'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as JoinCodeRouteImport } from './routes/join.$code'
 import { Route as AuthenticatedAssignmentsIndexRouteImport } from './routes/_authenticated/assignments.index'
 import { Route as AuthenticatedAssignmentsAssignmentIdRouteImport } from './routes/_authenticated/assignments.$assignmentId'
 import { Route as AuthenticatedClassesIndexRouteImport } from './routes/_authenticated/classes.index'
 import { Route as AuthenticatedClassesClassIdRouteImport } from './routes/_authenticated/classes.$classId'
 import { Route as AuthenticatedGradingIndexRouteImport } from './routes/_authenticated/grading.index'
-import { Route as AuthenticatedGradingBulkRouteImport } from './routes/_authenticated/grading.bulk'
 import { Route as AuthenticatedQuizzesIndexRouteImport } from './routes/_authenticated/quizzes.index'
 import { Route as AuthenticatedSubmissionsSubmissionIdRouteImport } from './routes/_authenticated/submissions.$submissionId'
 import { Route as AuthenticatedClassesClassIdImportRouteImport } from './routes/_authenticated/classes.$classId.import'
@@ -86,12 +83,6 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedInstitutionAdminRoute =
-  AuthenticatedInstitutionAdminRouteImport.update({
-    id: '/institution-admin',
-    path: '/institution-admin',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedLeaderboardRoute =
   AuthenticatedLeaderboardRouteImport.update({
     id: '/leaderboard',
@@ -118,11 +109,6 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const JoinCodeRoute = JoinCodeRouteImport.update({
-  id: '/join/$code',
-  path: '/join/$code',
-  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAssignmentsIndexRoute =
   AuthenticatedAssignmentsIndexRouteImport.update({
@@ -152,12 +138,6 @@ const AuthenticatedGradingIndexRoute =
   AuthenticatedGradingIndexRouteImport.update({
     id: '/grading/',
     path: '/grading/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedGradingBulkRoute =
-  AuthenticatedGradingBulkRouteImport.update({
-    id: '/grading/bulk',
-    path: '/grading/bulk',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedQuizzesIndexRoute =
@@ -224,16 +204,13 @@ export interface FileRoutesByFullPath {
   '/attendance': typeof AuthenticatedAttendanceRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/institution-admin': typeof AuthenticatedInstitutionAdminRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/question-bank': typeof AuthenticatedQuestionBankRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rubrics': typeof AuthenticatedRubricsRoute
   '/settings': typeof AuthenticatedSettingsRoute
-  '/join/$code': typeof JoinCodeRoute
   '/assignments/$assignmentId': typeof AuthenticatedAssignmentsAssignmentIdRoute
   '/classes/$classId': typeof AuthenticatedClassesClassIdRouteWithChildren
-  '/grading/bulk': typeof AuthenticatedGradingBulkRoute
   '/submissions/$submissionId': typeof AuthenticatedSubmissionsSubmissionIdRoute
   '/assignments/': typeof AuthenticatedAssignmentsIndexRoute
   '/classes/': typeof AuthenticatedClassesIndexRoute
@@ -256,16 +233,13 @@ export interface FileRoutesByTo {
   '/attendance': typeof AuthenticatedAttendanceRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/institution-admin': typeof AuthenticatedInstitutionAdminRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/question-bank': typeof AuthenticatedQuestionBankRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rubrics': typeof AuthenticatedRubricsRoute
   '/settings': typeof AuthenticatedSettingsRoute
-  '/join/$code': typeof JoinCodeRoute
   '/assignments/$assignmentId': typeof AuthenticatedAssignmentsAssignmentIdRoute
   '/classes/$classId': typeof AuthenticatedClassesClassIdRouteWithChildren
-  '/grading/bulk': typeof AuthenticatedGradingBulkRoute
   '/submissions/$submissionId': typeof AuthenticatedSubmissionsSubmissionIdRoute
   '/assignments': typeof AuthenticatedAssignmentsIndexRoute
   '/classes': typeof AuthenticatedClassesIndexRoute
@@ -290,16 +264,13 @@ export interface FileRoutesById {
   '/_authenticated/attendance': typeof AuthenticatedAttendanceRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/institution-admin': typeof AuthenticatedInstitutionAdminRoute
   '/_authenticated/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/_authenticated/question-bank': typeof AuthenticatedQuestionBankRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/rubrics': typeof AuthenticatedRubricsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
-  '/join/$code': typeof JoinCodeRoute
   '/_authenticated/assignments/$assignmentId': typeof AuthenticatedAssignmentsAssignmentIdRoute
   '/_authenticated/classes/$classId': typeof AuthenticatedClassesClassIdRouteWithChildren
-  '/_authenticated/grading/bulk': typeof AuthenticatedGradingBulkRoute
   '/_authenticated/submissions/$submissionId': typeof AuthenticatedSubmissionsSubmissionIdRoute
   '/_authenticated/assignments/': typeof AuthenticatedAssignmentsIndexRoute
   '/_authenticated/classes/': typeof AuthenticatedClassesIndexRoute
@@ -324,16 +295,13 @@ export interface FileRouteTypes {
     | '/attendance'
     | '/calendar'
     | '/dashboard'
-    | '/institution-admin'
     | '/leaderboard'
     | '/question-bank'
     | '/reports'
     | '/rubrics'
     | '/settings'
-    | '/join/$code'
     | '/assignments/$assignmentId'
     | '/classes/$classId'
-    | '/grading/bulk'
     | '/submissions/$submissionId'
     | '/assignments/'
     | '/classes/'
@@ -356,16 +324,13 @@ export interface FileRouteTypes {
     | '/attendance'
     | '/calendar'
     | '/dashboard'
-    | '/institution-admin'
     | '/leaderboard'
     | '/question-bank'
     | '/reports'
     | '/rubrics'
     | '/settings'
-    | '/join/$code'
     | '/assignments/$assignmentId'
     | '/classes/$classId'
-    | '/grading/bulk'
     | '/submissions/$submissionId'
     | '/assignments'
     | '/classes'
@@ -389,16 +354,13 @@ export interface FileRouteTypes {
     | '/_authenticated/attendance'
     | '/_authenticated/calendar'
     | '/_authenticated/dashboard'
-    | '/_authenticated/institution-admin'
     | '/_authenticated/leaderboard'
     | '/_authenticated/question-bank'
     | '/_authenticated/reports'
     | '/_authenticated/rubrics'
     | '/_authenticated/settings'
-    | '/join/$code'
     | '/_authenticated/assignments/$assignmentId'
     | '/_authenticated/classes/$classId'
-    | '/_authenticated/grading/bulk'
     | '/_authenticated/submissions/$submissionId'
     | '/_authenticated/assignments/'
     | '/_authenticated/classes/'
@@ -418,7 +380,6 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
-  JoinCodeRoute: typeof JoinCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -486,13 +447,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/institution-admin': {
-      id: '/_authenticated/institution-admin'
-      path: '/institution-admin'
-      fullPath: '/institution-admin'
-      preLoaderRoute: typeof AuthenticatedInstitutionAdminRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/leaderboard': {
       id: '/_authenticated/leaderboard'
       path: '/leaderboard'
@@ -528,13 +482,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/join/$code': {
-      id: '/join/$code'
-      path: '/join/$code'
-      fullPath: '/join/$code'
-      preLoaderRoute: typeof JoinCodeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authenticated/assignments/': {
       id: '/_authenticated/assignments/'
       path: '/assignments'
@@ -568,13 +515,6 @@ declare module '@tanstack/react-router' {
       path: '/grading'
       fullPath: '/grading/'
       preLoaderRoute: typeof AuthenticatedGradingIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/grading/bulk': {
-      id: '/_authenticated/grading/bulk'
-      path: '/grading/bulk'
-      fullPath: '/grading/bulk'
-      preLoaderRoute: typeof AuthenticatedGradingBulkRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/quizzes/': {
@@ -664,7 +604,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAttendanceRoute: typeof AuthenticatedAttendanceRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedInstitutionAdminRoute: typeof AuthenticatedInstitutionAdminRoute
   AuthenticatedLeaderboardRoute: typeof AuthenticatedLeaderboardRoute
   AuthenticatedQuestionBankRoute: typeof AuthenticatedQuestionBankRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
@@ -672,7 +611,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedAssignmentsAssignmentIdRoute: typeof AuthenticatedAssignmentsAssignmentIdRoute
   AuthenticatedClassesClassIdRoute: typeof AuthenticatedClassesClassIdRouteWithChildren
-  AuthenticatedGradingBulkRoute: typeof AuthenticatedGradingBulkRoute
   AuthenticatedSubmissionsSubmissionIdRoute: typeof AuthenticatedSubmissionsSubmissionIdRoute
   AuthenticatedAssignmentsIndexRoute: typeof AuthenticatedAssignmentsIndexRoute
   AuthenticatedClassesIndexRoute: typeof AuthenticatedClassesIndexRoute
@@ -692,7 +630,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAttendanceRoute: AuthenticatedAttendanceRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedInstitutionAdminRoute: AuthenticatedInstitutionAdminRoute,
   AuthenticatedLeaderboardRoute: AuthenticatedLeaderboardRoute,
   AuthenticatedQuestionBankRoute: AuthenticatedQuestionBankRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
@@ -702,7 +639,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedAssignmentsAssignmentIdRoute,
   AuthenticatedClassesClassIdRoute:
     AuthenticatedClassesClassIdRouteWithChildren,
-  AuthenticatedGradingBulkRoute: AuthenticatedGradingBulkRoute,
   AuthenticatedSubmissionsSubmissionIdRoute:
     AuthenticatedSubmissionsSubmissionIdRoute,
   AuthenticatedAssignmentsIndexRoute: AuthenticatedAssignmentsIndexRoute,
@@ -727,7 +663,6 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
-  JoinCodeRoute: JoinCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

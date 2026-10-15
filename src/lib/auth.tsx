@@ -3,7 +3,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { clearSessionConfirmation, markSessionConfirmed } from "@/lib/session-confirm";
 
-export type AppRole = "student" | "teacher" | "institution_admin" | "admin";
+export type AppRole = "student" | "teacher" | "admin";
 
 export type Profile = {
   id: string;
@@ -11,7 +11,6 @@ export type Profile = {
   email: string | null;
   avatar_url: string | null;
   institution: string | null;
-  role_confirmed_at: string | null;
 };
 
 type AuthState = {
@@ -48,43 +47,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const roles = (data ?? []).map((x) => x.role as AppRole);
     return roles.includes("admin")
       ? "admin"
-      : roles.includes("institution_admin")
-        ? "institution_admin"
-        : roles.includes("teacher")
-          ? "teacher"
-          : roles.includes("student")
-            ? "student"
-            : null;
+      : roles.includes("teacher")
+        ? "teacher"
+        : roles.includes("student")
+          ? "student"
+          : null;
   }
 
   async function loadMeta(userId: string, userEmail?: string | null) {
-    const [profileResult, resolved] = await Promise.all([
+    const [{ data: p }, resolved] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id, full_name, avatar_url, institution, role_confirmed_at")
+        .select("id, full_name, avatar_url, institution")
         .eq("id", userId)
         .maybeSingle(),
       readRoles(userId),
     ]);
-
-    let p = profileResult.data;
-    let roleConfirmedAt = p?.role_confirmed_at ?? null;
-
-    // Keep existing accounts usable if the app deploys before Lovable Cloud
-    // has applied the role-confirmation migration. The legacy query is read-only;
-    // it does not alter roles or bypass any database permissions.
-    if (profileResult.error) {
-      const legacy = await supabase
-        .from("profiles")
-        .select("id, full_name, avatar_url, institution")
-        .eq("id", userId)
-        .maybeSingle();
-
-      p = legacy.data ? { ...legacy.data, role_confirmed_at: null } : null;
-      if (p && resolved) roleConfirmedAt = "legacy-schema";
-    }
-
-    setProfile(p ? ({ ...p, role_confirmed_at: roleConfirmedAt, email: userEmail ?? null } as Profile) : null);
+    setProfile(p ? ({ ...p, email: userEmail ?? null } as Profile) : null);
 
     let next = resolved;
 

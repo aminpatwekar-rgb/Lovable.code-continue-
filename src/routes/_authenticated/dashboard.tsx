@@ -44,18 +44,14 @@ function Stat({
   label,
   value,
   tone = "text-primary bg-primary/10 border-primary/20",
-  to,
-  search,
 }: {
   icon: typeof GraduationCap;
   label: string;
   value: number | string;
   tone?: string;
-  to?: string;
-  search?: Record<string, string>;
 }) {
-  const content = (
-    <>
+  return (
+    <div className="panel relative overflow-hidden bg-card p-3.5 sm:p-5">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground sm:uppercase sm:tracking-wider">
           {label}
@@ -67,25 +63,6 @@ function Stat({
       <p className="mt-1.5 text-2xl font-bold tracking-tight text-foreground tabular-nums sm:mt-4 sm:text-3xl">
         {value}
       </p>
-    </>
-  );
-
-  if (to) {
-    return (
-      <Link
-        to={to}
-        search={search}
-        aria-label={`${label}: ${value}. Open ${label.toLowerCase()}.`}
-        className="panel relative block overflow-hidden bg-card p-3.5 sm:p-5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 group"
-      >
-        {content}
-      </Link>
-    );
-  }
-
-  return (
-    <div className="panel relative overflow-hidden bg-card p-3.5 sm:p-5">
-      {content}
     </div>
   );
 }
@@ -106,7 +83,7 @@ function Dashboard() {
         .eq("teacher_id", user!.id);
       if (classError) throw classError;
       const ids = (classes ?? []).map((c) => c.id);
-      const [{ count: students }, assignmentResult] = await Promise.all([
+      const [{ count: students }, { data: assignments }] = await Promise.all([
         ids.length
           ? supabase
               .from("class_members")
@@ -120,8 +97,6 @@ function Dashboard() {
           .eq("archived", false)
           .order("due_date", { ascending: true }),
       ]);
-      if (assignmentResult.error) throw assignmentResult.error;
-      const assignments = assignmentResult.data;
       const aIds = (assignments ?? []).map((a) => a.id);
       const { data: subs, error: submissionsError } = aIds.length
         ? await supabase
@@ -149,7 +124,7 @@ function Dashboard() {
         .eq("student_id", user!.id);
       if (membershipError) throw membershipError;
       const classIds = (memberships ?? []).map((m) => m.class_id);
-      const { data: assignments, error: assignmentsError } = classIds.length
+      const { data: assignments } = classIds.length
         ? await supabase
             .from("assignments")
             .select("id, title, subject, due_date, priority, max_marks, class_id, classes(name)")
@@ -157,8 +132,7 @@ function Dashboard() {
             .eq("published", true)
             .eq("archived", false)
             .order("due_date", { ascending: true })
-        : { data: [], error: null };
-      if (assignmentsError) throw assignmentsError;
+        : { data: [] };
       const { data: subs, error: submissionsError } = await supabase
         .from("submissions")
         .select("id, assignment_id, status, marks_awarded")
@@ -229,30 +203,24 @@ function Dashboard() {
               label="Active Classes"
               value={d?.classes ?? 0}
               tone="text-primary bg-primary/10 border-primary/20"
-              to="/classes"
             />
             <Stat
               icon={Users}
               label="Enrolled Students"
               value={d?.students ?? 0}
               tone="text-info bg-info/10 border-info/20"
-              to="/classes"
             />
             <Stat
               icon={BookOpen}
               label="Active Assignments"
               value={d?.assignments.length ?? 0}
               tone="text-success bg-success/10 border-success/20"
-              to="/assignments"
-              search={{ tab: "all" }}
             />
             <Stat
               icon={FileClock}
               label="Pending Review"
               value={d?.pending ?? 0}
               tone="text-warning bg-warning/10 border-warning/20"
-              to="/assignments"
-              search={{ tab: "review" }}
             />
           </div>
         )}
@@ -397,31 +365,24 @@ function Dashboard() {
               label="Pending Work"
               value={list.length - done}
               tone="text-warning bg-warning/10 border-warning/20"
-              to="/assignments"
-              search={{ tab: "upcoming" }}
             />
             <Stat
               icon={AlertTriangle}
               label="Overdue"
               value={overdue}
               tone="text-destructive bg-destructive/10 border-destructive/20"
-              to="/assignments"
-              search={{ tab: "overdue" }}
             />
             <Stat
               icon={CheckCircle2}
               label="Completed"
               value={done}
               tone="text-success bg-success/10 border-success/20"
-              to="/assignments"
-              search={{ tab: "done" }}
             />
             <Stat
               icon={GraduationCap}
               label="Enrolled Classes"
               value={student.data?.classes ?? 0}
               tone="text-info bg-info/10 border-info/20"
-              to="/classes"
             />
           </div>
 

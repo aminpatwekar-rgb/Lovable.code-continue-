@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, ChevronRight, ClipboardCheck, Clock, Users } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronRight, ClipboardCheck, Clock } from "lucide-react";
 import { useViewRole } from "@/lib/viewRole";
 import { formatDue } from "@/lib/assignments";
 import { getGradingOverview } from "@/lib/grading/overview.functions";
@@ -105,25 +105,17 @@ function GradingHub() {
             release the grades.
           </p>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-          <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
-            <Link to="/grading/bulk">
-              <Users className="mr-2 size-4" />
-              Bulk grading
+        {first && (
+          <Button asChild size="lg" className="w-full sm:w-auto">
+            <Link {...openItem(first)}>
+              <ClipboardCheck className="mr-2 size-4" />
+              Start grading
+              <span className="ml-2 rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs">
+                {data?.stats.waiting}
+              </span>
             </Link>
           </Button>
-          {first && (
-            <Button asChild size="lg" className="w-full sm:w-auto">
-              <Link {...openItem(first)}>
-                <ClipboardCheck className="mr-2 size-4" />
-                Start grading
-                <span className="ml-2 rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs">
-                  {data?.stats.waiting}
-                </span>
-              </Link>
-            </Button>
-          )}
-        </div>
+        )}
       </header>
 
       {overview.isError && !data ? (

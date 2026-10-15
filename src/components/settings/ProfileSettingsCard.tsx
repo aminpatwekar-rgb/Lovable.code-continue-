@@ -8,17 +8,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { JoinWithCode } from "@/components/institution/JoinWithCode";
 
 export function ProfileSettingsCard() {
   const { user, profile, role, refresh } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name ?? "");
+  const [institution, setInstitution] = useState(profile?.institution ?? "");
   const [saving, setSaving] = useState(false);
 
   // Sync state when profile loads or updates
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name ?? "");
+      setInstitution(profile.institution ?? "");
     }
   }, [profile]);
 
@@ -29,7 +30,7 @@ export function ProfileSettingsCard() {
     .join("")
     .toUpperCase();
 
-  const canJoinInstitution = role === "teacher" || role === "student";
+  const isTeacherOrAdmin = role === "teacher" || role === "admin";
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +44,13 @@ export function ProfileSettingsCard() {
 
     setSaving(true);
     try {
-      const updatePayload = { full_name: trimmedName };
+      const updatePayload: { full_name: string; institution?: string | null } = {
+        full_name: trimmedName,
+      };
+
+      if (isTeacherOrAdmin) {
+        updatePayload.institution = institution.trim() ? institution.trim() : null;
+      }
 
       const { error } = await supabase.from("profiles").update(updatePayload).eq("id", user.id);
 
@@ -105,26 +112,25 @@ export function ProfileSettingsCard() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Institution</Label>
-              <div className="relative">
-                <Input
-                  value={profile?.institution ?? "Not part of an institution yet"}
-                  readOnly
-                  disabled
-                  className="pl-9"
-                />
-                <Building className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
-              </div>
-              {!profile?.institution && canJoinInstitution && (
-                <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground">
-                    Got a join link or code from your institution? Enter it here.
-                  </p>
-                  <JoinWithCode />
+            {isTeacherOrAdmin && (
+              <div className="space-y-2">
+                <Label htmlFor="institution" className="text-sm font-medium">
+                  Institution / Department
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="institution"
+                    type="text"
+                    value={institution}
+                    onChange={(e) => setInstitution(e.target.value)}
+                    placeholder="e.g. Department of Computer Science"
+                    disabled={saving}
+                    className="pl-9"
+                  />
+                  <Building className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end">

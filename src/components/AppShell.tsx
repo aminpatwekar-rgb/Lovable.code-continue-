@@ -3,7 +3,6 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   LayoutDashboard,
   BookOpen,
-  Building2,
   GraduationCap,
   Moon,
   Sun,
@@ -20,10 +19,8 @@ import {
   ClipboardCheck,
   Calendar,
   EyeOff,
-  PanelLeftClose,
-  PanelLeftOpen,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { clearSessionConfirmation } from "@/lib/session-confirm";
 import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
@@ -75,7 +72,6 @@ const BOTTOM_NAV = [
 const GRADING_NAV = { to: "/grading", label: "Grading", icon: ClipboardCheck } as const;
 
 const ADMIN_NAV = [{ to: "/admin", label: "Admin", icon: Shield }] as const;
-const INSTITUTION_ADMIN_NAV = [{ to: "/institution-admin", label: "Institution", icon: Building2 }] as const;
 
 const MotionLink = motion.create(Link);
 
@@ -106,45 +102,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   });
   const [open, setOpen] = useState(false);
 
-  // Desktop sidebar: can be slid away to give content the full width.
-  const [sidebarHidden, setSidebarHidden] = useState(false);
-  useEffect(() => {
-    try {
-      setSidebarHidden(localStorage.getItem("onyx.sidebar.hidden") === "1");
-    } catch {
-      /* storage unavailable */
-    }
-  }, []);
-  function setSidebar(hidden: boolean) {
-    setSidebarHidden(hidden);
-    try {
-      localStorage.setItem("onyx.sidebar.hidden", hidden ? "1" : "0");
-    } catch {
-      /* storage unavailable */
-    }
-  }
-  useEffect(() => {
-    // Ctrl/Cmd + B toggles the sidebar (desktop).
-    function onKey(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
-        const el = e.target as HTMLElement | null;
-        if (el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))) return;
-        e.preventDefault();
-        setSidebarHidden((h) => {
-          const next = !h;
-          try {
-            localStorage.setItem("onyx.sidebar.hidden", next ? "1" : "0");
-          } catch {
-            /* storage unavailable */
-          }
-          return next;
-        });
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
   async function signOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
@@ -164,9 +121,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const canGrade = effectiveRole === "teacher" || effectiveRole === "admin";
   // Teachers and admins get a Grading tab right after Quizzes.
   const baseNav = canGrade ? [...NAV.slice(0, 4), GRADING_NAV, ...NAV.slice(4)] : [...NAV];
-  const items = role === "institution_admin"
-    ? [...baseNav, ...INSTITUTION_ADMIN_NAV]
-    : effectiveRole === "admin" ? [...baseNav, ...ADMIN_NAV] : baseNav;
+  const items = effectiveRole === "admin" ? [...baseNav, ...ADMIN_NAV] : baseNav;
   // Phone tab bar: grading replaces Quizzes for teachers (Quizzes stays in the More menu).
   const bottomItems = canGrade
     ? [BOTTOM_NAV[0], BOTTOM_NAV[1], GRADING_NAV, BOTTOM_NAV[2]]
@@ -177,7 +132,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const renderRoleSwitcher = (compact = false) => {
     const roleDotClass =
-      effectiveRole === "admin" || effectiveRole === "institution_admin"
+      effectiveRole === "admin"
         ? "bg-primary"
         : effectiveRole === "teacher"
           ? "bg-info"
@@ -253,11 +208,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   };
 
-  const renderNav = (compact: boolean) => (
-    <nav
-      className={cn("flex flex-col gap-1.5", compact && "items-center")}
-      aria-label="Main Navigation"
-    >
+  const nav = (
+    <nav className="flex flex-col gap-1.5" aria-label="Main Navigation">
       {items.map(({ to, label, icon: Icon, ...item }) => {
         const active = pathname === to || pathname.startsWith(to + "/");
         const feature = (item as { feature?: string }).feature;
@@ -267,16 +219,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           return (
             <div
               key={to}
-              title={compact ? `${label} (included in a higher plan)` : "Included in a higher plan"}
+              title="Included in a higher plan"
               aria-disabled="true"
-              className={cn(
-                "group relative flex items-center gap-3 rounded-lg text-sm font-medium text-muted-foreground/50 cursor-not-allowed select-none",
-                compact ? "size-10 justify-center" : "px-3.5 py-2.5",
-              )}
+              className="group relative flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium text-muted-foreground/50 cursor-not-allowed select-none"
             >
               <Icon className="size-4 shrink-0 opacity-60" />
-              {!compact && <span className="truncate flex-1">{label}</span>}
-              {!compact && <EyeOff className="size-3.5 opacity-70" />}
+              <span className="truncate flex-1">{label}</span>
+              <EyeOff className="size-3.5 opacity-70" />
             </div>
           );
         }
@@ -286,12 +235,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             key={to}
             to={to}
             onClick={() => setOpen(false)}
-            title={compact ? label : undefined}
-            aria-label={compact ? label : undefined}
-            {...getPressProps(shouldReduceMotion, { xHover: compact ? 0 : 2, tapScale: 0.98 })}
+            {...getPressProps(shouldReduceMotion, { xHover: 2, tapScale: 0.98 })}
             className={cn(
-              "group relative flex items-center gap-3 rounded-lg text-sm font-medium transition-colors duration-150 ease-out",
-              compact ? "size-10 justify-center" : "px-3.5 py-2.5",
+              "group relative flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors duration-150 ease-out",
               active
                 ? "bg-primary/10 text-primary shadow-xs font-semibold"
                 : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
@@ -299,7 +245,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             {active && (
               <motion.span
-                layoutId={compact ? "nav-active-rail" : "nav-active"}
+                layoutId="nav-active"
                 className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-primary"
                 transition={{ type: "spring", stiffness: 350, damping: 30 }}
               />
@@ -310,80 +256,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                 active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
               )}
             />
-            {!compact && <span className="truncate">{label}</span>}
+            <span className="truncate">{label}</span>
           </MotionLink>
         );
       })}
     </nav>
   );
-  const nav = renderNav(false);
-  const railNav = renderNav(true);
 
   return (
-    <div
-      className={cn(
-        "min-h-screen bg-background lg:grid lg:transition-[grid-template-columns] lg:duration-300 lg:ease-out",
-        sidebarHidden ? "lg:grid-cols-[4.25rem_1fr]" : "lg:grid-cols-[16.5rem_1fr]",
-      )}
-    >
-      <aside
-        className="sticky top-0 z-30 hidden h-screen flex-col justify-between overflow-hidden border-r border-sidebar-border bg-sidebar/95 backdrop-blur-xl lg:flex"
-      >
-        {sidebarHidden ? (
-          <>
-            <div className="flex min-h-0 w-[4.25rem] min-w-0 flex-1 flex-col items-center">
-              <div className="flex h-16 w-full items-center justify-center border-b border-sidebar-border">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-9 text-muted-foreground hover:text-foreground"
-                  onClick={() => setSidebar(false)}
-                  title="Expand sidebar (Ctrl+B)"
-                  aria-label="Expand sidebar"
-                >
-                  <PanelLeftOpen className="size-4" />
-                </Button>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain flex flex-col items-center gap-3 py-4">
-                <NotificationCenter />
-                {railNav}
-              </div>
-            </div>
-            <div className="flex w-[4.25rem] shrink-0 flex-col items-center gap-2 border-t border-sidebar-border bg-sidebar/40 py-3">
-              <Avatar
-                className="size-9 border border-border/50"
-                title={profile?.full_name || "Account"}
-              >
-                <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-9 text-muted-foreground hover:text-foreground"
-                onClick={toggle}
-                title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-                aria-label="Toggle theme"
-              >
-                {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-9 text-muted-foreground hover:text-destructive"
-                onClick={signOut}
-                title="Sign out"
-                aria-label="Sign out"
-              >
-                <LogOut className="size-4" />
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-        <div className="flex min-h-0 w-[16.5rem] min-w-0 flex-1 flex-col">
+    <div className="min-h-screen lg:grid lg:grid-cols-[16.5rem_1fr] bg-background">
+      <aside className="sticky top-0 z-30 hidden h-screen flex-col justify-between border-r border-sidebar-border bg-sidebar/95 backdrop-blur-xl lg:flex">
+        <div className="flex flex-col">
           <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
             <Link to="/dashboard" className="transition-opacity hover:opacity-90">
               {branding.data ? <span className="text-sm font-semibold">Workspace</span> : <Wordmark size="sm" />}
@@ -391,27 +274,16 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-1">
               <NotificationCenter />
               {renderRoleSwitcher()}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8 text-muted-foreground hover:text-foreground"
-                onClick={() => setSidebar(true)}
-                title="Collapse sidebar (Ctrl+B)"
-                aria-label="Collapse sidebar"
-              >
-                <PanelLeftClose className="size-4" />
-              </Button>
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4">
+          <div className="space-y-4 p-4">
             <GlobalSearch />
             <div className="pt-1">{nav}</div>
           </div>
         </div>
 
-        <div className="w-[16.5rem] shrink-0 space-y-3 border-t border-sidebar-border p-4 bg-sidebar/40">
+        <div className="space-y-3 border-t border-sidebar-border p-4 bg-sidebar/40">
           <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-card/60 p-2.5 shadow-2xs transition-colors hover:border-border">
             <Avatar className="size-9 border border-border/50">
               <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
@@ -441,17 +313,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Button
               variant="outline"
               size="sm"
-              className="h-9 flex-1 justify-center gap-1.5 px-2 border-border/80 text-muted-foreground hover:text-destructive hover:border-destructive/40 shadow-2xs"
+              className="h-9 px-3 border-border/80 text-muted-foreground hover:text-destructive hover:border-destructive/40 shadow-2xs"
               onClick={signOut}
               title="Sign out"
             >
               <LogOut className="size-4" />
-              <span className="text-xs">Sign out</span>
             </Button>
           </div>
         </div>
-          </>
-        )}
       </aside>
 
       <header className="glass sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border px-4 py-2.5 lg:hidden">

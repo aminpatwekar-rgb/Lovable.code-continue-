@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, CheckCircle2, Library, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Library, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,8 +30,6 @@ type Props = {
   onSaveToBank?: () => void;
   regenerating?: boolean;
   saving?: boolean;
-  aiReviewStatus?: "needs_review" | "approved";
-  onApproveAiQuestion?: () => void;
 };
 
 /** Editable card for one question — used by the builder and the question bank. */
@@ -45,8 +43,6 @@ export function QuestionEditor({
   onSaveToBank,
   regenerating,
   saving,
-  aiReviewStatus,
-  onApproveAiQuestion,
 }: Props) {
   const q = question;
   const set = (patch: Partial<QuestionDraft>) => onChange({ ...q, ...patch });
@@ -84,33 +80,6 @@ export function QuestionEditor({
 
   return (
     <div className="panel space-y-4 p-4">
-      {aiReviewStatus && (
-        <div
-          className={
-            aiReviewStatus === "needs_review"
-              ? "flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3"
-              : "flex flex-wrap items-center justify-between gap-2 rounded-lg border border-success/30 bg-success/5 p-3"
-          }
-        >
-          <div className="flex min-w-0 items-center gap-2 text-sm">
-            {aiReviewStatus === "needs_review" ? (
-              <ShieldCheck className="size-4 shrink-0 text-warning-foreground" />
-            ) : (
-              <CheckCircle2 className="size-4 shrink-0 text-success" />
-            )}
-            <span className="font-medium">
-              {aiReviewStatus === "needs_review"
-                ? "AI-generated · teacher review required"
-                : "Reviewed and approved"}
-            </span>
-          </div>
-          {aiReviewStatus === "needs_review" && onApproveAiQuestion && (
-            <Button type="button" size="sm" onClick={onApproveAiQuestion}>
-              <CheckCircle2 className="mr-1.5 size-4" /> Approve question
-            </Button>
-          )}
-        </div>
-      )}
       <div className="flex flex-wrap items-center gap-2">
         <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold">
           {index + 1}

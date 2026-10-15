@@ -64,9 +64,9 @@ export const importClassStudents = createServerFn({ method: "POST" })
         continue;
       }
       if (!student.full_name) student.full_name = profile.full_name?.trim() ?? "";
-      if (!student.full_name || !(student.roll_no || student.er_no || student.sr_no)) {
+      if (!student.full_name || !student.roll_no || !student.er_no || !student.sr_no) {
         results.skipped += 1;
-        results.errors.push(`Row ${index + 2}: full_name and at least one of roll_no, er_no or sr_no are required`);
+        results.errors.push(`Row ${index + 2}: full_name, roll_no, er_no and sr_no are required`);
         continue;
       }
 
@@ -75,9 +75,9 @@ export const importClassStudents = createServerFn({ method: "POST" })
           class_id: data.classId,
           student_id: profile.id,
           full_name: student.full_name,
-          roll_no: student.roll_no || null,
-          er_no: student.er_no || null,
-          sr_no: student.sr_no || null,
+          roll_no: student.roll_no,
+          er_no: student.er_no,
+          sr_no: student.sr_no,
           member_role: "student",
         },
         { onConflict: "class_id,student_id" },

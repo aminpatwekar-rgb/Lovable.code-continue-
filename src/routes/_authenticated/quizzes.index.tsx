@@ -94,41 +94,13 @@ function CreateQuizDialog() {
     queryKey: ["teacher-classes-min", user?.id],
     enabled: Boolean(user) && open,
     queryFn: async () => {
-      const { data: owned, error: ownedError } = await supabase
+      const { data, error } = await supabase
         .from("classes")
         .select("id, name, subject")
-        .eq("teacher_id", user!.id)
         .eq("archived", false)
         .order("name");
-      if (ownedError) throw ownedError;
-
-      // Include active classes where this user has approved co-teacher membership.
-      const { data: memberships, error: membershipError } = await supabase
-        .from("class_members")
-        .select("class_id")
-        .eq("student_id", user!.id)
-        .eq("member_role", "teacher");
-      if (membershipError) throw membershipError;
-
-      const ownedIds = new Set((owned ?? []).map((c) => c.id));
-      const coTeacherIds = (memberships ?? [])
-        .map((membership) => membership.class_id)
-        .filter((id) => !ownedIds.has(id));
-      let coTeacherClasses: typeof owned = [];
-      if (coTeacherIds.length) {
-        const { data, error } = await supabase
-          .from("classes")
-          .select("id, name, subject")
-          .in("id", coTeacherIds)
-          .eq("archived", false)
-          .order("name");
-        if (error) throw error;
-        coTeacherClasses = data ?? [];
-      }
-
-      return [...(owned ?? []), ...coTeacherClasses].sort((a, b) =>
-        a.name.localeCompare(b.name),
-      );
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -419,20 +391,18 @@ function StudentQuizzes() {
         .eq("archived", false)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      const { data: attempts, error: attemptsError } = await supabase
+      const { data: attempts } = await supabase
         .from("quiz_attempts")
         .select("id, quiz_id, status, score, max_score, attempt_no, submitted_at")
         .eq("student_id", user!.id)
         .order("attempt_no", { ascending: false });
-      if (attemptsError) throw attemptsError;
 
       // Use the quiz's actual question points as the display denominator.
       // This keeps the student-facing percentage aligned with the full quiz marks.
-      const { data: questionMarks, error: questionMarksError } = await supabase
+      const { data: questionMarks } = await supabase
         .from("quiz_questions")
         .select("quiz_id, points")
         .in("quiz_id", (quizzes ?? []).map((x) => x.id));
-      if (questionMarksError) throw questionMarksError;
 
       const totalMarks = new Map<string, number>();
       for (const q of questionMarks ?? []) {
@@ -469,7 +439,6 @@ function StudentQuizzes() {
     const a = best.get(x.id);
     const count = counts.get(x.id) ?? 0;
     const used = attempts.filter((t) => t.quiz_id === x.id).length;
-    const activeAttempt = attempts.find((t) => t.quiz_id === x.id && t.status === "in_progress");
     const exhausted = used >= (x.max_attempts ?? 1);
     const notOpen = x.start_at ? new Date(x.start_at) > new Date() : false;
     const closed = x.end_at ? new Date(x.end_at) < new Date() : false;
@@ -520,13 +489,11 @@ function StudentQuizzes() {
                 ? "Not open yet"
                 : closed
                   ? "Closed"
-                  : activeAttempt
-                    ? "Resume attempt"
-                    : exhausted
-                      ? "View result"
-                      : a
-                        ? "Retake"
-                        : "Start"}
+                  : exhausted
+                    ? "View result"
+                    : a
+                      ? "Retake"
+                      : "Start"}
             </Link>
           </Button>
         </div>

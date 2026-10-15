@@ -119,7 +119,7 @@ function AuthPage() {
           email: parsed.data.email,
           password: parsed.data.password,
           options: {
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: `${window.location.origin}/auth?mode=signup`,
             data: { full_name: fullName.trim() },
           },
         });

@@ -85,7 +85,7 @@ const plans: Plan[] = [
     price: 2499,
     description: "Multi-Cohort Powerhouse & Proctoring",
     classes: "10 classes",
-    students: "150 students/class",
+    students: "100 students/class",
     storage: "10 GB storage",
     ai: "200 AI quiz questions/month",
     features: [
@@ -96,7 +96,7 @@ const plans: Plan[] = [
     ],
     featured: true,
     details: [
-      { title: "10 classes · 150 students/class", description: "Manage multiple cohorts with capacity for up to 150 students in each class." },
+      { title: "10 classes · 150 students/class", description: "Manage multiple cohorts with capacity for up to 100 students in each class." },
       { title: "10 GB cloud storage", description: "More space for course resources, assignment attachments and student submissions." },
       { title: "200 AI quiz questions/month", description: "Generate up to 200 quiz questions with AI each month." },
       { title: "Advanced grading and rubrics", description: "Use rubric-oriented grading workflows to assess work against defined criteria." },
@@ -112,7 +112,7 @@ const plans: Plan[] = [
     price: 9999,
     description: "Departmental Federation & Oversight",
     classes: "30 classes",
-    students: "400 students/class",
+    students: "100 students/class",
     storage: "30 GB storage",
     ai: "1,000 AI quiz questions/month",
     features: [
@@ -122,7 +122,7 @@ const plans: Plan[] = [
       "Priority support for larger deployments",
     ],
     details: [
-      { title: "30 classes · 400 students/class", description: "Support a larger multi-class deployment with up to 400 students in each class." },
+      { title: "30 classes · 400 students/class", description: "Support a larger multi-class deployment with up to 100 students in each class." },
       { title: "30 GB cloud storage", description: "A larger storage allowance for materials and submitted work across classes." },
       { title: "1,000 AI quiz questions/month", description: "Generate up to 1,000 quiz questions with AI each month." },
       { title: "Department-level oversight and analytics", description: "Designed for wider oversight of teaching activity and performance across cohorts." },
@@ -134,7 +134,7 @@ const plans: Plan[] = [
 ];
 
 const apexDetails: FeatureDetail[] = [
-  { title: "Institution-wide deployment", description: "Plan an ONYX rollout for an entire institution or multiple departments." },
+  { title: "Institution-wide deployment", description: "Plan an ONYX rollout for an entire institution or multiple departments, with a maximum of 100 students per class." },
   { title: "Custom branding and domain", description: "Discuss a branded experience and custom domain for your institution." },
   { title: "Institutional onboarding and oversight", description: "Coordinate setup and onboarding around the institution's workflows." },
   { title: "Tailored integrations and support", description: "Scope integrations and support to suit institutional requirements." },
@@ -224,7 +224,7 @@ export function BusinessModelPlans() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <ul className="space-y-2">
-              {["Institution-wide deployment", "Custom branding and domain", "Institutional onboarding and oversight", "Tailored integrations and support"].map((feature) => (
+              {["Institution-wide deployment", "Maximum 100 students per class", "Custom branding and domain", "Institutional onboarding and oversight", "Tailored integrations and support"].map((feature) => (
                 <li key={feature} className="flex gap-2">
                   <Check className="mt-0.5 size-4 shrink-0 text-primary" />
                   <span>{feature}</span>

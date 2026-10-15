@@ -19,6 +19,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { ViewRoleProvider } from "@/lib/viewRole";
 import { Toaster } from "@/components/ui/sonner";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { savePendingJoinCode } from "@/lib/institution-join";
 import { cn } from "@/lib/utils";
 
 function NotFoundComponent() {
@@ -190,6 +191,9 @@ function RootContent() {
       pathname !== "/auth" &&
       pathname !== "/reset-password"
     ) {
+      // Keep a join link they opened, so the role step can finish joining the institution.
+      const joinMatch = /^\/join\/([A-Za-z0-9]+)\/?$/.exec(pathname);
+      if (joinMatch?.[1]) savePendingJoinCode(joinMatch[1]);
       void navigate({ to: "/auth", search: { mode: "signup" }, replace: true });
     }
   }, [loading, session, profile, pathname, navigate]);

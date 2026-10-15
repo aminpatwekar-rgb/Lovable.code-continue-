@@ -42,9 +42,17 @@ export function normalizeJoinCode(raw: string): string {
   return last.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+/** The address people outside the editor can open. Set VITE_PUBLIC_APP_URL if your published address differs. */
+const PUBLIC_APP_URL = (import.meta.env["VITE_PUBLIC_APP_URL"] as string | undefined)?.trim() || "https://onyxedu.lovable.app";
+
+function isPrivateAddress(hostname: string): boolean {
+  // Editor previews need a Lovable login, so a link built from them cannot be shared.
+  return hostname.startsWith("id-preview--") || hostname.endsWith(".lovableproject.com") || hostname === "localhost" || hostname === "127.0.0.1";
+}
+
 export function joinUrl(code: string): string {
-  const origin = typeof window === "undefined" ? "" : window.location.origin;
-  return `${origin}/join/${code}`;
+  const origin = typeof window === "undefined" ? PUBLIC_APP_URL : isPrivateAddress(window.location.hostname) ? PUBLIC_APP_URL : window.location.origin;
+  return `${origin.replace(/\/$/, "")}/join/${code}`;
 }
 
 export function savePendingJoinCode(code: string) {

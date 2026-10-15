@@ -730,3 +730,95 @@ export const deleteInstitution = createServerFn({ method: "POST" })
     }
     return { ok: true, clearedMembers: clearedIds.length };
   });
+
+
+/**
+ * Platform admin only: appoint an institution admin and return a one-time sign-in link to share
+ * directly, so appointing someone never depends on the app being able to send email.
+ * New people get an invitation link; existing accounts get a password-setup link.
+ */
+export const createInstitutionAdminAccessLink = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { institutionId: string; email: string; fullName: string }) => {
+    const email = String(input?.email ?? "").trim().toLowerCase();
+    const fullName = String(input?.fullName ?? "").trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 255) throw new Error("Enter a valid email address.");
+    if (!fullName || fullName.length > 100) throw new Error("Enter the administrator's name.");
+    return { institutionId: validateInstitutionId(input?.institutionId), email, fullName };
+  })
+  .handler(async ({ data, context }): Promise<{ link: string; existingAccount: boolean }> => {
+    const { data: isPlatformAdmin, error: roleError } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (roleError) throw new Error("Could not verify platform-administrator permissions.");
+    if (!isPlatformAdmin) throw new Error("Only the platform administrator can appoint institution admins.");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+    const { data: institution, error: institutionError } = await admin
+      .from("institutions").select("id, name").eq("id", data.institutionId).maybeSingle();
+    if (institutionError || !institution) throw new Error("Institution not found.");
+
+    let trustedOrigin: string;
+    try {
+      trustedOrigin = new URL((process.env["ONYX_APP_URL"] || "https://onyxedu.lovable.app").trim()).origin;
+    } catch {
+      throw new Error("ONYX_APP_URL must be a valid HTTPS application URL.");
+    }
+    const redirectTo = new URL("/reset-password", trustedOrigin).toString();
+    const now = new Date().toISOString();
+
+    const { data: profile } = await admin
+      .from("profiles").select("id, full_name, role_confirmed_at").eq("email", data.email).maybeSingle();
+
+    if (profile) {
+      const { data: existingRoles } = await admin.from("user_roles").select("role").eq("user_id", profile.id);
+      if ((existingRoles ?? []).some((r: { role: string }) => r.role === "admin")) {
+        throw new Error("That account is a platform administrator and cannot be made an institution admin.");
+      }
+      const { error: setRoleError } = await context.supabase.rpc("admin_set_user_role", {
+        _user_id: profile.id,
+        _role: "institution_admin",
+      });
+      if (setRoleError) throw new Error("Could not assign the institution admin role: " + setRoleError.message);
+      const { error: updateError } = await admin.from("profiles").update({
+        institution: institution.name,
+        role: "institution_admin",
+        role_confirmed_at: profile.role_confirmed_at ?? now,
+      }).eq("id", profile.id);
+      if (updateError) throw new Error("The role is set, but the institution could not be saved: " + updateError.message);
+
+      const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+        type: "recovery", email: data.email, options: { redirectTo },
+      });
+      const link = linkData?.properties?.action_link as string | undefined;
+      if (linkError || !link) throw new Error("Could not create a sign-in link: " + (linkError?.message ?? "no link returned"));
+      return { link, existingAccount: true };
+    }
+
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+      type: "invite",
+      email: data.email,
+      options: {
+        data: { full_name: data.fullName, role: "institution_admin", institution: institution.name },
+        redirectTo,
+      },
+    });
+    const link = linkData?.properties?.action_link as string | undefined;
+    const userId = linkData?.user?.id as string | undefined;
+    if (linkError || !link || !userId) throw new Error("Could not create the invitation link: " + (linkError?.message ?? "no link returned"));
+
+    const { error: clearError } = await admin.from("user_roles").delete().eq("user_id", userId);
+    const { error: roleInsertError } = clearError
+      ? { error: clearError }
+      : await admin.from("user_roles").insert({ user_id: userId, role: "institution_admin" });
+    const { error: profileError } = await admin.from("profiles").upsert(
+      { id: userId, full_name: data.fullName, email: data.email, institution: institution.name, role: "institution_admin", role_confirmed_at: now },
+      { onConflict: "id" },
+    );
+    if (roleInsertError || profileError) {
+      throw new Error("The account was created, but setup did not finish: " + (roleInsertError?.message ?? profileError?.message));
+    }
+    return { link, existingAccount: false };
+  });

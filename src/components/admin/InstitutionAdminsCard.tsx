@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, ShieldCheck, ShieldOff, UserPlus } from "lucide-react";
+import { Check, Copy, KeyRound, Loader2, ShieldCheck, ShieldOff, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { bulkCreateInstitutionStudents } from "@/lib/admin.functions";
+import { bulkCreateInstitutionStudents, createInstitutionAdminAccessLink } from "@/lib/admin.functions";
 import { toCsv } from "@/lib/csv";
 
 type Person = {
@@ -31,6 +31,9 @@ export function InstitutionAdminsCard({
 }) {
   const qc = useQueryClient();
   const bulkCreate = useServerFn(bulkCreateInstitutionStudents);
+  const createLink = useServerFn(createInstitutionAdminAccessLink);
+  const [accessLink, setAccessLink] = useState<{ link: string; existing: boolean; email: string } | null>(null);
+  const [copied, setCopied] = useState(false);
   const [memberId, setMemberId] = useState("");
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -74,7 +77,10 @@ export function InstitutionAdminsCard({
       });
       const row = result.rows[0];
       const ok = Boolean(result.invited || result.assignedExisting || result.alreadyAssigned);
-      if (!ok) throw new Error(row?.message ?? "Couldn't add the administrator.");
+      if (!ok) {
+        const hint = row?.status === "invite_failed" ? ' Use "Get a link instead" to share a sign-in link yourself.' : "";
+        throw new Error((row?.message ?? "Couldn't add the administrator.") + hint);
+      }
       return row?.message ?? "Institution admin added.";
     },
     onSuccess: async (message) => {
@@ -85,8 +91,27 @@ export function InstitutionAdminsCard({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const linkInstead = useMutation({
+    mutationFn: async () => {
+      const email = inviteEmail.trim().toLowerCase();
+      const fullName = inviteName.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Enter a valid email address.");
+      if (!fullName) throw new Error("Enter the administrator's name.");
+      const result = await createLink({ data: { institutionId, email, fullName } });
+      return { ...result, email };
+    },
+    onSuccess: async (result) => {
+      setAccessLink({ link: result.link, existing: result.existingAccount, email: result.email });
+      setCopied(false);
+      toast.success("Admin appointed. Copy the link below and send it to them yourself.");
+      setInviteName(""); setInviteEmail("");
+      await refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const selected = candidates.find((p) => p.id === memberId);
-  const busy = setRole.isPending || invite.isPending;
+  const busy = setRole.isPending || invite.isPending || linkInstead.isPending;
 
   return (
     <section className="panel space-y-4 p-5">
@@ -167,9 +192,38 @@ export function InstitutionAdminsCard({
           <Button type="button" variant="outline" disabled={busy || !inviteName.trim() || !inviteEmail.trim()} onClick={() => invite.mutate()}>
             {invite.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <UserPlus className="mr-2 size-4" />}Send invitation
           </Button>
-          <p className="text-xs text-muted-foreground">They get an email to set their password and join as this institution's admin.</p>
+          <Button type="button" variant="ghost" disabled={busy || !inviteName.trim() || !inviteEmail.trim()} onClick={() => linkInstead.mutate()}>
+            {linkInstead.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <KeyRound className="mr-2 size-4" />}Get a link instead
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            The invitation sends an email. If email isn't arriving, "Get a link instead" appoints them without email and gives you a one-time link to send yourself.
+          </p>
         </div>
       </div>
+
+      {accessLink && (
+        <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/10 p-3">
+          <p className="text-sm font-medium">
+            {accessLink.existing ? "Password-setup link" : "Invitation link"} for {accessLink.email}
+          </p>
+          <div className="flex gap-2">
+            <Input readOnly value={accessLink.link} onFocus={(e) => e.currentTarget.select()} aria-label="One-time access link" />
+            <Button
+              type="button" variant="outline" aria-label="Copy link"
+              onClick={async () => {
+                try { await navigator.clipboard.writeText(accessLink.link); setCopied(true); setTimeout(() => setCopied(false), 1800); }
+                catch { toast.error("Couldn't copy. Select the link and copy it manually."); }
+              }}
+            >
+              {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Send this only to {accessLink.email}, privately. Anyone who opens it can set the password for this account, and it stops working after a short time or once used. They are already set up as an admin of {institutionName}.
+          </p>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setAccessLink(null)}>Hide link</Button>
+        </div>
+      )}
     </section>
   );
 }

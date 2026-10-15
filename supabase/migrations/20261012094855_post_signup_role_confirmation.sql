@@ -1,5 +1,6 @@
 -- Confirm a new ONYX account's student/teacher role exactly once.
 ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS role text,
   ADD COLUMN IF NOT EXISTS role_confirmed_at timestamptz;
 
 -- Preserve existing authoritative roles during rollout; new profiles remain

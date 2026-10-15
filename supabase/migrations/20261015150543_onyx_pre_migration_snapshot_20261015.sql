@@ -1,0 +1,4 @@
+-- Operational migration marker.
+-- The actual pre-change JSON snapshot table was created directly on the confirmed
+-- destination as part of the migration run. Do not create a separate backup table
+-- on clean installs; use native database backups before any production cutover.

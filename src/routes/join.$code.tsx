@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { GraduationCap, Loader2, Presentation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { lovable } from "@/integrations/lovable";
 import {
   clearPendingJoinCode,
   joinWithCode,
@@ -59,6 +60,23 @@ function JoinPage() {
       navigate({ to: "/dashboard", replace: true });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not use this join link.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Google sign-in: remember the code first, then return through the sign-up screen,
+  // which finishes the join once the account exists.
+  async function continueWithGoogle() {
+    savePendingJoinCode(code);
+    setBusy(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: `${window.location.origin}/auth?mode=signup`,
+      });
+      if (result.error) toast.error("Google sign-in failed. Try again, or use email instead.");
+    } catch {
+      toast.error("Google sign-in failed. Try again, or use email instead.");
     } finally {
       setBusy(false);
     }
@@ -123,8 +141,28 @@ function JoinPage() {
               </>
             ) : (
               <>
-                <Button className="w-full" onClick={() => startAuth("signup")}>
-                  Create an account
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex h-12 w-full items-center justify-center gap-3 border-2 border-border bg-background text-base font-semibold shadow-sm hover:border-primary/60 hover:bg-accent"
+                  disabled={busy}
+                  onClick={() => void continueWithGoogle()}
+                >
+                  {busy ? <Loader2 className="size-5 animate-spin" /> : (
+                    <svg aria-hidden="true" viewBox="0 0 48 48" className="size-5 shrink-0">
+                      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5Z" />
+                      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.74 7.18l7.27 5.64c4.25-3.92 6.71-9.7 6.71-17.29Z" />
+                      <path fill="#FBBC05" d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.97-6.19Z" />
+                      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.91-5.81l-7.27-5.64c-2.02 1.35-4.6 2.15-8.64 2.15-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48Z" />
+                    </svg>
+                  )}
+                  <span>Continue with Google</span>
+                </Button>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
+                </div>
+                <Button variant="secondary" className="w-full" onClick={() => startAuth("signup")}>
+                  Create an account with email
                 </Button>
                 <Button variant="outline" className="w-full" onClick={() => startAuth("signin")}>
                   I already have an account

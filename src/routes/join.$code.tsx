@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { GraduationCap, Loader2, Presentation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
-import { lovable } from "@/integrations/lovable";
+import { supabase } from "@/integrations/supabase/client";
 import {
   clearPendingJoinCode,
   joinWithCode,
@@ -68,16 +68,20 @@ function JoinPage() {
   // Google sign-in: remember the code first, then return through the sign-up screen,
   // which finishes the join once the account exists.
   async function continueWithGoogle() {
+    // Keep the invitation code before leaving ONYX for Google's OAuth screen.
     savePendingJoinCode(code);
     setBusy(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/auth?mode=signup`,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          // Return to ONYX; the auth page completes the institution join after OAuth.
+          redirectTo: `${window.location.origin}/auth?mode=signup`,
+        },
       });
-      if (result.error) toast.error("Google sign-in failed. Try again, or use email instead.");
+      if (error) throw error;
     } catch {
-      toast.error("Google sign-in failed. Try again, or use email instead.");
-    } finally {
+      toast.error("Google sign-in failed. Please try again or use email instead.");
       setBusy(false);
     }
   }

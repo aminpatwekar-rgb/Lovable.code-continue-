@@ -67,20 +67,40 @@ function AuthPage() {
   const [switching, setSwitching] = useState(false);
   const [joinCode, setJoinCode] = useState<string | null>(null);
   const [joinPreview, setJoinPreview] = useState<JoinPreview | null>(null);
+  const [joinReady, setJoinReady] = useState(false);
   const [skipJoin, setSkipJoin] = useState(false);
 
-  // A join link the person opened earlier decides their role and institution.
+  // Resolve the saved invitation before any signed-in redirect can run.
+  // This prevents OAuth callbacks from racing to /dashboard before the join code
+  // has been restored from localStorage.
   useEffect(() => {
+    let active = true;
     const code = readPendingJoinCode();
-    if (!code) return;
+    if (!code) {
+      setJoinReady(true);
+      return () => { active = false; };
+    }
+
     setJoinCode(code);
-    void previewJoin(code).then((preview) => {
-      setJoinPreview(preview);
-      if (!preview.valid) {
+    void previewJoin(code)
+      .then((preview) => {
+        if (!active) return;
+        setJoinPreview(preview);
+        if (!preview.valid) {
+          clearPendingJoinCode();
+          setJoinCode(null);
+        }
+        setJoinReady(true);
+      })
+      .catch(() => {
+        if (!active) return;
         clearPendingJoinCode();
         setJoinCode(null);
-      }
-    });
+        setJoinPreview({ valid: false });
+        setJoinReady(true);
+      });
+
+    return () => { active = false; };
   }, []);
   const activeJoin = !skipJoin && joinCode && joinPreview?.valid ? joinPreview : null;
 
@@ -91,9 +111,9 @@ function AuthPage() {
 
   useEffect(() => {
     // A pending institution link must be completed before sending the user to the dashboard.
-    if (!loading && session && confirmed && profile?.role_confirmed_at && !switching && !joinCode)
+    if (joinReady && !loading && session && confirmed && profile?.role_confirmed_at && !switching && !joinCode)
       navigate({ to: "/dashboard", replace: true });
-  }, [loading, session, confirmed, profile?.role_confirmed_at, switching, joinCode, navigate]);
+  }, [joinReady, loading, session, confirmed, profile?.role_confirmed_at, switching, joinCode, navigate]);
 
   async function handleUseAnotherAccount() {
     setSwitching(true);

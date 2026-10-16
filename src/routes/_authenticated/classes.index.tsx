@@ -181,9 +181,9 @@ function Classes() {
       };
       if (!code.trim()) throw new Error("Enter the join code");
       if (!identity._full_name) throw new Error("Full name is required");
-      if (!identity._roll_no) throw new Error("Roll No. is required");
-      if (!identity._er_no) throw new Error("ER No. is required");
-      if (!identity._sr_no) throw new Error("Sr No. is required");
+      if (!identity._roll_no && !identity._er_no && !identity._sr_no) {
+        throw new Error("Enter at least one identifier: Roll No., ER No., or Sr No.");
+      }
       // The database owns the duplicate check, so two simultaneous joins with
       // the same Roll/ER/Sr No. still cannot both succeed.
       const { data, error } = await supabase.rpc("join_class_by_code", {
@@ -400,8 +400,8 @@ function Classes() {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  These identifiers must be unique inside the class. Your teacher uses them to match
-                  your work.
+                  Enter at least one identifier. Any identifier you provide must be unique
+                  inside the class so your teacher can match your work.
                 </p>
               </div>
               <DialogFooter>

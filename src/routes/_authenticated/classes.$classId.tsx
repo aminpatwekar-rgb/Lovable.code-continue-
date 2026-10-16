@@ -103,7 +103,7 @@ function ClassDetail() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   // UI rendering branches on effectiveRole; administrative ownership/permissions checks retain real role
-  const isTeacher = effectiveRole === "teacher" || effectiveRole === "admin";
+  const isTeacher = effectiveRole === "teacher" || effectiveRole === "admin" || effectiveRole === "institution_admin";
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);

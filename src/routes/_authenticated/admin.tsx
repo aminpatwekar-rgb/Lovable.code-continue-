@@ -23,6 +23,7 @@ import { useAuth, type AppRole } from "@/lib/auth";
 import { deletePlatformUser } from "@/lib/admin.functions";
 import { InstitutionReadiness } from "@/components/admin/InstitutionReadiness";
 import { InstitutionManager } from "@/components/admin/InstitutionManager";
+import { PlatformInstitutionHub } from "@/components/admin/PlatformInstitutionHub";
 import { formatDue } from "@/lib/assignments";
 import { DueDateChip } from "@/components/DueDateChip";
 import { Announcements } from "@/components/Announcements";
@@ -105,6 +106,7 @@ function AdminConsole() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const isAdmin = role === "admin";
+  const isPrimaryAdmin = user?.email?.trim().toLowerCase() === "aminpatwekar@gmail.com";
 
   useEffect(() => {
     if (!loading && role && role !== "admin") void navigate({ to: "/dashboard", replace: true });
@@ -355,7 +357,8 @@ function AdminConsole() {
       )}
 
       <Tabs defaultValue="overview">
-        <TabsList>
+        <TabsList className="flex h-auto flex-wrap">
+          <TabsTrigger value="institution-hub">Institution</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users ({all.length})</TabsTrigger>
           <TabsTrigger value="classes">Classes ({counts.classes})</TabsTrigger>
@@ -451,7 +454,7 @@ function AdminConsole() {
                       <td className="p-3 text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" disabled={u.id === user?.id}>
+                            <Button variant="outline" size="sm" disabled={u.id === user?.id || u.email?.trim().toLowerCase() === "aminpatwekar@gmail.com" || (u.role === "admin" && !isPrimaryAdmin)}>
                               Manage
                             </Button>
                           </DropdownMenuTrigger>
@@ -468,6 +471,11 @@ function AdminConsole() {
                                 onSelect={() => setRole.mutate({ userId: u.id, next: "student" })}
                               >
                                 <ShieldOff className="mr-2 size-4" /> Demote to student
+                              </DropdownMenuItem>
+                            )}
+                            {isPrimaryAdmin && u.role !== "admin" && (
+                              <DropdownMenuItem onSelect={() => setRole.mutate({ userId: u.id, next: "admin" })}>
+                                <ShieldCheck className="mr-2 size-4" /> Promote to platform admin
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
@@ -606,6 +614,10 @@ function AdminConsole() {
               ))}
             </ul>
           )}
+        </TabsContent>
+
+        <TabsContent value="institution-hub" className="mt-5">
+          <PlatformInstitutionHub />
         </TabsContent>
 
         <TabsContent value="institutions" className="mt-5">

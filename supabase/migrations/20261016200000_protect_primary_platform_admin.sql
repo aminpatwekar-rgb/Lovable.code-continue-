@@ -91,8 +91,19 @@ BEGIN
   END IF;
 
   IF TG_OP = 'UPDATE' AND target_email = 'aminpatwekar@gmail.com'
-     AND OLD.role = 'admin' AND NEW.role IS DISTINCT FROM 'admin' THEN
+     AND OLD.role = 'admin'
+     AND (NEW.role IS DISTINCT FROM 'admin' OR NEW.user_id IS DISTINCT FROM OLD.user_id) THEN
     RAISE EXCEPTION 'The primary platform administrator cannot lose admin access.';
+  END IF;
+
+  IF TG_OP = 'UPDATE' AND target_role = 'admin'
+     AND target_email IS DISTINCT FROM 'aminpatwekar@gmail.com'
+     AND (NEW.role IS DISTINCT FROM 'admin' OR NEW.user_id IS DISTINCT FROM OLD.user_id)
+     AND auth.uid() IS NOT NULL THEN
+    SELECT lower(trim(email)) INTO actor_email FROM auth.users WHERE id = auth.uid();
+    IF actor_email IS DISTINCT FROM 'aminpatwekar@gmail.com' THEN
+      RAISE EXCEPTION 'Only the primary platform administrator can demote another platform admin.';
+    END IF;
   END IF;
 
   IF TG_OP = 'INSERT' AND NEW.role = 'admin' AND auth.uid() IS NOT NULL THEN

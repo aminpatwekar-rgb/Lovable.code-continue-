@@ -22,19 +22,21 @@ export function PlatformInstitutionHub() {
   const overview = useQuery({
     queryKey: ["platform-institution-hub"],
     queryFn: async () => {
-      const [institutions, departments, classes, profiles] = await Promise.all([
+      const [institutions, departments, classes, profiles, userRoles] = await Promise.all([
         db.from("institutions").select("id, name, code, city").order("name", { ascending: true }),
         db.from("departments").select("id, institution_id, name, code, description").order("name", { ascending: true }),
         db.from("classes").select("id, name, subject, section, department_id, teacher_id, archived, created_at, class_members(count), assignments(count)").order("created_at", { ascending: false }),
         db.from("profiles").select("id, full_name, institution_id, is_active"),
+        db.from("user_roles").select("user_id, role"),
       ]);
-      const failed = [institutions, departments, classes, profiles].find((result) => result.error);
+      const failed = [institutions, departments, classes, profiles, userRoles].find((result) => result.error);
       if (failed?.error) throw failed.error;
       return {
         institutions: (institutions.data ?? []) as InstitutionRow[],
         departments: (departments.data ?? []) as DepartmentRow[],
         classes: (classes.data ?? []) as ClassRow[],
         profiles: (profiles.data ?? []) as ProfileRow[],
+        userRoles: (userRoles.data ?? []) as { user_id: string; role: string }[],
       };
     },
   });
@@ -52,7 +54,26 @@ export function PlatformInstitutionHub() {
     const institution = department ? maps.institutions.get(department.institution_id) : maps.institutions.get(maps.profiles.get(row.teacher_id)?.institution_id ?? "");
     return [row.name, row.subject, row.section, department?.name, institution?.name, maps.profiles.get(row.teacher_id)?.full_name].some((value) => value?.toLowerCase().includes(term));
   });
-  const institutionMembers = (data?.profiles ?? []).filter((row) => row.institution_id && row.is_active !== false).length;
+  // Count tenant members with an actual institutional role. Platform admins may
+  // have an institution_id on their profile for testing/support, but are not
+  // members of that institution's roster.
+  const rolesByUser = new Map<string, Set<string>>();
+  for (const assignment of data?.userRoles ?? []) {
+    const roles = rolesByUser.get(assignment.user_id) ?? new Set<string>();
+    roles.add(assignment.role);
+    rolesByUser.set(assignment.user_id, roles);
+  }
+  const isInstitutionMember = (profile: ProfileRow) => {
+    const roles = rolesByUser.get(profile.id);
+    return Boolean(
+      profile.institution_id &&
+      profile.is_active !== false &&
+      roles &&
+      (roles.has("student") || roles.has("teacher") || roles.has("institution_admin")) &&
+      !roles.has("admin")
+    );
+  };
+  const institutionMembers = (data?.profiles ?? []).filter(isInstitutionMember).length;
 
   return <div className="space-y-6">
     <header className="flex flex-wrap items-start justify-between gap-3">
@@ -71,7 +92,7 @@ export function PlatformInstitutionHub() {
           {visibleInstitutions.length === 0 ? <p className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">No matching institutions.</p> : <div className="overflow-x-auto rounded-lg border border-border"><table className="w-full min-w-[42rem] text-sm"><thead className="border-b border-border bg-muted/30 text-left text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="p-3 font-medium">Institution</th><th className="p-3 font-medium">Code</th><th className="p-3 font-medium">City</th><th className="p-3 font-medium">Departments</th><th className="p-3 font-medium">Classes</th><th className="p-3 font-medium">Members</th></tr></thead><tbody className="divide-y divide-border">{visibleInstitutions.map((institution) => {
             const departmentIds = new Set(data.departments.filter((item) => item.institution_id === institution.id).map((item) => item.id));
             const classRows = data.classes.filter((item) => item.department_id ? departmentIds.has(item.department_id) : maps.profiles.get(item.teacher_id)?.institution_id === institution.id);
-            const members = data.profiles.filter((item) => item.institution_id === institution.id && item.is_active !== false).length;
+            const members = data.profiles.filter((item) => item.institution_id === institution.id && isInstitutionMember(item)).length;
             return <tr key={institution.id}><td className="p-3 font-medium">{institution.name}</td><td className="p-3 text-muted-foreground">{institution.code || "—"}</td><td className="p-3 text-muted-foreground">{institution.city || "—"}</td><td className="p-3 tabular-nums">{departmentIds.size}</td><td className="p-3 tabular-nums">{classRows.length}</td><td className="p-3 tabular-nums">{members}</td></tr>;
           })}</tbody></table></div>}
         </section>

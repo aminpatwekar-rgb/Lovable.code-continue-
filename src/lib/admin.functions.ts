@@ -27,6 +27,15 @@ export const deletePlatformUser = createServerFn({ method: "POST" })
     if (!isAdmin) throw new Error("Forbidden");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: callerResult, error: callerError } = await supabaseAdmin.auth.admin.getUserById(context.userId);
+    if (callerError || !callerResult.user) throw new Error("Could not verify the administrator account");
+    const isPrimaryAdmin = callerResult.user.email?.trim().toLowerCase() === "aminpatwekar@gmail.com";
+
+    const { data: targetAuthResult, error: targetAuthError } = await supabaseAdmin.auth.admin.getUserById(data.userId);
+    if (targetAuthError || !targetAuthResult.user) throw new Error("Could not verify the target account");
+    if (targetAuthResult.user.email?.trim().toLowerCase() === "aminpatwekar@gmail.com") {
+      throw new Error("The primary platform administrator account is protected and cannot be deleted.");
+    }
 
     const { data: targetRoles, error: targetRolesError } = await supabaseAdmin
       .from("user_roles")
@@ -34,6 +43,9 @@ export const deletePlatformUser = createServerFn({ method: "POST" })
       .eq("user_id", data.userId);
     if (targetRolesError) throw new Error("Could not verify target account roles");
     const isTargetAdmin = (targetRoles ?? []).some((r) => r.role === "admin");
+    if (isTargetAdmin && !isPrimaryAdmin) {
+      throw new Error("Only aminpatwekar@gmail.com can delete another platform administrator.");
+    }
     if (isTargetAdmin) {
       const { count, error: adminCountError } = await supabaseAdmin
         .from("user_roles")

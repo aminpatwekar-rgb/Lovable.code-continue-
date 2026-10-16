@@ -23,7 +23,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { clearSessionConfirmation } from "@/lib/session-confirm";
 import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
@@ -105,45 +105,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     staleTime: 60_000,
   });
   const [open, setOpen] = useState(false);
-
-  // Desktop sidebar: can be slid away to give content the full width.
-  const [sidebarHidden, setSidebarHidden] = useState(false);
-  useEffect(() => {
-    try {
-      setSidebarHidden(localStorage.getItem("onyx.sidebar.hidden") === "1");
-    } catch {
-      /* storage unavailable */
-    }
-  }, []);
-  function setSidebar(hidden: boolean) {
-    setSidebarHidden(hidden);
-    try {
-      localStorage.setItem("onyx.sidebar.hidden", hidden ? "1" : "0");
-    } catch {
-      /* storage unavailable */
-    }
-  }
-  useEffect(() => {
-    // Ctrl/Cmd + B toggles the sidebar (desktop).
-    function onKey(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
-        const el = e.target as HTMLElement | null;
-        if (el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))) return;
-        e.preventDefault();
-        setSidebarHidden((h) => {
-          const next = !h;
-          try {
-            localStorage.setItem("onyx.sidebar.hidden", next ? "1" : "0");
-          } catch {
-            /* storage unavailable */
-          }
-          return next;
-        });
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -253,11 +215,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   };
 
-  const renderNav = (compact: boolean) => (
-    <nav
-      className={cn("flex flex-col gap-1.5", compact && "items-center")}
-      aria-label="Main Navigation"
-    >
+  const nav = (
+    <nav className={cn("flex flex-col gap-1.5", sidebarCollapsed && "items-center")} aria-label="Main Navigation">
       {items.map(({ to, label, icon: Icon, ...item }) => {
         const active = pathname === to || pathname.startsWith(to + "/");
         const feature = (item as { feature?: string }).feature;
@@ -267,16 +226,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           return (
             <div
               key={to}
-              title={compact ? `${label} (included in a higher plan)` : "Included in a higher plan"}
+              title="Included in a higher plan"
               aria-disabled="true"
-              className={cn(
-                "group relative flex items-center gap-3 rounded-lg text-sm font-medium text-muted-foreground/50 cursor-not-allowed select-none",
-                compact ? "size-10 justify-center" : "px-3.5 py-2.5",
-              )}
+              className={cn("group relative flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium text-muted-foreground/50 cursor-not-allowed select-none", sidebarCollapsed && "w-10 justify-center px-0")}
             >
               <Icon className="size-4 shrink-0 opacity-60" />
-              {!compact && <span className="truncate flex-1">{label}</span>}
-              {!compact && <EyeOff className="size-3.5 opacity-70" />}
+              {!sidebarCollapsed && <span className="truncate flex-1">{label}</span>}
+              {!sidebarCollapsed && <EyeOff className="size-3.5 opacity-70" />}
             </div>
           );
         }
@@ -286,12 +242,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             key={to}
             to={to}
             onClick={() => setOpen(false)}
-            title={compact ? label : undefined}
-            aria-label={compact ? label : undefined}
-            {...getPressProps(shouldReduceMotion, { xHover: compact ? 0 : 2, tapScale: 0.98 })}
+            {...getPressProps(shouldReduceMotion, { xHover: 2, tapScale: 0.98 })}
+            title={sidebarCollapsed ? label : undefined}
             className={cn(
-              "group relative flex items-center gap-3 rounded-lg text-sm font-medium transition-colors duration-150 ease-out",
-              compact ? "size-10 justify-center" : "px-3.5 py-2.5",
+              "group relative flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors duration-150 ease-out",
+              sidebarCollapsed && "w-10 justify-center px-0",
               active
                 ? "bg-primary/10 text-primary shadow-xs font-semibold"
                 : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
@@ -299,7 +254,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             {active && (
               <motion.span
-                layoutId={compact ? "nav-active-rail" : "nav-active"}
+                layoutId="nav-active"
                 className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-primary"
                 transition={{ type: "spring", stiffness: 350, damping: 30 }}
               />
@@ -310,148 +265,85 @@ export function AppShell({ children }: { children: ReactNode }) {
                 active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
               )}
             />
-            {!compact && <span className="truncate">{label}</span>}
+            {!sidebarCollapsed && <span className="truncate">{label}</span>}
           </MotionLink>
         );
       })}
     </nav>
   );
-  const nav = renderNav(false);
-  const railNav = renderNav(true);
 
   return (
-    <div
-      className={cn(
-        "min-h-screen bg-background lg:grid lg:transition-[grid-template-columns] lg:duration-300 lg:ease-out",
-        sidebarHidden ? "lg:grid-cols-[4.25rem_1fr]" : "lg:grid-cols-[16.5rem_1fr]",
-      )}
-    >
-      <aside
-        className="sticky top-0 z-30 hidden h-screen flex-col justify-between overflow-hidden border-r border-sidebar-border bg-sidebar/95 backdrop-blur-xl lg:flex"
-      >
-        {sidebarHidden ? (
-          <>
-            <div className="flex min-h-0 w-[4.25rem] min-w-0 flex-1 flex-col items-center">
-              <div className="flex h-16 w-full items-center justify-center border-b border-sidebar-border">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-9 text-muted-foreground hover:text-foreground"
-                  onClick={() => setSidebar(false)}
-                  title="Expand sidebar (Ctrl+B)"
-                  aria-label="Expand sidebar"
-                >
-                  <PanelLeftOpen className="size-4" />
-                </Button>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain flex flex-col items-center gap-3 py-4">
-                <NotificationCenter />
-                {railNav}
-              </div>
-            </div>
-            <div className="flex w-[4.25rem] shrink-0 flex-col items-center gap-2 border-t border-sidebar-border bg-sidebar/40 py-3">
-              <Avatar
-                className="size-9 border border-border/50"
-                title={profile?.full_name || "Account"}
-              >
-                <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-9 text-muted-foreground hover:text-foreground"
-                onClick={toggle}
-                title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-                aria-label="Toggle theme"
-              >
-                {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-9 text-muted-foreground hover:text-destructive"
-                onClick={signOut}
-                title="Sign out"
-                aria-label="Sign out"
-              >
-                <LogOut className="size-4" />
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-        <div className="flex min-h-0 w-[16.5rem] min-w-0 flex-1 flex-col">
-          <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
+    <div className={cn("min-h-screen lg:grid bg-background transition-[grid-template-columns] duration-200", sidebarCollapsed ? "lg:grid-cols-[4.5rem_1fr]" : "lg:grid-cols-[16.5rem_1fr]")}>
+      <aside className="sticky top-0 z-30 hidden h-screen flex-col justify-between border-r border-sidebar-border bg-sidebar/95 backdrop-blur-xl lg:flex">
+        <div className="flex flex-col">
+          <div className={cn("flex h-16 items-center border-b border-sidebar-border", sidebarCollapsed ? "justify-center px-2" : "justify-between px-5")}>
             <Link to="/dashboard" className="transition-opacity hover:opacity-90">
-              {branding.data ? <span className="text-sm font-semibold">Workspace</span> : <Wordmark size="sm" />}
+              {sidebarCollapsed ? <span className="text-sm font-bold">O</span> : branding.data ? <span className="text-sm font-semibold">Workspace</span> : <Wordmark size="sm" />}
             </Link>
-            <div className="flex items-center gap-1">
-              <NotificationCenter />
-              {renderRoleSwitcher()}
-              <Button
+            <div className={cn("flex items-center gap-1", sidebarCollapsed && "flex-col")}>
+              {!sidebarCollapsed && <NotificationCenter />}
+              {!sidebarCollapsed && renderRoleSwitcher()}
+              <button
                 type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8 text-muted-foreground hover:text-foreground"
-                onClick={() => setSidebar(true)}
-                title="Collapse sidebar (Ctrl+B)"
-                aria-label="Collapse sidebar"
+                role="switch"
+                aria-checked={sidebarCollapsed}
+                aria-label={sidebarCollapsed ? "Expand navigation sidebar" : "Collapse navigation sidebar"}
+                title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                onClick={() => setSidebarCollapsed((value) => !value)}
+                className={cn("relative inline-flex h-6 w-10 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2", sidebarCollapsed ? "justify-end border-primary bg-primary" : "justify-start border-border bg-muted")}
               >
-                <PanelLeftClose className="size-4" />
-              </Button>
+                <span className="sr-only">{sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}</span>
+                <span className="flex size-5 items-center justify-center rounded-full bg-background shadow-sm transition-transform">
+                  {sidebarCollapsed ? <PanelLeftOpen className="size-3" /> : <PanelLeftClose className="size-3" />}
+                </span>
+              </button>
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4">
-            <GlobalSearch />
-            <div className="pt-1">{nav}</div>
+          <div className={cn("space-y-4", sidebarCollapsed ? "p-2" : "p-4")}>
+            {!sidebarCollapsed && <GlobalSearch />}
+            <div className={cn("pt-1", sidebarCollapsed && "flex justify-center")}>{nav}</div>
           </div>
         </div>
 
-        <div className="w-[16.5rem] shrink-0 space-y-3 border-t border-sidebar-border p-4 bg-sidebar/40">
-          <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-card/60 p-2.5 shadow-2xs transition-colors hover:border-border">
+        <div className={cn("space-y-3 border-t border-sidebar-border bg-sidebar/40", sidebarCollapsed ? "p-2" : "p-4")}>
+          <div title={sidebarCollapsed ? (profile?.full_name || "Account") : undefined} className={cn("flex items-center gap-3 rounded-lg border border-border/70 bg-card/60 p-2.5 shadow-2xs transition-colors hover:border-border", sidebarCollapsed && "justify-center p-1.5")}>
             <Avatar className="size-9 border border-border/50">
               <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <div className="min-w-0 flex-1">
+            {!sidebarCollapsed && <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-foreground">
                 {profile?.full_name || "Account"}
               </p>
               <p className="truncate text-[11px] capitalize text-muted-foreground">
                 {isOverridden ? `${effectiveRole} (preview)` : role}
               </p>
-            </div>
+            </div>}
           </div>
-          <div className="flex gap-2">
+          <div className={cn("flex gap-2", sidebarCollapsed && "flex-col items-center")}>
             <Button
               variant="outline"
               size="sm"
-              className="flex-1 h-9 border-border/80 text-muted-foreground hover:text-foreground shadow-2xs"
+              className={cn("h-9 border-border/80 text-muted-foreground hover:text-foreground shadow-2xs", sidebarCollapsed ? "w-10 px-0" : "flex-1")}
               onClick={toggle}
               title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             >
               {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-              <span className="ml-1.5 text-xs">{theme === "dark" ? "Light" : "Dark"}</span>
+              {!sidebarCollapsed && <span className="ml-1.5 text-xs">{theme === "dark" ? "Light" : "Dark"}</span>}
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="h-9 flex-1 justify-center gap-1.5 px-2 border-border/80 text-muted-foreground hover:text-destructive hover:border-destructive/40 shadow-2xs"
+              className={cn("h-9 border-border/80 text-muted-foreground hover:text-destructive hover:border-destructive/40 shadow-2xs", sidebarCollapsed ? "w-10 px-0" : "px-3")}
               onClick={signOut}
               title="Sign out"
             >
               <LogOut className="size-4" />
-              <span className="text-xs">Sign out</span>
             </Button>
           </div>
         </div>
-          </>
-        )}
       </aside>
 
       <header className="glass sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border px-4 py-2.5 lg:hidden">

@@ -9,6 +9,7 @@ import {
   Link2,
   LogOut,
   MoreHorizontal,
+  Pencil,
   Plus,
   Settings,
   UserMinus,
@@ -88,6 +89,7 @@ type Member = {
   id: string;
   joined_at: string;
   student_id: string;
+  member_role: string;
   full_name: string | null;
   roll_no: string | null;
   er_no: string | null;
@@ -108,6 +110,13 @@ function ClassDetail() {
   const [newOwner, setNewOwner] = useState("");
   const [banner, setBanner] = useState<string | null>(null);
   const [rosterPage, setRosterPage] = useState(1);
+  const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [identityDraft, setIdentityDraft] = useState({
+    full_name: "",
+    roll_no: "",
+    er_no: "",
+    sr_no: "",
+  });
 
   const klass = useQuery({
     queryKey: ["class", classId],
@@ -261,6 +270,27 @@ function ClassDetail() {
       toast.success("Student removed");
       void qc.invalidateQueries({ queryKey: ["roster", classId] });
       void qc.invalidateQueries({ queryKey: ["teacher-dash"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMemberIdentity = useMutation({
+    mutationFn: async () => {
+      if (!editingMember) throw new Error("Choose a student first.");
+      const { error } = await supabase.rpc("update_class_member_identity", {
+        _class_id: classId,
+        _member_id: editingMember.id,
+        _full_name: identityDraft.full_name,
+        _roll_no: identityDraft.roll_no,
+        _er_no: identityDraft.er_no,
+        _sr_no: identityDraft.sr_no,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Student details updated");
+      setEditingMember(null);
+      void qc.invalidateQueries({ queryKey: ["roster", classId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -632,7 +662,26 @@ function ClassDetail() {
                     <span className="rounded-full border border-success/40 bg-success/15 px-2 py-0.5 text-xs text-success">
                       {total > 0 ? `Active · ${submitted}/${total} submitted` : "Active"}
                     </span>
-                    {isTeacher && (
+                    {isTeacher && m.member_role === "student" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Edit student details"
+                        title="Edit student details"
+                        onClick={() => {
+                          setEditingMember(m);
+                          setIdentityDraft({
+                            full_name: m.full_name ?? "",
+                            roll_no: m.roll_no ?? "",
+                            er_no: m.er_no ?? "",
+                            sr_no: m.sr_no ?? "",
+                          });
+                        }}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                    )}
+                    {isTeacher && (m.member_role === "student" || canManage) && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon" aria-label={`Remove ${name}`}>
@@ -669,6 +718,84 @@ function ClassDetail() {
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog
+        open={editingMember !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !updateMemberIdentity.isPending) setEditingMember(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit student details</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="roster-full-name">Full name</Label>
+              <Input
+                id="roster-full-name"
+                value={identityDraft.full_name}
+                onChange={(event) => setIdentityDraft((current) => ({ ...current, full_name: event.target.value }))}
+                maxLength={120}
+                autoComplete="name"
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="roster-roll-no">Roll No.</Label>
+                <Input
+                  id="roster-roll-no"
+                  value={identityDraft.roll_no}
+                  onChange={(event) => setIdentityDraft((current) => ({ ...current, roll_no: event.target.value }))}
+                  maxLength={80}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="roster-er-no">ER No.</Label>
+                <Input
+                  id="roster-er-no"
+                  value={identityDraft.er_no}
+                  onChange={(event) => setIdentityDraft((current) => ({ ...current, er_no: event.target.value }))}
+                  maxLength={80}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="roster-sr-no">Sr No.</Label>
+                <Input
+                  id="roster-sr-no"
+                  value={identityDraft.sr_no}
+                  onChange={(event) => setIdentityDraft((current) => ({ ...current, sr_no: event.target.value }))}
+                  maxLength={80}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Enter at least one identifier: Roll No., ER No., or Sr No.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditingMember(null)}
+              disabled={updateMemberIdentity.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => updateMemberIdentity.mutate()}
+              disabled={
+                updateMemberIdentity.isPending ||
+                !identityDraft.full_name.trim() ||
+                (!identityDraft.roll_no.trim() &&
+                  !identityDraft.er_no.trim() &&
+                  !identityDraft.sr_no.trim())
+              }
+            >
+              {updateMemberIdentity.isPending ? "Saving…" : "Save changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -75,6 +75,7 @@ const BOTTOM_NAV = [
 const GRADING_NAV = { to: "/grading", label: "Grading", icon: ClipboardCheck } as const;
 
 const ADMIN_NAV = [{ to: "/admin", label: "Admin", icon: Shield }] as const;
+const INSTITUTION_HUB_NAV = [{ to: "/institution", label: "Institution", icon: Building2 }] as const;
 const INSTITUTION_ADMIN_NAV = [{ to: "/institution-admin", label: "Institution", icon: Building2 }] as const;
 
 const MotionLink = motion.create(Link);
@@ -128,7 +129,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const baseNav = canGrade ? [...NAV.slice(0, 4), GRADING_NAV, ...NAV.slice(4)] : [...NAV];
   const items = role === "institution_admin"
     ? [...baseNav, ...INSTITUTION_ADMIN_NAV]
-    : effectiveRole === "admin" ? [...baseNav, ...ADMIN_NAV] : baseNav;
+    : effectiveRole === "admin"
+      ? [...baseNav.slice(0, 2), ...INSTITUTION_HUB_NAV, ...baseNav.slice(2), ...ADMIN_NAV]
+      : baseNav;
   // Phone tab bar: grading replaces Quizzes for teachers (Quizzes stays in the More menu).
   const bottomItems = canGrade
     ? [BOTTOM_NAV[0], BOTTOM_NAV[1], GRADING_NAV, BOTTOM_NAV[2]]

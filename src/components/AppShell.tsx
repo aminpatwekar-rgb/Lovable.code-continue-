@@ -302,37 +302,37 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <div className="space-y-3 border-t border-sidebar-border p-4 bg-sidebar/40">
-          <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-card/60 p-2.5 shadow-2xs transition-colors hover:border-border">
+        <div className={cn("space-y-3 border-t border-sidebar-border bg-sidebar/40", sidebarCollapsed ? "p-2" : "p-4")}>
+          <div title={sidebarCollapsed ? (profile?.full_name || "Account") : undefined} className={cn("flex items-center gap-3 rounded-lg border border-border/70 bg-card/60 p-2.5 shadow-2xs transition-colors hover:border-border", sidebarCollapsed && "justify-center p-1.5")}>
             <Avatar className="size-9 border border-border/50">
               <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <div className="min-w-0 flex-1">
+            {!sidebarCollapsed && <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-foreground">
                 {profile?.full_name || "Account"}
               </p>
               <p className="truncate text-[11px] capitalize text-muted-foreground">
                 {isOverridden ? `${effectiveRole} (preview)` : role}
               </p>
-            </div>
+            </div>}
           </div>
-          <div className="flex gap-2">
+          <div className={cn("flex gap-2", sidebarCollapsed && "flex-col items-center")}>
             <Button
               variant="outline"
               size="sm"
-              className="flex-1 h-9 border-border/80 text-muted-foreground hover:text-foreground shadow-2xs"
+              className={cn("h-9 border-border/80 text-muted-foreground hover:text-foreground shadow-2xs", sidebarCollapsed ? "w-10 px-0" : "flex-1")}
               onClick={toggle}
               title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             >
               {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-              <span className="ml-1.5 text-xs">{theme === "dark" ? "Light" : "Dark"}</span>
+              {!sidebarCollapsed && <span className="ml-1.5 text-xs">{theme === "dark" ? "Light" : "Dark"}</span>}
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="h-9 px-3 border-border/80 text-muted-foreground hover:text-destructive hover:border-destructive/40 shadow-2xs"
+              className={cn("h-9 border-border/80 text-muted-foreground hover:text-destructive hover:border-destructive/40 shadow-2xs", sidebarCollapsed ? "w-10 px-0" : "px-3")}
               onClick={signOut}
               title="Sign out"
             >

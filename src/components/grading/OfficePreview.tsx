@@ -180,7 +180,21 @@ export function OfficePreview({ url, fileName }: { url: string; fileName: string
 
   useEffect(() => {
     let active = true;
-    setLoading(true); setError(""); setSlides([]); setBlocks([]); setSheets([]); setSheetIndex(0); setSlideIndex(0); setSheetIndex(0); setSlideIndex(0);
+    const browserReadable = ["pptx", "docx", "xlsx"].includes(ext ?? "");
+    setLoading(browserReadable);
+    setError("");
+    setSlides([]);
+    setBlocks([]);
+    setSheets([]);
+    setSheetIndex(0);
+    setSlideIndex(0);
+
+    // Legacy binary Office files are download-only. Avoid fetching/parsing them
+    // as ZIP/XML data and show the clear fallback immediately.
+    if (!browserReadable) {
+      return () => { active = false; };
+    }
+
     fetch(url).then((response) => {
       if (!response.ok) throw new Error("The private file link expired. Close and reopen the submission to refresh it.");
       return response.arrayBuffer();
@@ -190,7 +204,6 @@ export function OfficePreview({ url, fileName }: { url: string; fileName: string
       if (ext === "pptx") setSlides(readPresentation(zip));
       else if (ext === "docx") setBlocks(readDocument(zip));
       else if (ext === "xlsx") setSheets(readWorkbook(zip));
-      else throw new Error("This older binary Office format cannot be rendered in the browser. Download it to open in an Office-compatible application.");
     }).catch((cause: unknown) => {
       if (active) setError(cause instanceof Error ? cause.message : "Could not render this Office file.");
     }).finally(() => { if (active) setLoading(false); });

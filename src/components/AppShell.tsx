@@ -19,6 +19,8 @@ import {
   ClipboardCheck,
   Calendar,
   EyeOff,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -101,6 +103,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     staleTime: 60_000,
   });
   const [open, setOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -209,7 +212,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   const nav = (
-    <nav className="flex flex-col gap-1.5" aria-label="Main Navigation">
+    <nav className={cn("flex flex-col gap-1.5", sidebarCollapsed && "items-center")} aria-label="Main Navigation">
       {items.map(({ to, label, icon: Icon, ...item }) => {
         const active = pathname === to || pathname.startsWith(to + "/");
         const feature = (item as { feature?: string }).feature;
@@ -221,11 +224,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               key={to}
               title="Included in a higher plan"
               aria-disabled="true"
-              className="group relative flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium text-muted-foreground/50 cursor-not-allowed select-none"
+              className={cn("group relative flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium text-muted-foreground/50 cursor-not-allowed select-none", sidebarCollapsed && "w-10 justify-center px-0")}
             >
               <Icon className="size-4 shrink-0 opacity-60" />
-              <span className="truncate flex-1">{label}</span>
-              <EyeOff className="size-3.5 opacity-70" />
+              {!sidebarCollapsed && <span className="truncate flex-1">{label}</span>}
+              {!sidebarCollapsed && <EyeOff className="size-3.5 opacity-70" />}
             </div>
           );
         }
@@ -236,8 +239,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             to={to}
             onClick={() => setOpen(false)}
             {...getPressProps(shouldReduceMotion, { xHover: 2, tapScale: 0.98 })}
+            title={sidebarCollapsed ? label : undefined}
             className={cn(
               "group relative flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors duration-150 ease-out",
+              sidebarCollapsed && "w-10 justify-center px-0",
               active
                 ? "bg-primary/10 text-primary shadow-xs font-semibold"
                 : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
@@ -256,7 +261,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
               )}
             />
-            <span className="truncate">{label}</span>
+            {!sidebarCollapsed && <span className="truncate">{label}</span>}
           </MotionLink>
         );
       })}
@@ -264,22 +269,36 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[16.5rem_1fr] bg-background">
+    <div className={cn("min-h-screen lg:grid bg-background transition-[grid-template-columns] duration-200", sidebarCollapsed ? "lg:grid-cols-[4.5rem_1fr]" : "lg:grid-cols-[16.5rem_1fr]")}>
       <aside className="sticky top-0 z-30 hidden h-screen flex-col justify-between border-r border-sidebar-border bg-sidebar/95 backdrop-blur-xl lg:flex">
         <div className="flex flex-col">
-          <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
+          <div className={cn("flex h-16 items-center border-b border-sidebar-border", sidebarCollapsed ? "justify-center px-2" : "justify-between px-5")}>
             <Link to="/dashboard" className="transition-opacity hover:opacity-90">
-              {branding.data ? <span className="text-sm font-semibold">Workspace</span> : <Wordmark size="sm" />}
+              {sidebarCollapsed ? <span className="text-sm font-bold">O</span> : branding.data ? <span className="text-sm font-semibold">Workspace</span> : <Wordmark size="sm" />}
             </Link>
-            <div className="flex items-center gap-1">
-              <NotificationCenter />
-              {renderRoleSwitcher()}
+            <div className={cn("flex items-center gap-1", sidebarCollapsed && "flex-col")}>
+              {!sidebarCollapsed && <NotificationCenter />}
+              {!sidebarCollapsed && renderRoleSwitcher()}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={sidebarCollapsed}
+                aria-label={sidebarCollapsed ? "Expand navigation sidebar" : "Collapse navigation sidebar"}
+                title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                onClick={() => setSidebarCollapsed((value) => !value)}
+                className={cn("relative inline-flex h-6 w-10 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2", sidebarCollapsed ? "justify-end border-primary bg-primary" : "justify-start border-border bg-muted")}
+              >
+                <span className="sr-only">{sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}</span>
+                <span className="flex size-5 items-center justify-center rounded-full bg-background shadow-sm transition-transform">
+                  {sidebarCollapsed ? <PanelLeftOpen className="size-3" /> : <PanelLeftClose className="size-3" />}
+                </span>
+              </button>
             </div>
           </div>
 
-          <div className="space-y-4 p-4">
-            <GlobalSearch />
-            <div className="pt-1">{nav}</div>
+          <div className={cn("space-y-4", sidebarCollapsed ? "p-2" : "p-4")}>
+            {!sidebarCollapsed && <GlobalSearch />}
+            <div className={cn("pt-1", sidebarCollapsed && "flex justify-center")}>{nav}</div>
           </div>
         </div>
 

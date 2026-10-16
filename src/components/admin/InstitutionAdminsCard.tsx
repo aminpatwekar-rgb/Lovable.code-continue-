@@ -120,7 +120,7 @@ export function InstitutionAdminsCard({
         <div>
           <h2 className="text-lg font-semibold">Institution admins</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Only you can appoint administrators. They manage {institutionName}'s people, departments, join links and approvals, and nothing outside it.
+            Platform admins can appoint institution administrators. They manage {institutionName}'s people, departments, join links and approvals, and nothing outside it.
           </p>
         </div>
       </div>

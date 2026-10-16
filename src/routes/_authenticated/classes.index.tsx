@@ -118,12 +118,12 @@ function Classes() {
     retry: false,
   });
   const departments = myDepartments.data ?? [];
-  const effectiveDepartmentId = departmentId || (departments.length === 1 ? (departments[0]?.id ?? "") : "");
+  const effectiveDepartmentId = departmentId || (role === "admin" ? "" : departments.length === 1 ? (departments[0]?.id ?? "") : "");
 
   const create = useMutation({
     mutationFn: async () => {
       if (!name.trim()) throw new Error("Class name is required");
-      if (departments.length > 0 && !effectiveDepartmentId) throw new Error("Choose a department for this class");
+      if (departments.length > 0 && !effectiveDepartmentId && role !== "admin") throw new Error("Choose a department for this class");
       const { error } = await supabase.from("classes").insert({
         name: name.trim().slice(0, 120),
         subject: subject.trim() || null,
@@ -219,6 +219,7 @@ function Classes() {
         </div>
         {isTeacher ? (
           <div className="flex flex-wrap items-center gap-2">
+          {effectiveRole !== "institution_admin" && (
           <Dialog open={coOpen} onOpenChange={setCoOpen}>
             <DialogTrigger asChild>
               <Button variant="outline">
@@ -255,6 +256,7 @@ function Classes() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          )}
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -285,7 +287,7 @@ function Classes() {
                       onChange={(e) => setDepartmentId(e.target.value)}
                       className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                     >
-                      {departments.length > 1 && <option value="">Choose a department…</option>}
+                      {role === "admin" ? <option value="">No department (standalone class)</option> : departments.length > 1 ? <option value="">Choose a department…</option> : null}
                       {departments.map((d) => (
                         <option key={d.id} value={d.id}>{d.name}</option>
                       ))}

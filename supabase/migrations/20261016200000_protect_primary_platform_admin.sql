@@ -23,7 +23,6 @@ AS $$
 DECLARE
   actor_email text;
   target_email text;
-  target_is_admin boolean;
 BEGIN
   IF auth.uid() IS NULL OR NOT public.has_role(auth.uid(), 'admin') THEN
     RAISE EXCEPTION 'Only platform administrators can change roles';
@@ -40,17 +39,8 @@ BEGIN
     RAISE EXCEPTION 'The primary platform administrator account cannot be reassigned.';
   END IF;
 
-  SELECT EXISTS (
-    SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = 'admin'
-  ) INTO target_is_admin;
-
   IF _role = 'admin' AND actor_email IS DISTINCT FROM 'aminpatwekar@gmail.com' THEN
     RAISE EXCEPTION 'Only aminpatwekar@gmail.com can promote users to platform admin.';
-  END IF;
-
-  IF target_is_admin AND _role <> 'admin'
-     AND actor_email IS DISTINCT FROM 'aminpatwekar@gmail.com' THEN
-    RAISE EXCEPTION 'Only the primary platform administrator can demote another platform admin.';
   END IF;
 
   DELETE FROM public.user_roles WHERE user_id = _user_id;
@@ -96,29 +86,10 @@ BEGIN
     RAISE EXCEPTION 'The primary platform administrator cannot lose admin access.';
   END IF;
 
-  IF TG_OP = 'UPDATE' AND target_role = 'admin'
-     AND target_email IS DISTINCT FROM 'aminpatwekar@gmail.com'
-     AND (NEW.role IS DISTINCT FROM 'admin' OR NEW.user_id IS DISTINCT FROM OLD.user_id)
-     AND auth.uid() IS NOT NULL THEN
-    SELECT lower(trim(email)) INTO actor_email FROM auth.users WHERE id = auth.uid();
-    IF actor_email IS DISTINCT FROM 'aminpatwekar@gmail.com' THEN
-      RAISE EXCEPTION 'Only the primary platform administrator can demote another platform admin.';
-    END IF;
-  END IF;
-
   IF TG_OP = 'INSERT' AND NEW.role = 'admin' AND auth.uid() IS NOT NULL THEN
     SELECT lower(trim(email)) INTO actor_email FROM auth.users WHERE id = auth.uid();
     IF actor_email IS DISTINCT FROM 'aminpatwekar@gmail.com' THEN
       RAISE EXCEPTION 'Only the primary platform administrator can grant platform-admin status.';
-    END IF;
-  END IF;
-
-  IF TG_OP = 'DELETE' AND target_role = 'admin'
-     AND target_email IS DISTINCT FROM 'aminpatwekar@gmail.com'
-     AND auth.uid() IS NOT NULL THEN
-    SELECT lower(trim(email)) INTO actor_email FROM auth.users WHERE id = auth.uid();
-    IF actor_email IS DISTINCT FROM 'aminpatwekar@gmail.com' THEN
-      RAISE EXCEPTION 'Only the primary platform administrator can demote another platform admin.';
     END IF;
   END IF;
 

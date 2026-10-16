@@ -46,6 +46,7 @@ export type AssignmentDraft = {
   allow_images: boolean;
   allow_autocorrect: boolean;
   allow_voice_typing: boolean;
+  is_group: boolean;
   published: boolean;
   rubric_id?: string | null;
 };
@@ -85,6 +86,7 @@ export function AssignmentDialog({
   const [allowImages, setAllowImages] = useState(true);
   const [allowAutocorrect, setAllowAutocorrect] = useState(false);
   const [allowVoice, setAllowVoice] = useState(false);
+  const [isGroup, setIsGroup] = useState(false);
   const [rubricId, setRubricId] = useState("");
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<Array<{ id: string; file_name: string; size_bytes: number | null; storage_path: string }>>([]);
@@ -120,6 +122,7 @@ export function AssignmentDialog({
     setAllowImages(a?.allow_images ?? true);
     setAllowAutocorrect(a?.allow_autocorrect ?? false);
     setAllowVoice(a?.allow_voice_typing ?? false);
+    setIsGroup(a?.is_group ?? false);
     setRubricId(a?.rubric_id ?? "");
     setAttachmentFiles([]);
     if (a?.id) { void (async () => { const { data } = await db.from("assignment_attachments").select("id,file_name,size_bytes,storage_path").eq("assignment_id", a.id).order("created_at", { ascending: true }); setExistingAttachments(data ?? []); })(); } else setExistingAttachments([]);
@@ -156,6 +159,7 @@ export function AssignmentDialog({
         allow_images: allowImages,
         allow_autocorrect: allowAutocorrect,
         allow_voice_typing: allowVoice,
+        is_group: isGroup,
         rubric_id: rubricId || null,
         published: publish,
       };
@@ -395,6 +399,7 @@ export function AssignmentDialog({
                 ["Allow images in typed answers", allowImages, setAllowImages],
                 ["Allow autocorrect / spellcheck", allowAutocorrect, setAllowAutocorrect],
                 ["Allow voice typing", allowVoice, setAllowVoice],
+                ["Group assignment", isGroup, setIsGroup],
               ] as const
             ).map(([label, val, set]) => (
               <div key={label} className="flex items-center justify-between gap-3">

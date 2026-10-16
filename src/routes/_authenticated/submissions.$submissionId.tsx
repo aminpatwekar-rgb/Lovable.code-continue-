@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, ShieldAlert } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, FileText, FileUp, Loader2, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchProfileEmails } from "@/lib/profile-emails";
 
@@ -17,6 +17,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FilePreviewDialog, type PreviewableFile } from "@/components/grading/FilePreviewDialog";
+import { ProxiedFileImage } from "@/components/grading/useProxiedFileUrl";
+
+function isPhotoFile(file: { mime_type?: string | null; file_name?: string | null }) {
+  return Boolean(
+    file.mime_type?.startsWith("image/") ||
+      /\.(avif|bmp|gif|heic|heif|jpe?g|png|webp)$/i.test(file.file_name ?? ""),
+  );
+}
 
 export const Route = createFileRoute("/_authenticated/submissions/$submissionId")({
   head: () => ({
@@ -42,6 +51,7 @@ function ReviewSubmission() {
   const [notes, setNotes] = useState("");
   const [released, setReleased] = useState(true);
   const [hydrated, setHydrated] = useState(false);
+  const [previewFile, setPreviewFile] = useState<PreviewableFile | null>(null);
 
   const q = useQuery({
     queryKey: ["submission", submissionId],
@@ -63,25 +73,38 @@ function ReviewSubmission() {
           : null,
       };
 
-      const { data: files } = await supabase
+      const { data: files, error: filesError } = await supabase
         .from("submission_files")
-        .select("id, storage_path, file_name, kind, caption, page_order")
+        .select("id, storage_path, file_name, mime_type, size_bytes, kind, caption, page_order")
         .eq("submission_id", submissionId)
         .order("page_order", { ascending: true });
-      const signed = await Promise.all(
-        (files ?? []).map(async (f) => {
-          const { data } = await supabase.storage
-            .from("submissions")
-            .createSignedUrl(f.storage_path, 3600);
-          return { ...f, url: data?.signedUrl ?? "" };
-        }),
-      );
-      const { data: violations } = await supabase
+      if (filesError) throw filesError;
+      const signed = (files ?? []).map((file) => ({ ...file, url: "" }));
+      const { data: violations, error: violationsError } = await supabase
         .from("paste_violations")
         .select("id, kind, occurred_at")
         .eq("submission_id", submissionId)
         .order("occurred_at", { ascending: false });
+      if (violationsError) throw violationsError;
       return { sub, files: signed, violations: violations ?? [] };
+    },
+  });
+
+  const navigationAssignmentId = q.data?.sub?.assignments
+    ? (q.data.sub.assignments as unknown as { id: string }).id
+    : null;
+  const navigation = useQuery({
+    queryKey: ["assignment-submission-navigation", navigationAssignmentId],
+    enabled: isTeacher && Boolean(navigationAssignmentId),
+    queryFn: async () => {
+      if (!navigationAssignmentId) return [];
+      const { data, error } = await supabase
+        .from("submissions")
+        .select("id, submitted_at")
+        .eq("assignment_id", navigationAssignmentId)
+        .order("submitted_at", { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -136,6 +159,19 @@ function ReviewSubmission() {
   } | null;
   const pages = files.filter((f) => f.kind === "page");
   const inline = files.filter((f) => f.kind === "inline_image");
+  const attachments = files.filter((f) => f.kind === "attachment");
+  const navigationRows = navigation.data ?? [];
+  const currentSubmissionIndex = navigationRows.findIndex((row) => row.id === submissionId);
+  const previousSubmission = currentSubmissionIndex > 0 ? navigationRows[currentSubmissionIndex - 1] : null;
+  const nextSubmission = currentSubmissionIndex >= 0 && currentSubmissionIndex < navigationRows.length - 1
+    ? navigationRows[currentSubmissionIndex + 1]
+    : null;
+
+  function formatFileSize(bytes: number | null) {
+    if (!bytes) return "";
+    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
 
   return (
     <div className="space-y-8">
@@ -154,11 +190,43 @@ function ReviewSubmission() {
           <h1 className="text-2xl sm:text-3xl font-semibold">{student?.full_name ?? "Submission"}</h1>
           <p className="mt-1 text-muted-foreground">
             {sub.submitted_at ? `Submitted ${formatDue(sub.submitted_at)}` : "Draft"} ·{" "}
-            {sub.mode === "typed" ? "Typed" : "Handwritten"}
+            {sub.mode === "typed" ? "Typed" : "File & Photo Upload"}
           </p>
         </div>
         <StatusBadge status={(sub.is_late ? "late" : sub.status) as SubmissionStatus} />
       </header>
+
+      {isTeacher && currentSubmissionIndex >= 0 && navigationRows.length > 1 && (
+        <nav aria-label="Submission navigation" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3">
+          <p className="text-sm text-muted-foreground">
+            Submission {currentSubmissionIndex + 1} of {navigationRows.length}
+          </p>
+          <div className="flex gap-2">
+            {previousSubmission ? (
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/submissions/$submissionId" params={{ submissionId: previousSubmission.id }}>
+                  <ChevronLeft className="mr-1 size-4" /> Previous
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
+                <ChevronLeft className="mr-1 size-4" /> Previous
+              </Button>
+            )}
+            {nextSubmission ? (
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/submissions/$submissionId" params={{ submissionId: nextSubmission.id }}>
+                  Next <ChevronRight className="ml-1 size-4" />
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
+                Next <ChevronRight className="ml-1 size-4" />
+              </Button>
+            )}
+          </div>
+        </nav>
+      )}
 
       {sub.paste_violation_count > 0 && (
         <div className="panel border-destructive/40 bg-destructive/5 p-4">
@@ -179,15 +247,49 @@ function ReviewSubmission() {
 
       {pages.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Pages</h2>
+          <h2 className="text-lg font-semibold">Uploaded files & photos</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             {pages.map((p, i) => (
-              <figure key={p.id} className="panel overflow-hidden p-0">
-                <img src={p.url} alt={`Page ${i + 1}`} className="w-full object-contain" />
-                <figcaption className="px-3 py-2 text-xs text-muted-foreground">
-                  Page {i + 1} · {p.file_name}
-                </figcaption>
+              <figure key={p.id} className="panel min-w-0 overflow-hidden p-0">
+                {isPhotoFile(p) ? (
+                  <button type="button" onClick={() => setPreviewFile(p)} aria-label={`Preview ${p.file_name || `photo ${i + 1}`}`} className="block w-full cursor-zoom-in">
+                    <ProxiedFileImage fileId={p.id} alt={p.file_name || `Photo ${i + 1}`} className="max-h-[70vh] w-full bg-muted/20 object-contain" />
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => setPreviewFile(p)} className="flex min-h-32 w-full items-center gap-3 p-4 text-left hover:bg-accent/40">
+                    <FileUp className="size-6 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 break-words text-sm font-medium">{p.file_name}</span>
+                    <span className="text-xs font-medium text-primary">Preview</span>
+                  </button>
+                )}
+                <figcaption className="break-words px-3 py-2 text-xs text-muted-foreground">{p.file_name || `File ${i + 1}`}</figcaption>
               </figure>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {attachments.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Attached files</h2>
+          <div className="panel divide-y divide-border">
+            {attachments.map((file) => (
+              <button
+                key={file.id}
+                type="button"
+                onClick={() => setPreviewFile(file)}
+                className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/40"
+              >
+                <FileText className="size-5 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{file.file_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {file.mime_type || "File"}
+                    {file.size_bytes ? ` · ${formatFileSize(file.size_bytes)}` : ""}
+                  </p>
+                </div>
+                <span className="text-xs font-medium text-primary">Preview</span>
+              </button>
             ))}
           </div>
         </section>
@@ -201,8 +303,8 @@ function ReviewSubmission() {
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               {inline.map((f) => (
                 <figure key={f.id}>
-                  <img
-                    src={f.url}
+                  <ProxiedFileImage
+                    fileId={f.id}
                     alt={f.caption || "Student illustration"}
                     className="w-full rounded-md border border-border object-cover"
                   />
@@ -217,6 +319,8 @@ function ReviewSubmission() {
           )}
         </section>
       )}
+
+      <FilePreviewDialog file={previewFile} onClose={() => setPreviewFile(null)} />
 
       {isTeacher ? (
         <section className="panel space-y-4 p-6">

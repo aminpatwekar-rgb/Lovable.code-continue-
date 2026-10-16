@@ -82,16 +82,44 @@ export const getGradingOverview = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const scope = await requireGrader(context as never);
 
+    // Approved co-teachers are allowed to grade work in classes they teach.
+    let coTaughtClassIds: string[] = [];
+    if (!scope.isAdmin) {
+      const { data: memberships, error: membershipError } = await supabaseAdmin
+        .from("class_members")
+        .select("class_id")
+        .eq("student_id", scope.userId)
+        .eq("member_role", "teacher");
+      if (membershipError) throw new Error(membershipError.message);
+      coTaughtClassIds = [...new Set((memberships ?? []).map((membership) => membership.class_id))];
+    }
+
     let aQuery = supabaseAdmin
       .from("assignments")
       .select("id, title, class_id, subject, due_date, max_marks, classes(name)")
       .eq("archived", false);
-    if (!scope.isAdmin) aQuery = aQuery.eq("teacher_id", scope.userId);
+    if (!scope.isAdmin) {
+      if (coTaughtClassIds.length) {
+        aQuery = aQuery.or(
+          `teacher_id.eq.${scope.userId},class_id.in.(${coTaughtClassIds.join(",")})`,
+        );
+      } else {
+        aQuery = aQuery.eq("teacher_id", scope.userId);
+      }
+    }
     let qQuery = supabaseAdmin
       .from("quizzes")
       .select("id, title, class_id, kind, classes(name)")
       .eq("archived", false);
-    if (!scope.isAdmin) qQuery = qQuery.eq("teacher_id", scope.userId);
+    if (!scope.isAdmin) {
+      if (coTaughtClassIds.length) {
+        qQuery = qQuery.or(
+          `teacher_id.eq.${scope.userId},class_id.in.(${coTaughtClassIds.join(",")})`,
+        );
+      } else {
+        qQuery = qQuery.eq("teacher_id", scope.userId);
+      }
+    }
     const [{ data: assignments, error: aErr }, { data: quizzes, error: qErr }] = await Promise.all([
       aQuery,
       qQuery,
@@ -292,7 +320,15 @@ export const getAssignmentGradingQueue = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     if (!assignment) throw new Error("Assignment not found.");
     if (!scope.isAdmin && assignment.teacher_id !== scope.userId) {
-      throw new Error("You are not allowed to grade this assignment.");
+      const { data: membership, error: membershipError } = await supabaseAdmin
+        .from("class_members")
+        .select("student_id")
+        .eq("class_id", assignment.class_id)
+        .eq("student_id", scope.userId)
+        .eq("member_role", "teacher")
+        .maybeSingle();
+      if (membershipError) throw new Error(membershipError.message);
+      if (!membership) throw new Error("You are not allowed to grade this assignment.");
     }
 
     const [subs, members] = await Promise.all([
@@ -375,13 +411,21 @@ export const getQuizGradingQueue = createServerFn({ method: "GET" })
 
     const { data: quiz, error } = await supabaseAdmin
       .from("quizzes")
-      .select("id, title, teacher_id, passing_marks, classes(name)")
+      .select("id, title, teacher_id, class_id, passing_marks, classes(name)")
       .eq("id", data.quizId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!quiz) throw new Error("Quiz not found.");
     if (!scope.isAdmin && quiz.teacher_id !== scope.userId) {
-      throw new Error("You are not allowed to grade this quiz.");
+      const { data: membership, error: membershipError } = await supabaseAdmin
+        .from("class_members")
+        .select("student_id")
+        .eq("class_id", quiz.class_id)
+        .eq("student_id", scope.userId)
+        .eq("member_role", "teacher")
+        .maybeSingle();
+      if (membershipError) throw new Error(membershipError.message);
+      if (!membership) throw new Error("You are not allowed to grade this quiz.");
     }
 
     const attempts = await fetchAll((from, to) =>

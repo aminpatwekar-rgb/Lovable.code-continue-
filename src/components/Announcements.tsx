@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Download, Loader2, Megaphone, Paperclip, Trash2 } from "lucide-react";
+import { Loader2, Megaphone, Paperclip, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FilePreviewDialog, type PreviewableFile } from "@/components/grading/FilePreviewDialog";
 import {
   Select,
   SelectContent,
@@ -36,6 +37,8 @@ export type AnnouncementRow = {
   }>;
 };
 
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
 const AUDIENCE_LABEL: Record<string, string> = {
   everyone: "Everyone",
   teachers: "Teachers",
@@ -57,20 +60,13 @@ export function useAnnouncements(classId?: string) {
       q = classId ? q.eq("class_id", classId) : q.is("class_id", null);
       const { data, error } = await q;
       if (error) throw error;
-      return Promise.all(
-        (data ?? []).map(async (announcement) => {
-          const attachments = await Promise.all(
-            (announcement.announcement_attachments ?? []).map(async (attachment) => {
-              const { data: signed, error: signedError } = await supabase.storage
-                .from("announcement-attachments")
-                .createSignedUrl(attachment.storage_path, 3600);
-              if (signedError) throw signedError;
-              return { ...attachment, downloadUrl: signed.signedUrl };
-            }),
-          );
-          return { ...announcement, announcement_attachments: attachments } as unknown as AnnouncementRow;
-        }),
-      );
+      return (data ?? []).map((announcement) => {
+        const attachments = (announcement.announcement_attachments ?? []).map((attachment) => ({
+          ...attachment,
+          downloadUrl: "",
+        }));
+        return { ...announcement, announcement_attachments: attachments } as unknown as AnnouncementRow;
+      });
     },
   });
 }
@@ -92,6 +88,7 @@ export function Announcements({
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const list = useAnnouncements(classId);
+  const [previewFile, setPreviewFile] = useState<PreviewableFile | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [audience, setAudience] = useState(classId ? "class" : "everyone");
@@ -101,6 +98,8 @@ export function Announcements({
     mutationFn: async () => {
       if (!title.trim()) throw new Error("A title is required");
       if (!user) throw new Error("Sign in to publish an announcement");
+      const oversized = files.find((file) => file.size > MAX_UPLOAD_BYTES);
+      if (oversized) throw new Error(`${oversized.name} is larger than the 50 MB per-file limit`);
       const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
       if (totalBytes > 0) {
         const quota = await (supabase as any).rpc("assert_storage_available", {
@@ -199,14 +198,23 @@ export function Announcements({
             </div>
           )}
           <div className="space-y-1.5">
-            <Label htmlFor="ann-files">Attachments</Label>
+            <Label htmlFor="ann-files">Attachments (max 50 MB each)</Label>
             <Input
               ref={fileRef}
               id="ann-files"
               type="file"
               multiple
               disabled={post.isPending}
-              onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
+              onChange={(event) => {
+                const selected = Array.from(event.target.files ?? []);
+                event.currentTarget.value = "";
+                const oversized = selected.find((file) => file.size > MAX_UPLOAD_BYTES);
+                if (oversized) {
+                  toast.error(`${oversized.name} is larger than the 50 MB per-file limit`);
+                  return;
+                }
+                setFiles((current) => [...current, ...selected]);
+              }}
             />
             {files.length > 0 && (
               <p className="text-xs text-muted-foreground">
@@ -261,12 +269,20 @@ export function Announcements({
               {a.announcement_attachments.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {a.announcement_attachments.map((attachment) => (
-                    <Button key={attachment.id} asChild variant="outline" size="sm">
-                      <a href={attachment.downloadUrl} download={attachment.file_name}>
-                        <Paperclip className="mr-1.5 size-3.5" />
-                        <span className="max-w-48 truncate">{attachment.file_name}</span>
-                        <Download className="ml-1.5 size-3.5" />
-                      </a>
+                    <Button
+                      key={attachment.id}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPreviewFile({
+                        id: attachment.id,
+                        file_name: attachment.file_name,
+                        mime_type: attachment.mime_type,
+                        url: "",
+                        source: "announcement",
+                      })}
+                    >
+                      <Paperclip className="mr-1.5 size-3.5" />
+                      <span className="max-w-48 truncate">{attachment.file_name}</span>
                     </Button>
                   ))}
                 </div>
@@ -275,6 +291,7 @@ export function Announcements({
           ))}
         </ul>
       )}
+      <FilePreviewDialog file={previewFile} onClose={() => setPreviewFile(null)} />
     </div>
   );
 }

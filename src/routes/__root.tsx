@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useNavigate,
   useRouterState,
   HeadContent,
   Scripts,
@@ -18,6 +19,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { ViewRoleProvider } from "@/lib/viewRole";
 import { Toaster } from "@/components/ui/sonner";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { savePendingJoinCode } from "@/lib/institution-join";
 import { cn } from "@/lib/utils";
 
 function NotFoundComponent() {
@@ -80,6 +82,10 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   );
 }
 
+// Applies the saved theme before first paint so dark-mode users never see a light flash.
+// Mirrors the logic in ThemeProvider (src/lib/theme.tsx): new visitors default to light.
+const THEME_HEAD_SCRIPT = `try{var d=document.documentElement,l=localStorage,m=l.getItem("theme");if(m==="dark"||(m==="system"&&matchMedia("(prefers-color-scheme: dark)").matches))d.classList.add("dark");var a=l.getItem("onyx-accent");if(a)d.setAttribute("data-accent",a);var t=l.getItem("onyx-theme-style");if(t)d.setAttribute("data-theme-style",t)}catch(e){}`;
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
@@ -100,6 +106,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
+    scripts: [{ children: THEME_HEAD_SCRIPT }],
     links: [
       { rel: "stylesheet", href: appCss },
       // Fonts are self-hosted (see @font-face in styles.css) so no third-party request blocks first paint.
@@ -135,7 +142,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
@@ -169,8 +176,27 @@ function BootOverlay({ show }: { show: boolean }) {
 }
 
 function RootContent() {
-  const { loading } = useAuth();
+  const { loading, session, profile } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+
+  // A new account must finish role confirmation before any protected route
+  // can be reached, including when OAuth returns to the public landing page.
+  useEffect(() => {
+    if (
+      !loading &&
+      session &&
+      profile &&
+      !profile.role_confirmed_at &&
+      pathname !== "/auth" &&
+      pathname !== "/reset-password"
+    ) {
+      // Keep a join link they opened, so the role step can finish joining the institution.
+      const joinMatch = /^\/join\/([A-Za-z0-9]+)\/?$/.exec(pathname);
+      if (joinMatch?.[1]) savePendingJoinCode(joinMatch[1]);
+      void navigate({ to: "/auth", search: { mode: "signup" }, replace: true });
+    }
+  }, [loading, session, profile, pathname, navigate]);
   // The public landing page does not depend on the session, so it is never hidden behind the loader.
   const showLoader = loading && pathname !== "/";
 

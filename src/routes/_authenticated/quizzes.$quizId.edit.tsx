@@ -3,11 +3,12 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Plus, Save, Users, X } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Save, ShieldCheck, Users, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import {
   blankQuestion,
+  isAutoGraded,
   KIND_LABEL,
   type Difficulty,
   type QuestionDraft,
@@ -18,6 +19,7 @@ import { generateQuizQuestions, regenerateQuizQuestion } from "@/lib/quiz/ai.fun
 import {
   getQuizReviewAttempt,
   getQuizReviewAttempts,
+  grantQuizRetry,
   type QuizReviewAttemptDetail,
 } from "@/lib/quiz/review.functions";
 import { percent } from "@/lib/quiz/types";
@@ -206,6 +208,17 @@ function Page() {
   const [material, setMaterial] = useState("");
   const [regenIndex, setRegenIndex] = useState<number | null>(null);
   const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
+  const [aiGeneratedIds, setAiGeneratedIds] = useState<Set<string>>(() => new Set());
+  const [approvedAiIds, setApprovedAiIds] = useState<Set<string>>(() => new Set());
+
+  const pendingAiReviewCount = questions.filter(
+    (question) => aiGeneratedIds.has(question.id) && !approvedAiIds.has(question.id),
+  ).length;
+
+  function approveAiQuestion(questionId: string) {
+    setApprovedAiIds((current) => new Set(current).add(questionId));
+    toast.success("AI question approved");
+  }
 
   const quiz = useQuery({
     queryKey: ["quiz-edit", quizId],
@@ -263,6 +276,27 @@ function Page() {
     [questions],
   );
 
+  function validateAnswerKeys(items: QuestionDraft[]) {
+    for (let i = 0; i < items.length; i += 1) {
+      const q = items[i]!;
+      if (!q.prompt.trim()) throw new Error("Question " + (i + 1) + " is missing its question text.");
+      if (!isAutoGraded(q.type)) continue;
+      const correct = q.correct.filter(Boolean);
+      if (!correct.length) {
+        throw new Error("Question " + (i + 1) + " needs a valid correct answer before the quiz can be saved or published.");
+      }
+      if (q.type === "multi_select" && correct.length < 2) {
+        throw new Error("Question " + (i + 1) + " is Multiple correct and needs at least two correct options.");
+      }
+      if (
+        (q.type === "mcq" || q.type === "multi_select" || q.type === "true_false") &&
+        correct.some((answer) => !q.options.includes(answer))
+      ) {
+        throw new Error("Question " + (i + 1) + " has a correct answer that is not one of its options.");
+      }
+    }
+  }
+
   const attempts = useQuery({
     queryKey: ["quiz-review-attempts", quizId],
     enabled: Boolean(user),
@@ -270,72 +304,107 @@ function Page() {
     staleTime: 15_000,
   });
 
-  const save = useMutation({
-    mutationFn: async () => {
-      if (!settings) return;
-      const { error } = await supabase
-        .from("quizzes")
-        .update({
-          title: settings.title.trim(),
-          description: settings.description.trim() || null,
-          kind: settings.kind,
-          time_limit_minutes: settings.time_limit_minutes,
-          max_attempts: settings.max_attempts,
-          passing_marks: settings.passing_marks,
-          lockdown_enabled: settings.lockdown_enabled,
-          randomize_questions: settings.randomize_questions,
-          randomize_choices: settings.randomize_choices,
-          show_results: settings.show_results,
-          start_at: settings.start_at,
-          end_at: settings.end_at,
-        })
-        .eq("id", quizId);
-      if (error) throw error;
-
-      if (removed.length) {
-        const { error: delErr } = await supabase.from("quiz_questions").delete().in("id", removed);
-        if (delErr) throw delErr;
-      }
-
-      const existing = questions.filter((q) => !q.id.startsWith("draft-"));
-      const fresh = questions.filter((q) => q.id.startsWith("draft-"));
-
-      for (const q of existing) {
-        const { error: upErr } = await supabase
-          .from("quiz_questions")
-          .update({
-            type: q.type,
-            difficulty: q.difficulty,
-            prompt: q.prompt.trim(),
-            options: q.options,
-            correct: q.correct,
-            explanation: q.explanation.trim() || null,
-            points: q.points,
-            position: questions.indexOf(q),
-          })
-          .eq("id", q.id);
-        if (upErr) throw upErr;
-      }
-
-      if (fresh.length) {
-        const { error: insErr } = await supabase.from("quiz_questions").insert(
-          fresh.map((q) => ({
-            quiz_id: quizId,
-            type: q.type,
-            difficulty: q.difficulty,
-            prompt: q.prompt.trim(),
-            options: q.options,
-            correct: q.correct,
-            explanation: q.explanation.trim() || null,
-            points: q.points,
-            position: questions.indexOf(q),
-          })),
-        );
-        if (insErr) throw insErr;
-      }
+  const grantRetry = useMutation({
+    mutationFn: (studentId: string) => grantQuizRetry({ data: { quizId, studentId } }),
+    onSuccess: async (result) => {
+      toast.success(
+        `Quiz assigned again (attempt ${result.attemptNo}). The student can start it now.`,
+      );
+      await qc.invalidateQueries({ queryKey: ["quiz-review-attempts", quizId] });
+      await qc.invalidateQueries({ queryKey: ["quiz-detail", quizId] });
     },
+    onError: (error: Error) =>
+      toast.error(error.message || "Could not assign this quiz again."),
+  });
+
+  async function persistQuizDraft() {
+    if (!settings) throw new Error("Quiz settings are still loading.");
+    if (!settings.title.trim()) throw new Error("Quiz title is required.");
+    const pending = questions.filter(
+      (question) => aiGeneratedIds.has(question.id) && !approvedAiIds.has(question.id),
+    );
+    if (pending.length) {
+      throw new Error(
+        `Review and approve all ${pending.length} AI-generated question${pending.length === 1 ? "" : "s"} before saving or publishing.`,
+      );
+    }
+    if (
+      settings.start_at &&
+      settings.end_at &&
+      new Date(settings.start_at).getTime() >= new Date(settings.end_at).getTime()
+    ) {
+      throw new Error("The closing time must be later than the opening time.");
+    }
+    validateAnswerKeys(questions);
+
+    const { error } = await supabase
+      .from("quizzes")
+      .update({
+        title: settings.title.trim(),
+        description: settings.description.trim() || null,
+        kind: settings.kind,
+        time_limit_minutes: settings.time_limit_minutes,
+        max_attempts: settings.max_attempts,
+        passing_marks: settings.passing_marks,
+        lockdown_enabled: settings.lockdown_enabled,
+        randomize_questions: settings.randomize_questions,
+        randomize_choices: settings.randomize_choices,
+        show_results: settings.show_results,
+        start_at: settings.start_at,
+        end_at: settings.end_at,
+      })
+      .eq("id", quizId);
+    if (error) throw error;
+
+    if (removed.length) {
+      const { error: delErr } = await supabase.from("quiz_questions").delete().in("id", removed);
+      if (delErr) throw delErr;
+    }
+
+    const existing = questions.filter((q) => !q.id.startsWith("draft-"));
+    const fresh = questions.filter((q) => q.id.startsWith("draft-"));
+
+    for (const q of existing) {
+      const { error: upErr } = await supabase
+        .from("quiz_questions")
+        .update({
+          type: q.type,
+          difficulty: q.difficulty,
+          prompt: q.prompt.trim(),
+          options: q.options,
+          correct: q.correct,
+          explanation: q.explanation.trim() || null,
+          points: q.points,
+          position: questions.indexOf(q),
+        })
+        .eq("id", q.id);
+      if (upErr) throw upErr;
+    }
+
+    if (fresh.length) {
+      const { error: insErr } = await supabase.from("quiz_questions").insert(
+        fresh.map((q) => ({
+          quiz_id: quizId,
+          type: q.type,
+          difficulty: q.difficulty,
+          prompt: q.prompt.trim(),
+          options: q.options,
+          correct: q.correct,
+          explanation: q.explanation.trim() || null,
+          points: q.points,
+          position: questions.indexOf(q),
+        })),
+      );
+      if (insErr) throw insErr;
+    }
+  }
+
+  const save = useMutation({
+    mutationFn: persistQuizDraft,
     onSuccess: async () => {
       setRemoved([]);
+      setAiGeneratedIds(new Set());
+      setApprovedAiIds(new Set());
       toast.success("Quiz saved");
       await qc.invalidateQueries({ queryKey: ["quiz-edit", quizId] });
       await qc.invalidateQueries({ queryKey: ["teacher-quizzes"] });
@@ -346,14 +415,23 @@ function Page() {
 
   const publish = useMutation({
     mutationFn: async (published: boolean) => {
+      // Publishing is also a save action: settings, deadlines, and question edits must reach
+      // the database successfully before students can see the quiz.
+      if (published) await persistQuizDraft();
       const { error } = await supabase.from("quizzes").update({ published }).eq("id", quizId);
       if (error) throw error;
       return published;
     },
     onSuccess: async (published) => {
+      setRemoved([]);
+      if (published) {
+        setAiGeneratedIds(new Set());
+        setApprovedAiIds(new Set());
+      }
       toast.success(published ? "Quiz published" : "Quiz unpublished");
       await qc.invalidateQueries({ queryKey: ["quiz-edit", quizId] });
       await qc.invalidateQueries({ queryKey: ["teacher-quizzes"] });
+      if (published) setSettings(null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -383,7 +461,15 @@ function Page() {
         points: q.points,
       }));
       setQuestions((prev) => [...prev, ...added]);
-      toast.success(`Added ${added.length} question${added.length === 1 ? "" : "s"}`);
+      setAiGeneratedIds((current) => new Set([...current, ...added.map((question) => question.id)]));
+      setApprovedAiIds((current) => {
+        const next = new Set(current);
+        for (const question of added) next.delete(question.id);
+        return next;
+      });
+      toast.success(
+        `Added ${added.length} question${added.length === 1 ? "" : "s"} — review and approve each one before saving.`,
+      );
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -424,7 +510,13 @@ function Page() {
             : item,
         ),
       );
-      toast.success("Question regenerated");
+      setAiGeneratedIds((current) => new Set(current).add(target.id));
+      setApprovedAiIds((current) => {
+        const next = new Set(current);
+        next.delete(target.id);
+        return next;
+      });
+      toast.success("Question regenerated — review and approve it before saving.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not regenerate");
     } finally {
@@ -435,6 +527,10 @@ function Page() {
   async function saveToBank(index: number) {
     const q = questions[index];
     if (!q || !user) return;
+    if (isAutoGraded(q.type) && q.correct.length === 0) {
+      toast.error("Select the correct answer before saving this question to the question bank.");
+      return;
+    }
     const { error } = await supabase.from("question_bank").insert({
       owner_id: user.id,
       class_id: quiz.data?.quiz.class_id ?? null,
@@ -504,12 +600,21 @@ function Page() {
           </Button>
           <Button
             variant={published ? "ghost" : "secondary"}
-            disabled={publish.isPending || (!published && questions.length === 0)}
+            disabled={
+              publish.isPending ||
+              save.isPending ||
+              aiGenerate.isPending ||
+              (!published && (questions.length === 0 || pendingAiReviewCount > 0)) ||
+              !settings.title.trim()
+            }
             onClick={() => publish.mutate(!published)}
           >
             {published ? "Unpublish" : "Publish"}
           </Button>
-          <Button disabled={save.isPending || !settings.title.trim()} onClick={() => save.mutate()}>
+          <Button
+            disabled={save.isPending || !settings.title.trim() || pendingAiReviewCount > 0}
+            onClick={() => save.mutate()}
+          >
             {save.isPending ? (
               <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (
@@ -529,6 +634,20 @@ function Page() {
         </TabsList>
 
         <TabsContent value="questions" className="mt-4 space-y-3">
+          {pendingAiReviewCount > 0 && (
+            <div className="flex flex-wrap items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-4">
+              <ShieldCheck className="mt-0.5 size-5 shrink-0 text-warning-foreground" />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">
+                  {pendingAiReviewCount} AI-generated question{pendingAiReviewCount === 1 ? "" : "s"} need review
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Check each question, options and answer key. Approve it only when you agree it is accurate.
+                  ONYX will not save or publish until every AI-generated question is approved.
+                </p>
+              </div>
+            </div>
+          )}
           {questions.length === 0 && (
             <div className="panel p-10 text-center">
               <p className="font-medium">No questions yet</p>
@@ -543,10 +662,38 @@ function Page() {
               index={i}
               question={q}
               regenerating={regenIndex === i}
-              onChange={(next) => setQuestions((prev) => prev.map((x, j) => (j === i ? next : x)))}
+              aiReviewStatus={
+                aiGeneratedIds.has(q.id)
+                  ? approvedAiIds.has(q.id)
+                    ? "approved"
+                    : "needs_review"
+                  : undefined
+              }
+              onApproveAiQuestion={() => approveAiQuestion(q.id)}
+              onChange={(next) => {
+                setQuestions((prev) => prev.map((x, j) => (j === i ? next : x)));
+                if (aiGeneratedIds.has(q.id)) {
+                  // Any edit after approval invalidates the approval for this exact version.
+                  setApprovedAiIds((current) => {
+                    const updated = new Set(current);
+                    updated.delete(q.id);
+                    return updated;
+                  });
+                }
+              }}
               onDelete={() => {
                 if (!q.id.startsWith("draft-")) setRemoved((prev) => [...prev, q.id]);
                 setQuestions((prev) => prev.filter((_, j) => j !== i));
+                setAiGeneratedIds((current) => {
+                  const updated = new Set(current);
+                  updated.delete(q.id);
+                  return updated;
+                });
+                setApprovedAiIds((current) => {
+                  const updated = new Set(current);
+                  updated.delete(q.id);
+                  return updated;
+                });
               }}
               onMove={(dir) =>
                 setQuestions((prev) => {
@@ -635,41 +782,92 @@ function Page() {
                   ) : (
                     <>
                       <div className="panel divide-y divide-border">
-                        {rows.map((a) => (
-                          <button
-                            key={a.id}
-                            type="button"
-                            onClick={() => setSelectedAttemptId(a.id)}
-                            className="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-muted/40"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium">
-                                {names[a.student_id] ?? "Student"}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Attempt {a.attempt_no} ·{" "}
-                                {a.submitted_at
-                                  ? new Date(a.submitted_at).toLocaleString()
-                                  : "In progress"}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-3 text-sm">
-                              <Badge
-                                variant={a.status === "graded" ? "default" : "outline"}
+                        {(() => {
+                          const latestAttemptByStudent = new Map<
+                            string,
+                            (typeof rows)[number]
+                          >();
+                          for (const attempt of rows) {
+                            const latest = latestAttemptByStudent.get(attempt.student_id);
+                            if (!latest || attempt.attempt_no > latest.attempt_no) {
+                              latestAttemptByStudent.set(attempt.student_id, attempt);
+                            }
+                          }
+
+                          return rows.map((a) => {
+                            const isLatestAttempt =
+                              latestAttemptByStudent.get(a.student_id)?.id === a.id;
+                            const studentHasActiveAttempt = rows.some(
+                              (attempt) =>
+                                attempt.student_id === a.student_id &&
+                                attempt.status === "in_progress" &&
+                                !attempt.locked_at,
+                            );
+                            const canAssignAgain =
+                              isLatestAttempt &&
+                              (a.status !== "in_progress" || Boolean(a.locked_at));
+
+                            return (
+                              <div
+                                key={a.id}
+                                className="flex flex-wrap items-center gap-3 p-4"
                               >
-                                {a.status.replace("_", " ")}
-                              </Badge>
-                              <span className="tabular-nums font-medium">
-                                {a.score != null && a.max_score != null
-                                  ? `${a.score}/${a.max_score} · ${percent(
-                                      a.score,
-                                      a.max_score,
-                                    )}%`
-                                  : "Not graded"}
-                              </span>
-                            </div>
-                          </button>
-                        ))}
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedAttemptId(a.id)}
+                                  className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 rounded-md text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  aria-label={`Review ${names[a.student_id] ?? "student"} attempt ${a.attempt_no}`}
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-medium">
+                                      {names[a.student_id] ?? "Student"}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Attempt {a.attempt_no} ·{" "}
+                                      {a.submitted_at
+                                        ? new Date(a.submitted_at).toLocaleString()
+                                        : "In progress"}
+                                    </p>
+                                    {a.locked_at && (
+                                      <p className="mt-1 text-xs text-destructive">
+                                        Locked: {a.lock_reason || "Lockdown"}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-3 text-sm">
+                                    <Badge
+                                      variant={a.status === "graded" ? "default" : "outline"}
+                                    >
+                                      {a.status.replace("_", " ")}
+                                    </Badge>
+                                    <span className="tabular-nums font-medium">
+                                      {a.score != null && a.max_score != null
+                                        ? `${a.score}/${a.max_score} · ${percent(
+                                            a.score,
+                                            a.max_score,
+                                          )}%`
+                                        : "Not graded"}
+                                    </span>
+                                  </div>
+                                </button>
+                                {canAssignAgain && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={grantRetry.isPending || studentHasActiveAttempt}
+                                    onClick={() => grantRetry.mutate(a.student_id)}
+                                  >
+                                    {studentHasActiveAttempt
+                                      ? "Attempt in progress"
+                                      : grantRetry.isPending
+                                        ? "Assigning…"
+                                        : "Assign again"}
+                                  </Button>
+                                )}
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
 
                       {selectedAttemptId && (

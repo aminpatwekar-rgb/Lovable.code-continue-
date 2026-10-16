@@ -34,12 +34,22 @@ export const importStudentsFromCsv = createServerFn({ method: "POST" })
       .maybeSingle();
     if (classError) throw classError;
     if (!klass) throw new Error("Class not found.");
-    const isAdmin = await supabaseAdmin.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (isAdmin.error) throw isAdmin.error;
-    if (klass.teacher_id !== context.userId && !isAdmin.data) {
+    const [
+      { data: canManageClass, error: classTeacherError },
+      { data: isAdmin, error: adminError },
+    ] = await Promise.all([
+      context.supabase.rpc("is_class_teacher", {
+        _class_id: data.classId,
+        _user_id: context.userId,
+      }),
+      context.supabase.rpc("has_role", {
+        _user_id: context.userId,
+        _role: "admin",
+      }),
+    ]);
+    if (classTeacherError) throw new Error("Could not verify class permissions");
+    if (adminError) throw new Error("Could not verify administrator permissions");
+    if (!canManageClass && !isAdmin) {
       throw new Error("You are not allowed to import students into this class.");
     }
 
@@ -56,9 +66,17 @@ export const importStudentsFromCsv = createServerFn({ method: "POST" })
       srNo: text(row["sr_no"]),
     }));
 
-    const invalid = normalized.filter((r) => !r.email || !/^\S+@\S+\.\S+$/.test(r.email) || !r.fullName);
+    const invalid = normalized.filter(
+      (r) =>
+        !r.email ||
+        !/^\S+@\S+\.\S+$/.test(r.email) ||
+        !r.fullName ||
+        !(r.rollNo || r.erNo || r.srNo),
+    );
     if (invalid.length) {
-      throw new Error(`CSV contains ${invalid.length} invalid row(s). Email and full_name are required.`);
+      throw new Error(
+        `CSV contains ${invalid.length} invalid row(s). Email, full_name and at least one of roll_no, er_no or sr_no are required.`,
+      );
     }
 
     const emails = [...new Set(normalized.map((r) => r.email))];

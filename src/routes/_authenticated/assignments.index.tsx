@@ -64,7 +64,7 @@ function Assignments() {
         .eq("student_id", user!.id);
       if (membershipError) throw membershipError;
       const ids = (m ?? []).map((x) => x.class_id);
-      const { data } = ids.length
+      const { data, error: assignmentsError } = ids.length
         ? await supabase
             .from("assignments")
             .select("id, title, subject, due_date, published, archived, class_id, classes(name)")
@@ -72,7 +72,8 @@ function Assignments() {
             .eq("published", true)
             .eq("archived", false)
             .order("due_date", { ascending: true })
-        : { data: [] };
+        : { data: [], error: null };
+      if (assignmentsError) throw assignmentsError;
       const { data: subs, error: submissionsError } = await supabase
         .from("submissions")
         .select("assignment_id, status, is_late")

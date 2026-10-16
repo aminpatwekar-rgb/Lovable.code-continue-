@@ -14,6 +14,13 @@ import { cn } from "@/lib/utils";
 import { SPRING_PRESS, getPressProps } from "@/lib/motionPresets";
 import onyxMark from "@/assets/onyx-mark.png.asset.json";
 import {
+  clearPendingJoinCode,
+  joinWithCode,
+  previewJoin,
+  readPendingJoinCode,
+  type JoinPreview,
+} from "@/lib/institution-join";
+import {
   clearSessionConfirmation,
   isSessionConfirmed,
   markSessionConfirmed,
@@ -49,24 +56,64 @@ function AuthPage() {
   const shouldReduceMotion = useReducedMotion();
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, refresh } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">(search.mode ?? "signup");
-  const [role, setRole] = useState<"student" | "teacher">("student");
+  const [role, setRole] = useState<"student" | "teacher" | null>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [joinCode, setJoinCode] = useState<string | null>(null);
+  const [joinPreview, setJoinPreview] = useState<JoinPreview | null>(null);
+  const [joinReady, setJoinReady] = useState(false);
+  const [skipJoin, setSkipJoin] = useState(false);
+
+  // Resolve the saved invitation before any signed-in redirect can run.
+  // This prevents OAuth callbacks from racing to /dashboard before the join code
+  // has been restored from localStorage.
+  useEffect(() => {
+    let active = true;
+    const code = readPendingJoinCode();
+    if (!code) {
+      setJoinReady(true);
+      return () => { active = false; };
+    }
+
+    setJoinCode(code);
+    void previewJoin(code)
+      .then((preview) => {
+        if (!active) return;
+        setJoinPreview(preview);
+        if (!preview.valid) {
+          clearPendingJoinCode();
+          setJoinCode(null);
+        }
+        setJoinReady(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        clearPendingJoinCode();
+        setJoinCode(null);
+        setJoinPreview({ valid: false });
+        setJoinReady(true);
+      });
+
+    return () => { active = false; };
+  }, []);
+  const activeJoin = !skipJoin && joinCode && joinPreview?.valid ? joinPreview : null;
 
   const confirmed = isSessionConfirmed(session?.user.id);
   // Only an explicitly confirmed account is allowed through to the app.
+  const needsRoleConfirmation = Boolean(session && profile && !profile.role_confirmed_at);
   const needsConfirm = Boolean(session) && !confirmed && !switching;
 
   useEffect(() => {
-    if (!loading && session && confirmed && !switching)
+    // A pending institution link must be completed before sending the user to the dashboard.
+    if (joinReady && !loading && session && confirmed && profile?.role_confirmed_at && !switching && !joinCode)
       navigate({ to: "/dashboard", replace: true });
-  }, [loading, session, confirmed, switching, navigate]);
+  }, [joinReady, loading, session, confirmed, profile?.role_confirmed_at, switching, joinCode, navigate]);
 
   async function handleUseAnotherAccount() {
     setSwitching(true);
@@ -94,7 +141,7 @@ function AuthPage() {
           password: parsed.data.password,
           options: {
             emailRedirectTo: window.location.origin,
-            data: { full_name: fullName.trim(), role },
+            data: { full_name: fullName.trim() },
           },
         });
         if (error) throw error;
@@ -103,9 +150,8 @@ function AuthPage() {
           toast.success("Check your email to confirm your account.");
           return;
         }
-        markSessionConfirmed(data.session.user.id);
         setSwitching(false);
-        toast.success("Welcome to ONYX");
+        toast.success("Account created. Please confirm your role to continue.");
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
           email: parsed.data.email,
@@ -124,12 +170,59 @@ function AuthPage() {
   }
 
   async function google() {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      toast.error("Google sign-in failed");
+    setBusy(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        // Use Lovable-managed Google authentication and return to ONYX.
+        redirect_uri: `${window.location.origin}/auth?mode=signup`,
+      });
+      if (result.error) throw result.error;
+    } catch {
+      toast.error("Google sign-in failed. Please try again or use email instead.");
+      setBusy(false);
+    }
+  }
+
+  async function confirmRole() {
+    if (!role) {
+      toast.error("Choose Student or Teacher to continue.");
       return;
+    }
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc("confirm_account_role", { _role: role });
+      if (error) throw error;
+      await refresh();
+      markSessionConfirmed(session?.user.id);
+      toast.success("Your account role has been confirmed.");
+      navigate({ to: "/dashboard", replace: true });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not confirm your role. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmJoin() {
+    if (!joinCode) return;
+    setBusy(true);
+    try {
+      const result = await joinWithCode(joinCode);
+      clearPendingJoinCode();
+      await refresh();
+      markSessionConfirmed(session?.user.id);
+      toast.success(
+        result.status === "pending"
+          ? `Request sent. ${result.institutionName} will approve you shortly.`
+          : result.status === "already_member"
+            ? `You're already part of ${result.institutionName}.`
+            : `You joined ${result.institutionName}.`,
+      );
+      navigate({ to: "/dashboard", replace: true });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not use this join link.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -167,7 +260,104 @@ function AuthPage() {
           <span className="font-semibold tracking-tight">ONYX</span>
         </Link>
 
-        {needsConfirm ? (
+        {activeJoin && profile?.role_confirmed_at && confirmed ? (
+          <div className="space-y-5">
+            <div>
+              <h1 className="text-2xl font-semibold">
+                Join {activeJoin.institutionName}
+                {activeJoin.departmentName ? ` · ${activeJoin.departmentName}` : ""}
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                You're signed in as {profile.full_name?.trim() || session?.user.email} and joining as a{" "}
+                <span className="font-medium text-foreground">
+                  {activeJoin.role === "teacher" ? "teacher" : "student"}
+                </span>.
+                {activeJoin.requiresApproval ? " An administrator will approve your request before you appear in the institution." : ""}
+              </p>
+            </div>
+            <Button className="w-full" disabled={busy} onClick={() => void confirmJoin()}>
+              {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Join as {activeJoin.role === "teacher" ? "Teacher" : "Student"}
+            </Button>
+            <Button variant="outline" className="w-full" disabled={busy} onClick={() => { clearPendingJoinCode(); setJoinCode(null); setSkipJoin(true); }}>
+              Not joining an institution
+            </Button>
+            <Button variant="ghost" className="w-full" disabled={busy} onClick={() => void handleUseAnotherAccount()}>
+              Use another account
+            </Button>
+          </div>
+        ) : needsRoleConfirmation && activeJoin ? (
+          <div className="space-y-5">
+            <div>
+              <h1 className="text-2xl font-semibold">
+                Join {activeJoin.institutionName}
+                {activeJoin.departmentName ? ` · ${activeJoin.departmentName}` : ""}
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                You're joining as a{" "}
+                <span className="font-medium text-foreground">
+                  {activeJoin.role === "teacher" ? "teacher" : "student"}
+                </span>
+                .{activeJoin.requiresApproval ? " An administrator will approve your request before you appear in the institution." : ""}
+              </p>
+            </div>
+            <Button className="w-full" disabled={busy} onClick={() => void confirmJoin()}>
+              {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Join as {activeJoin.role === "teacher" ? "Teacher" : "Student"}
+            </Button>
+            <Button variant="outline" className="w-full" disabled={busy} onClick={() => { clearPendingJoinCode(); setSkipJoin(true); }}>
+              Not joining an institution
+            </Button>
+            <Button variant="ghost" className="w-full" disabled={busy} onClick={() => void handleUseAnotherAccount()}>
+              Use another account
+            </Button>
+          </div>
+        ) : needsRoleConfirmation ? (
+          <div className="space-y-5">
+            <div>
+              <h1 className="text-2xl font-semibold">How will you use ONYX?</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Choose your role carefully. You must confirm it before entering ONYX, so teachers
+                do not accidentally set up a student account.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                { key: "student", label: "Student", description: "Join classes and submit work", icon: GraduationCap },
+                { key: "teacher", label: "Teacher", description: "Create classes and manage work", icon: Presentation },
+              ] as const).map((r) => (
+                <motion.button
+                  key={r.key}
+                  type="button"
+                  disabled={busy}
+                  {...getPressProps(shouldReduceMotion, { hoverScale: 1.02, tapScale: 0.98 })}
+                  onClick={() => setRole(r.key)}
+                  aria-pressed={role === r.key}
+                  className={cn(
+                    "flex min-h-32 flex-col items-start gap-2 rounded-xl border p-4 text-left transition-colors",
+                    role === r.key
+                      ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+                      : "border-border hover:border-primary/50 hover:bg-accent/50",
+                  )}
+                >
+                  <r.icon className="size-5 text-primary" />
+                  <span className="text-sm font-semibold">{r.label}</span>
+                  <span className="text-xs text-muted-foreground">{r.description}</span>
+                </motion.button>
+              ))}
+            </div>
+            <Button className="w-full" disabled={!role || busy} onClick={() => void confirmRole()}>
+              {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {role ? "Confirm as " + (role === "teacher" ? "Teacher" : "Student") : "Select your role to continue"}
+            </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              You cannot change this choice from this screen after confirming it.
+            </p>
+            <Button variant="outline" className="w-full" disabled={busy} onClick={() => void handleUseAnotherAccount()}>
+              Use another account
+            </Button>
+          </div>
+        ) : needsConfirm ? (
           <div className="space-y-4">
             <h1 className="text-2xl font-semibold">
               Continue as {profile?.full_name?.trim() || session?.user.email || "this account"}?
@@ -181,10 +371,16 @@ function AuthPage() {
               className="w-full"
               onClick={() => {
                 markSessionConfirmed(session!.user.id);
-                navigate({ to: "/dashboard", replace: true });
+                if (activeJoin) {
+                  void confirmJoin();
+                } else {
+                  navigate({ to: "/dashboard", replace: true });
+                }
               }}
             >
-              Continue as {profile?.full_name?.trim().split(" ")[0] || session?.user.email}
+              {activeJoin
+                ? `Continue and join as ${activeJoin.role === "teacher" ? "Teacher" : "Student"}`
+                : `Continue as ${profile?.full_name?.trim().split(" ")[0] || session?.user.email}`}
             </Button>
             <Button
               variant="outline"
@@ -217,50 +413,31 @@ function AuthPage() {
             <h1 className="text-2xl font-semibold">
               {mode === "signup" ? "Create your account" : "Welcome back"}
             </h1>
+            {activeJoin && (
+              <div className="mt-3 rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm">
+                You're joining <span className="font-semibold">{activeJoin.institutionName}</span> as a{" "}
+                {activeJoin.role === "teacher" ? "teacher" : "student"}.
+              </div>
+            )}
             <p className="mt-1 text-sm text-muted-foreground">
               {mode === "signup"
-                ? "Choose how you'll use ONYX."
+                ? "Create your account first. You will confirm your role in the next step."
                 : "Sign in to your classes and assignments."}
             </p>
 
             <form onSubmit={submit} className="mt-6 space-y-4">
               {mode === "signup" && (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(
-                      [
-                        { key: "student", label: "Student", icon: GraduationCap },
-                        { key: "teacher", label: "Teacher", icon: Presentation },
-                      ] as const
-                    ).map((r) => (
-                      <motion.button
-                        key={r.key}
-                        type="button"
-                        {...getPressProps(shouldReduceMotion, { hoverScale: 1.02, tapScale: 0.98 })}
-                        onClick={() => setRole(r.key)}
-                        className={cn(
-                          "flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors cursor-pointer",
-                          role === r.key
-                            ? "border-primary bg-primary/10"
-                            : "border-border hover:bg-accent/50",
-                        )}
-                      >
-                        <r.icon className="size-4 text-primary" />
-                        <span className="text-sm font-medium">{r.label}</span>
-                      </motion.button>
-                    ))}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="name">Full name</Label>
-                    <Input
-                      id="name"
-                      value={fullName}
-                      maxLength={100}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="Ada Lovelace"
-                    />
-                  </div>
-                </>
+                <div className="space-y-1.5">
+                  <Label htmlFor="name">Full name</Label>
+                  <Input
+                    id="name"
+                    value={fullName}
+                    maxLength={100}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Ada Lovelace"
+                    required
+                  />
+                </div>
               )}
 
               <div className="space-y-1.5">
@@ -309,8 +486,20 @@ function AuthPage() {
               <span className="h-px flex-1 bg-border" />
             </div>
 
-            <Button variant="outline" className="w-full" onClick={google}>
-              Continue with Google
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-1 flex h-12 w-full items-center justify-center gap-3 border-2 border-border bg-background text-base font-semibold shadow-sm transition-all hover:border-primary/60 hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              onClick={() => void google()}
+              aria-label="Continue with Google"
+            >
+              <svg aria-hidden="true" viewBox="0 0 48 48" className="size-5 shrink-0">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5Z" />
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.74 7.18l7.27 5.64c4.25-3.92 6.71-9.7 6.71-17.29Z" />
+                <path fill="#FBBC05" d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.97-6.19Z" />
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.91-5.81l-7.27-5.64c-2.02 1.35-4.6 2.15-8.64 2.15-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48Z" />
+              </svg>
+              <span>Continue with Google</span>
             </Button>
 
             <p className="mt-6 text-center text-sm text-muted-foreground">

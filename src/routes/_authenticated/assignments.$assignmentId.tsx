@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Download, FileUp, Loader2, Trash2, Upload } from "lucide-react";
@@ -38,9 +38,17 @@ type Page = {
   id: string;
   storage_path: string;
   file_name: string;
+  mime_type?: string | null;
   url: string;
   page_order: number;
 };
+
+function isPhotoFile(file: { mime_type?: string | null; file_name?: string | null }) {
+  return Boolean(
+    file.mime_type?.startsWith("image/") ||
+      /\.(avif|bmp|gif|heic|heif|jpe?g|png|webp)$/i.test(file.file_name ?? ""),
+  );
+}
 
 function AssignmentPage() {
   const { assignmentId } = Route.useParams();
@@ -112,7 +120,11 @@ function AssignmentPage() {
             {a.priority} priority
           </span>
           <span className="rounded-full border border-border px-2 py-0.5 capitalize">
-            {a.submission_type}
+            {a.submission_type === "handwritten"
+              ? "File & Photo Upload"
+              : a.submission_type === "typed"
+                ? "Typed Answer"
+                : "Student’s Choice"}
           </span>
           {!a.published && (
             <span className="rounded-full border border-warning/40 bg-warning/15 px-2 py-0.5">
@@ -301,22 +313,32 @@ function StudentSubmission({
   const [violations, setViolations] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [draftSaveState, setDraftSaveState] = useState<"idle" | "pending" | "saving" | "saved" | "error">("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const lastSavedSnapshot = useRef<string | null>(null);
+  const latestAutosaveSnapshot = useRef("");
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosavePromise = useRef<Promise<void> | null>(null);
+  const submissionIdRef = useRef<string | null>(null);
+  const ensureSubmissionPromise = useRef<Promise<string> | null>(null);
 
   const submission = useQuery({
     queryKey: ["my-submission", assignment.id, userId],
     queryFn: async () => {
-      const { data: sub } = await supabase
+      const { data: sub, error: submissionError } = await supabase
         .from("submissions")
         .select("*")
         .eq("assignment_id", assignment.id)
         .eq("student_id", userId)
         .maybeSingle();
+      if (submissionError) throw submissionError;
       if (!sub) return null;
-      const { data: files } = await supabase
+      const { data: files, error: filesError } = await supabase
         .from("submission_files")
-        .select("id, storage_path, file_name, page_order, kind, caption")
+        .select("id, storage_path, file_name, mime_type, page_order, kind, caption")
         .eq("submission_id", sub.id)
         .order("page_order", { ascending: true });
+      if (filesError) throw filesError;
       const signed = await Promise.all(
         (files ?? []).map(async (f) => {
           const { data } = await supabase.storage
@@ -329,24 +351,6 @@ function StudentSubmission({
     },
   });
 
-  useEffect(() => {
-    if (hydrated || !submission.data) return;
-    const { sub, files } = submission.data;
-    setText(sub.typed_content ?? "");
-    setViolations(sub.paste_violation_count ?? 0);
-    setBlocks(
-      files
-        .filter((f) => f.kind === "inline_image")
-        .map((f) => ({ id: f.id, path: f.storage_path, url: f.url, caption: f.caption ?? "" })),
-    );
-    setPages(files.filter((f) => f.kind === "page") as Page[]);
-    setHydrated(true);
-  }, [submission.data, hydrated]);
-
-  const locked = ["submitted", "reviewed", "completed", "late"].includes(
-    submission.data?.sub.status ?? "",
-  );
-
   const mode: "handwritten" | "typed" =
     assignment.submission_type === "typed"
       ? "typed"
@@ -356,33 +360,148 @@ function StudentSubmission({
   const [choice, setChoice] = useState<"handwritten" | "typed">(mode);
   const activeMode = assignment.submission_type === "either" ? choice : mode;
 
-  async function ensureSubmission() {
-    if (submission.data?.sub) return submission.data.sub.id;
-    const { data, error } = await supabase
-      .from("submissions")
-      .insert({
-        assignment_id: assignment.id,
-        student_id: userId,
-        status: "in_progress",
-        mode: activeMode,
-      })
-      .select("id")
-      .single();
-    if (error) throw error;
-    await qc.invalidateQueries({ queryKey: ["my-submission"] });
-    return data.id;
-  }
+  useEffect(() => {
+    if (hydrated || submission.isLoading || submission.isError) return;
+    if (!submission.data) {
+      lastSavedSnapshot.current = JSON.stringify([mode, ""]);
+      setHydrated(true);
+      return;
+    }
+    const { sub, files } = submission.data;
+    setText(sub.typed_content ?? "");
+    lastSavedSnapshot.current = JSON.stringify([sub.mode ?? mode, sub.typed_content ?? ""]);
+    setChoice(sub.mode === "typed" ? "typed" : "handwritten");
+    setViolations(sub.paste_violation_count ?? 0);
+    setBlocks(
+      files
+        .filter((f) => f.kind === "inline_image")
+        .map((f) => ({ id: f.id, path: f.storage_path, url: f.url, caption: f.caption ?? "" })),
+    );
+    setPages(files.filter((f) => f.kind === "page") as Page[]);
+    setHydrated(true);
+  }, [submission.data, submission.isLoading, submission.isError, hydrated, mode]);
+
+  const locked = ["submitted", "reviewed", "completed", "late"].includes(
+    submission.data?.sub.status ?? "",
+  );
+
+  const draftSnapshot = JSON.stringify([activeMode, text]);
+  latestAutosaveSnapshot.current = draftSnapshot;
+  const existingSubmissionId = submission.data?.sub?.id ?? null;
+
+  const ensureSubmission = useCallback(async () => {
+    if (submissionIdRef.current) return submissionIdRef.current;
+    if (existingSubmissionId) {
+      submissionIdRef.current = existingSubmissionId;
+      return existingSubmissionId;
+    }
+    if (ensureSubmissionPromise.current) return ensureSubmissionPromise.current;
+
+    const createPromise = (async () => {
+      const { data, error } = await supabase
+        .from("submissions")
+        .insert({
+          assignment_id: assignment.id,
+          student_id: userId,
+          status: "in_progress",
+          mode: activeMode,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      submissionIdRef.current = data.id;
+      await qc.invalidateQueries({ queryKey: ["my-submission", assignment.id, userId] });
+      return data.id;
+    })();
+
+    ensureSubmissionPromise.current = createPromise;
+    try {
+      return await createPromise;
+    } finally {
+      if (ensureSubmissionPromise.current === createPromise) ensureSubmissionPromise.current = null;
+    }
+  }, [activeMode, assignment.id, existingSubmissionId, qc, userId]);
+
+  useEffect(() => {
+    if (!hydrated || submission.isLoading || submission.isError || locked || activeMode !== "typed") return;
+    if (draftSnapshot === lastSavedSnapshot.current) return;
+    if (!text.trim() && !existingSubmissionId && !submissionIdRef.current) {
+      setDraftSaveState("idle");
+      return;
+    }
+
+    setDraftSaveState("pending");
+    const snapshot = draftSnapshot;
+    const textToSave = text;
+    const modeToSave = activeMode;
+    const timer = setTimeout(() => {
+      if (autosaveTimer.current === timer) autosaveTimer.current = null;
+      const job = (async () => {
+        const inFlight = autosavePromise.current;
+        if (inFlight) await inFlight.catch(() => undefined);
+        if (
+          latestAutosaveSnapshot.current !== snapshot ||
+          lastSavedSnapshot.current === snapshot
+        ) return;
+
+        setDraftSaveState("saving");
+        try {
+          const submissionId = await ensureSubmission();
+          if (latestAutosaveSnapshot.current !== snapshot) return;
+          const { error } = await supabase
+            .from("submissions")
+            .update({ typed_content: textToSave, mode: modeToSave })
+            .eq("id", submissionId);
+          if (error) throw error;
+          if (latestAutosaveSnapshot.current === snapshot) {
+            lastSavedSnapshot.current = snapshot;
+            setDraftSaveState("saved");
+            setLastSavedAt(new Date());
+            void qc.invalidateQueries({ queryKey: ["my-submission", assignment.id, userId] });
+          }
+        } catch {
+          if (latestAutosaveSnapshot.current === snapshot) setDraftSaveState("error");
+        }
+      })();
+      autosavePromise.current = job;
+      void job.finally(() => {
+        if (autosavePromise.current === job) autosavePromise.current = null;
+      });
+    }, 1000);
+    autosaveTimer.current = timer;
+
+    return () => {
+      clearTimeout(timer);
+      if (autosaveTimer.current === timer) autosaveTimer.current = null;
+    };
+  }, [
+    activeMode,
+    assignment.id,
+    draftSnapshot,
+    ensureSubmission,
+    existingSubmissionId,
+    hydrated,
+    locked,
+    qc,
+    submission.isError,
+    submission.isLoading,
+    text,
+    userId,
+  ]);
 
   async function uploadFile(file: File, kind: "page" | "inline_image", order: number) {
+    if (file.size > 50 * 1024 * 1024) {
+      throw new Error(`${file.name} is larger than the 50 MB per-file limit.`);
+    }
     const quota = await (supabase as any).rpc("assert_storage_available", {
       _additional_bytes: file.size,
     });
     if (quota.error) throw quota.error;
     const submissionId = await ensureSubmission();
-    const ext = file.name.split(".").pop() ?? "bin";
+    const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "bin";
     const path = `${assignment.id}/${userId}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from("submissions").upload(path, file, {
-      contentType: file.type,
+      contentType: file.type || "application/octet-stream",
       upsert: false,
     });
     if (error) throw error;
@@ -399,50 +518,95 @@ function StudentSubmission({
       })
       .select("id")
       .single();
-    if (rowErr) throw rowErr;
+    if (rowErr) {
+      // The object upload succeeded but its metadata insert failed. Clean up the
+      // object so retries don't leave untracked files consuming storage quota.
+      const { error: cleanupError } = await supabase.storage.from("submissions").remove([path]);
+      if (cleanupError) {
+        console.error("Failed to clean up an orphaned submission upload", cleanupError);
+      }
+      throw rowErr;
+    }
     const { data: signed } = await supabase.storage.from("submissions").createSignedUrl(path, 3600);
-    return { id: row.id, path, url: signed?.signedUrl ?? "", file_name: file.name };
+    return { id: row.id, path, url: signed?.signedUrl ?? "", file_name: file.name, mime_type: file.type };
   }
 
   async function handlePages(files: FileList | null) {
-    if (!files?.length) return;
+    if (!files?.length || uploading) return;
     setUploading(true);
+    const allowedExtensions = new Set([
+      "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "csv", "txt", "zip",
+      "avif", "bmp", "gif", "heic", "heif", "jpeg", "jpg", "png", "webp",
+    ]);
+    const failures: string[] = [];
+    let uploaded = 0;
+    let order = pages.length;
+
     try {
-      const added: Page[] = [];
-      let order = pages.length;
       for (const file of Array.from(files)) {
-        const ok = file.type.startsWith("image/") || file.type === "application/pdf";
-        if (!ok) {
-          toast.error(`${file.name} must be an image or PDF`);
+        const extension = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
+        if (!allowedExtensions.has(extension)) {
+          failures.push(`${file.name}: unsupported file type`);
           continue;
         }
-        if (file.size > 15 * 1024 * 1024) {
-          toast.error(`${file.name} is larger than 15MB`);
+        if (file.size > 50 * 1024 * 1024) {
+          failures.push(`${file.name}: larger than the 50 MB per-file limit`);
           continue;
         }
-        const r = await uploadFile(file, "page", order);
-        added.push({
-          id: r.id,
-          storage_path: r.path,
-          url: r.url,
-          file_name: r.file_name,
-          page_order: order,
-        });
-        order += 1;
+
+        try {
+          const result = await uploadFile(file, "page", order);
+          const page: Page = {
+            id: result.id,
+            storage_path: result.path,
+            url: result.url,
+            file_name: result.file_name,
+            mime_type: result.mime_type,
+            page_order: order,
+          };
+          // Keep every successful upload visible even if a later file in the batch fails.
+          setPages((current) => [...current, page]);
+          order += 1;
+          uploaded += 1;
+        } catch (error) {
+          failures.push(
+            `${file.name}: ${error instanceof Error ? error.message : "upload failed"}`,
+          );
+        }
       }
-      setPages((p) => [...p, ...added]);
-      if (added.length) toast.success(`${added.length} page(s) uploaded`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
+
+      if (uploaded) toast.success(`${uploaded} file${uploaded === 1 ? "" : "s"} uploaded`);
+      if (failures.length) {
+        const preview = failures.slice(0, 3).join("; ");
+        toast.error(
+          `${failures.length} file${failures.length === 1 ? "" : "s"} could not be uploaded: ${preview}${failures.length > 3 ? "; see each file and retry failed items" : ""}`,
+        );
+      }
     } finally {
       setUploading(false);
     }
   }
 
   async function removePage(p: Page) {
-    await supabase.from("submission_files").delete().eq("id", p.id);
-    await supabase.storage.from("submissions").remove([p.storage_path]);
-    setPages((prev) => prev.filter((x) => x.id !== p.id));
+    try {
+      // Keep the submission metadata/UI intact if storage deletion fails, so the user can retry.
+      const { error: storageError } = await supabase.storage
+        .from("submissions")
+        .remove([p.storage_path]);
+      if (storageError) throw storageError;
+
+      const { error: rowError } = await supabase
+        .from("submission_files")
+        .delete()
+        .eq("id", p.id);
+      if (rowError) throw rowError;
+
+      setPages((prev) => prev.filter((x) => x.id !== p.id));
+      toast.success("File removed");
+      void qc.invalidateQueries({ queryKey: ["my-submission", assignment.id, userId] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't remove this file. Please retry.");
+    }
   }
 
   async function logViolation(kind: string) {
@@ -463,13 +627,15 @@ function StudentSubmission({
 
   const save = useMutation({
     mutationFn: async (submit: boolean) => {
-      const submissionId = await ensureSubmission();
+      // Validate first so a failed submit never creates an empty in-progress record.
+      if (uploading) throw new Error("Wait for file uploads to finish before saving or submitting.");
       if (submit) {
         if (activeMode === "handwritten" && pages.length === 0)
-          throw new Error("Upload at least one page before submitting");
+          throw new Error("Upload at least one file or photo before submitting");
         if (activeMode === "typed" && text.trim().length < 10)
           throw new Error("Write your answer before submitting");
       }
+      const submissionId = await ensureSubmission();
       const isLate = assignment.due_date ? new Date() > new Date(assignment.due_date) : false;
       const { error } = await supabase
         .from("submissions")
@@ -489,14 +655,18 @@ function StudentSubmission({
         .eq("id", submissionId);
       if (error) throw error;
       for (const [i, b] of blocks.entries()) {
-        await supabase
+        const { error: blockError } = await supabase
           .from("submission_files")
           .update({ caption: b.caption, page_order: i })
           .eq("id", b.id);
+        if (blockError) throw blockError;
       }
       return submit;
     },
     onSuccess: (submitted) => {
+      lastSavedSnapshot.current = JSON.stringify([activeMode, text]);
+      setDraftSaveState("saved");
+      setLastSavedAt(new Date());
       toast.success(submitted ? "Submitted" : "Draft saved");
       onSaved();
       void qc.invalidateQueries({ queryKey: ["my-submission"] });
@@ -505,13 +675,40 @@ function StudentSubmission({
   });
 
   if (submission.isLoading) return <Skeleton className="h-64 w-full rounded-xl" />;
+  if (submission.isError) {
+    return (
+      <section className="panel p-6">
+        <p className="text-sm text-muted-foreground">
+          We couldn't load your existing submission. Your work hasn't been changed. Please try again before uploading or submitting.
+        </p>
+        <Button className="mt-3" variant="outline" onClick={() => void submission.refetch()}>
+          Try again
+        </Button>
+      </section>
+    );
+  }
 
   const sub = submission.data?.sub;
 
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Your submission</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-lg font-semibold">Your submission</h2>
+          {!locked && activeMode === "typed" && hydrated && (
+            <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
+              {draftSaveState === "pending"
+                ? "Unsaved changes"
+                : draftSaveState === "saving"
+                  ? "Saving draft…"
+                  : draftSaveState === "saved"
+                    ? `Draft saved${lastSavedAt ? ` at ${lastSavedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}`
+                    : draftSaveState === "error"
+                      ? "Autosave failed — use Save draft to retry"
+                      : "Draft saves automatically"}
+            </p>
+          )}
+        </div>
         <StatusBadge
           status={(sub?.is_late ? "late" : (sub?.status ?? "not_started")) as SubmissionStatus}
         />
@@ -545,6 +742,11 @@ function StudentSubmission({
           Your teacher hasn&apos;t released your grade yet.
         </p>
       )}
+      {sub?.status === "returned" && (
+        <p className="panel border-warning/40 bg-warning/5 p-4 text-sm">
+          Your teacher returned this submission for changes. Update your work, then submit it again when ready.
+        </p>
+      )}
 
       {locked ? (
         <div className="panel p-6">
@@ -553,14 +755,22 @@ function StudentSubmission({
             this submission.
           </p>
           {pages.length > 0 && (
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {pages.map((p) => (
-                <img
-                  key={p.id}
-                  src={p.url}
-                  alt={p.file_name}
-                  className="aspect-[3/4] w-full rounded-md border border-border object-cover"
-                />
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {pages.map((p, i) => (
+                <div key={p.id} className="min-w-0 overflow-hidden rounded-lg border border-border">
+                  {isPhotoFile(p) ? (
+                    <a href={p.url} target="_blank" rel="noreferrer" className="block">
+                      <img src={p.url} alt={p.file_name || "Uploaded photo"} className="max-h-96 w-full bg-muted/20 object-contain" />
+                    </a>
+                  ) : (
+                    <a href={p.url} target="_blank" rel="noreferrer" className="flex min-h-24 items-center gap-3 p-4 hover:bg-accent/30">
+                      <FileUp className="size-6 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 break-words text-sm font-medium">{p.file_name}</span>
+                      <Download className="size-4 shrink-0 text-muted-foreground" />
+                    </a>
+                  )}
+                  <p className="break-words px-3 py-2 text-xs text-muted-foreground">{p.file_name || (isPhotoFile(p) ? "Photo " + (i + 1) : "Uploaded file")}</p>
+                </div>
               ))}
             </div>
           )}
@@ -570,7 +780,7 @@ function StudentSubmission({
         <Tabs value={activeMode} onValueChange={(v) => setChoice(v as "handwritten" | "typed")}>
           {assignment.submission_type === "either" && (
             <TabsList>
-              <TabsTrigger value="handwritten">Handwritten</TabsTrigger>
+              <TabsTrigger value="handwritten">File &amp; Photo Upload</TabsTrigger>
               <TabsTrigger value="typed">Typed</TabsTrigger>
             </TabsList>
           )}
@@ -586,7 +796,7 @@ function StudentSubmission({
             >
               <FileUp className="size-6 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                Drag pages here, or take photos of your handwritten work.
+                Upload files or photos of your work. PDF, Word, PowerPoint, Excel, CSV, TXT, ZIP and image formats are supported (max 50MB each).
               </p>
               <Button
                 variant="outline"
@@ -603,10 +813,14 @@ function StudentSubmission({
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/*,application/pdf"
+                accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.zip"
                 multiple
                 className="hidden"
-                onChange={(e) => void handlePages(e.target.files)}
+                onChange={(e) => {
+                  void handlePages(e.target.files);
+                  // Allow choosing the same file again after removing it or a failed upload.
+                  e.currentTarget.value = "";
+                }}
               />
             </div>
 
@@ -619,19 +833,25 @@ function StudentSubmission({
                     animate={{ opacity: 1, scale: 1 }}
                     className="panel relative overflow-hidden p-0"
                   >
-                    <img
-                      src={p.url}
-                      alt={`Page ${i + 1}`}
-                      className="aspect-[3/4] w-full object-cover"
-                    />
+                    {isPhotoFile(p) ? (
+                      <a href={p.url} target="_blank" rel="noreferrer" className="block">
+                        <img src={p.url} alt={p.file_name || "Uploaded photo"} className="aspect-[3/4] w-full bg-muted/20 object-contain" />
+                      </a>
+                    ) : (
+                      <a href={p.url} target="_blank" rel="noreferrer" className="flex min-h-40 flex-col items-center justify-center gap-3 p-4 text-center hover:bg-accent/30">
+                        <FileUp className="size-8 text-muted-foreground" />
+                        <span className="w-full break-words text-sm font-medium">{p.file_name}</span>
+                        <span className="text-xs text-muted-foreground">Open file</span>
+                      </a>
+                    )}
                     <div className="flex items-center justify-between px-2 py-1.5 text-xs">
-                      <span className="text-muted-foreground">Page {i + 1}</span>
+                      <span className="min-w-0 truncate text-muted-foreground">{isPhotoFile(p) ? "Photo " + (i + 1) : p.file_name}</span>
                       <motion.button
                         type="button"
                         {...getPressProps(shouldReduceMotion, { hoverScale: 1.15, tapScale: 0.9 })}
                         onClick={() => void removePage(p)}
                         className="cursor-pointer"
-                        aria-label="Remove page"
+                        aria-label="Remove uploaded file"
                       >
                         <Trash2 className="size-3.5 text-destructive" />
                       </motion.button>

@@ -1,12 +1,13 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, FileText, Loader2, Trash2, Upload } from "lucide-react";
+import { FileText, Loader2, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FilePreviewDialog, type PreviewableFile } from "@/components/grading/FilePreviewDialog";
 
 type Resource = {
   id: string;
@@ -26,10 +27,13 @@ function formatSize(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
 export function ClassResources({ classId, canManage }: { classId: string; canManage: boolean }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [previewFile, setPreviewFile] = useState<PreviewableFile | null>(null);
 
   const resources = useQuery({
     queryKey: ["class-resources", classId],
@@ -44,27 +48,11 @@ export function ClassResources({ classId, canManage }: { classId: string; canMan
     },
   });
 
-  const download = useMutation({
-    mutationFn: async (resource: Resource) => {
-      const { data, error } = await supabase.storage
-        .from("class-resources")
-        .download(resource.storage_path);
-      if (error) throw error;
-      const url = URL.createObjectURL(data);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = resource.file_name;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
-
   const upload = useMutation({
     mutationFn: async (files: File[]) => {
       if (!user) throw new Error("Sign in to upload resources");
+      const oversized = files.find((file) => file.size > MAX_UPLOAD_BYTES);
+      if (oversized) throw new Error(`${oversized.name} is larger than the 50 MB per-file limit`);
       const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
       const quota = await (supabase as any).rpc("assert_storage_available", {
         _additional_bytes: totalBytes,
@@ -131,6 +119,7 @@ export function ClassResources({ classId, canManage }: { classId: string; canMan
               disabled={upload.isPending}
               onChange={(event) => {
                 const files = Array.from(event.target.files ?? []);
+                event.currentTarget.value = "";
                 if (files.length) upload.mutate(files);
               }}
             />
@@ -164,10 +153,15 @@ export function ClassResources({ classId, canManage }: { classId: string; canMan
               <Button
                 variant="outline"
                 size="sm"
-                disabled={download.isPending}
-                onClick={() => download.mutate(resource)}
+                onClick={() => setPreviewFile({
+                  id: resource.id,
+                  file_name: resource.file_name,
+                  mime_type: resource.mime_type,
+                  url: "",
+                  source: "resource",
+                })}
               >
-                <Download className="mr-1.5 size-4" /> Download
+                Preview / Download
               </Button>
               {canManage && (
                 <Button
@@ -184,6 +178,7 @@ export function ClassResources({ classId, canManage }: { classId: string; canMan
           ))}
         </ul>
       )}
+      <FilePreviewDialog file={previewFile} onClose={() => setPreviewFile(null)} />
     </div>
   );
 }

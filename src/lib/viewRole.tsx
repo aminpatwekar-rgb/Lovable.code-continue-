@@ -57,6 +57,8 @@ export function ViewRoleProvider({ children }: { children: ReactNode }) {
     effectiveRole = viewRole ?? "admin";
   } else if (realRole === "teacher") {
     effectiveRole = viewRole === "student" ? "student" : "teacher";
+  } else if (realRole === "institution_admin") {
+    effectiveRole = "institution_admin";
   } else if (realRole === "student") {
     effectiveRole = "student";
   } else {

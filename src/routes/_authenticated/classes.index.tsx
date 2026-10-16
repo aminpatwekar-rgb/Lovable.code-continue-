@@ -58,7 +58,7 @@ function Classes() {
   const [erNo, setErNo] = useState("");
   const [srNo, setSrNo] = useState("");
 
-  const isTeacher = effectiveRole === "teacher" || effectiveRole === "admin";
+  const isTeacher = effectiveRole === "teacher" || effectiveRole === "admin" || effectiveRole === "institution_admin";
 
   const classes = useQuery({
     queryKey: ["classes", user?.id, effectiveRole],

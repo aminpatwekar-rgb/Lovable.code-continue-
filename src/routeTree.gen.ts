@@ -19,6 +19,7 @@ import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authentic
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedInstitutionAdminRouteImport } from './routes/_authenticated/institution-admin'
+import { Route as AuthenticatedInstitutionRouteImport } from './routes/_authenticated/institution'
 import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenticated/leaderboard'
 import { Route as AuthenticatedQuestionBankRouteImport } from './routes/_authenticated/question-bank'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
@@ -92,6 +93,11 @@ const AuthenticatedInstitutionAdminRoute =
     path: '/institution-admin',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedInstitutionRoute = AuthenticatedInstitutionRouteImport.update({
+  id: '/institution',
+  path: '/institution',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedLeaderboardRoute =
   AuthenticatedLeaderboardRouteImport.update({
     id: '/leaderboard',
@@ -224,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/attendance': typeof AuthenticatedAttendanceRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/institution': typeof AuthenticatedInstitutionRoute
   '/institution-admin': typeof AuthenticatedInstitutionAdminRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/question-bank': typeof AuthenticatedQuestionBankRoute
@@ -256,6 +263,7 @@ export interface FileRoutesByTo {
   '/attendance': typeof AuthenticatedAttendanceRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/institution': typeof AuthenticatedInstitutionRoute
   '/institution-admin': typeof AuthenticatedInstitutionAdminRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/question-bank': typeof AuthenticatedQuestionBankRoute
@@ -290,6 +298,7 @@ export interface FileRoutesById {
   '/_authenticated/attendance': typeof AuthenticatedAttendanceRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/institution': typeof AuthenticatedInstitutionRoute
   '/_authenticated/institution-admin': typeof AuthenticatedInstitutionAdminRoute
   '/_authenticated/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/_authenticated/question-bank': typeof AuthenticatedQuestionBankRoute
@@ -324,6 +333,7 @@ export interface FileRouteTypes {
     | '/attendance'
     | '/calendar'
     | '/dashboard'
+    | '/institution'
     | '/institution-admin'
     | '/leaderboard'
     | '/question-bank'
@@ -356,6 +366,7 @@ export interface FileRouteTypes {
     | '/attendance'
     | '/calendar'
     | '/dashboard'
+    | '/institution'
     | '/institution-admin'
     | '/leaderboard'
     | '/question-bank'
@@ -389,6 +400,7 @@ export interface FileRouteTypes {
     | '/_authenticated/attendance'
     | '/_authenticated/calendar'
     | '/_authenticated/dashboard'
+    | '/_authenticated/institution'
     | '/_authenticated/institution-admin'
     | '/_authenticated/leaderboard'
     | '/_authenticated/question-bank'
@@ -484,6 +496,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/institution': {
+      id: '/_authenticated/institution'
+      path: '/institution'
+      fullPath: '/institution'
+      preLoaderRoute: typeof AuthenticatedInstitutionRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/institution-admin': {
@@ -665,6 +684,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedInstitutionAdminRoute: typeof AuthenticatedInstitutionAdminRoute
+  AuthenticatedInstitutionRoute: typeof AuthenticatedInstitutionRoute
   AuthenticatedLeaderboardRoute: typeof AuthenticatedLeaderboardRoute
   AuthenticatedQuestionBankRoute: typeof AuthenticatedQuestionBankRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
@@ -693,6 +713,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedInstitutionAdminRoute: AuthenticatedInstitutionAdminRoute,
+  AuthenticatedInstitutionRoute: AuthenticatedInstitutionRoute,
   AuthenticatedLeaderboardRoute: AuthenticatedLeaderboardRoute,
   AuthenticatedQuestionBankRoute: AuthenticatedQuestionBankRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,

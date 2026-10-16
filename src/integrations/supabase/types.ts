@@ -1929,6 +1929,17 @@ export type Database = {
           student_id: string
         }[]
       }
+      update_class_member_identity: {
+        Args: {
+          _class_id: string
+          _er_no: string
+          _full_name: string
+          _member_id: string
+          _roll_no: string
+          _sr_no: string
+        }
+        Returns: undefined
+      }
       get_co_teacher_code: { Args: { _class_id: string }; Returns: string }
       get_profile_emails: {
         Args: { _ids: string[] }

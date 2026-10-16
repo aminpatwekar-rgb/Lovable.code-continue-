@@ -106,7 +106,7 @@ export const getInstitutionAdminOverview = createServerFn({ method: "GET" })
       }];
     });
 
-    const teacherIds = roster.filter((member) => member.role === "teacher").map((member) => member.id);
+    const teacherIds = roster.filter((member) => member.role === "teacher" || member.role === "institution_admin").map((member) => member.id);
     const classIdSet = new Set<string>();
     if (teacherIds.length) {
       const [

@@ -454,7 +454,7 @@ function AdminConsole() {
                       <td className="p-3 text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" disabled={u.id === user?.id || u.email?.trim().toLowerCase() === "aminpatwekar@gmail.com" || (u.role === "admin" && !isPrimaryAdmin)}>
+                            <Button variant="outline" size="sm" disabled={u.id === user?.id || u.email?.trim().toLowerCase() === "aminpatwekar@gmail.com"}>
                               Manage
                             </Button>
                           </DropdownMenuTrigger>

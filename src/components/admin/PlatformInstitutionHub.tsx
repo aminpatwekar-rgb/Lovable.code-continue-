@@ -174,6 +174,41 @@ export function PlatformInstitutionHub() {
           </div>
 
           <section className="panel space-y-3 p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="font-semibold">Department directory ({detail.departmentList.length})</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Departments registered under {detail.institution.name}.
+                </p>
+              </div>
+              <Layers className="size-4 text-muted-foreground" />
+            </div>
+            {detail.departmentList.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">
+                No departments have been created for this institution yet.
+              </p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {detail.departmentList.map((department) => (
+                  <article key={department.id} className="flex items-start gap-3 rounded-lg border border-border/80 p-4">
+                    <div className="rounded-md bg-primary/10 p-2">
+                      <Layers className="size-4 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-medium">{department.name}</h4>
+                      {department.code ? (
+                        <p className="mt-1 text-xs text-muted-foreground">Code: {department.code}</p>
+                      ) : (
+                        <p className="mt-1 text-xs text-muted-foreground">No department code</p>
+                      )}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="panel space-y-3 p-4 sm:p-5">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h3 className="font-semibold">Classes ({detail.classes.length})</h3>

@@ -76,7 +76,7 @@ export const getInstitutionAdminOverview = createServerFn({ method: "GET" })
       admin.from("profiles")
         .select("id, full_name, email, is_active, created_at, institution, institution_id")
         .is("institution_id", null)
-        .ilike("institution", institution.name),
+        .eq("institution", institution.name),
     ]);
     if (linkedProfilesError || legacyProfilesError) throw new Error("Could not load the institution roster.");
 

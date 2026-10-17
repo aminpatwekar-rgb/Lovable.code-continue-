@@ -16,6 +16,7 @@ import { getInstitutionHubData, type InstitutionHubResponse } from "@/lib/instit
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/lib/auth";
 
 type InstitutionChoice = InstitutionHubResponse["institutions"][number];
 type InstitutionDetail = NonNullable<InstitutionHubResponse["detail"]>;
@@ -37,13 +38,15 @@ function displayDate(value: string | null | undefined) {
 }
 
 export function PlatformInstitutionHub() {
+  const { user, role } = useAuth();
+  const cacheScope = user?.id ?? "anonymous";
   const [selectedInstitutionId, setSelectedInstitutionId] = useState<string | null>(null);
   const getHubData = useServerFn(getInstitutionHubData);
 
   // The initial response is either the platform-admin directory or the
   // institution-admin's own institution. It never returns other tenant detail.
   const directory = useQuery({
-    queryKey: ["institution-hub-directory"],
+    queryKey: ["institution-hub-directory", cacheScope, role],
     queryFn: () => getHubData({ data: { institutionId: null } }),
   });
 
@@ -55,7 +58,7 @@ export function PlatformInstitutionHub() {
   }, [directory.data?.canSelectInstitution, directory.data?.selectedInstitutionId, selectedInstitutionId]);
 
   const institutionDetail = useQuery({
-    queryKey: ["institution-hub-detail", selectedInstitutionId],
+    queryKey: ["institution-hub-detail", cacheScope, role, selectedInstitutionId],
     enabled: Boolean(directory.data?.canSelectInstitution && selectedInstitutionId),
     queryFn: () => getHubData({ data: { institutionId: selectedInstitutionId } }),
   });

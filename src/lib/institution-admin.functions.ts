@@ -21,6 +21,20 @@ export type InstitutionAdminOverview = {
   roster: InstitutionAdminMember[];
 };
 
+function isMissingClassInstitutionScope(error: { code?: string; message?: string } | null): boolean {
+  const message = String(error?.message ?? "").toLowerCase();
+  return Boolean(
+    message.includes("institution_id") &&
+    (
+      error?.code === "42703" ||
+      error?.code === "PGRST204" ||
+      message.includes("does not exist") ||
+      message.includes("schema cache") ||
+      message.includes("could not find")
+    )
+  );
+}
+
 /**
  * Institution admins can only read a roster and activity counts for the single
  * institution associated with their authenticated account. Service-role access
@@ -127,10 +141,49 @@ export const getInstitutionAdminOverview = createServerFn({ method: "GET" })
       .from("classes")
       .select("id")
       .eq("institution_id", institution.id);
+
+    let classIds = (classRows ?? []).map((row: any) => row.id);
     if (classesError) {
-      throw new Error("Could not load institution-scoped classes. Apply the institution transfer scope migration and retry.");
+      if (!isMissingClassInstitutionScope(classesError)) {
+        throw new Error("Could not load classes for this institution.");
+      }
+
+      const institutionProfileIds = rows.map((row: any) => row.id);
+      const classCreatorIds = institutionProfileIds.filter((id: string) => {
+        const assignedRoles = byUser.get(id) ?? [];
+        return !assignedRoles.includes("admin") &&
+          (assignedRoles.includes("teacher") || assignedRoles.includes("institution_admin"));
+      });
+      const { data: departments, error: departmentsError } = await admin
+        .from("departments")
+        .select("id")
+        .eq("institution_id", institution.id);
+      if (departmentsError) throw new Error("Could not load this institution's departments.");
+
+      const departmentIds = (departments ?? []).map((department: any) => department.id);
+      const legacyClassQueries: any[] = [];
+      if (departmentIds.length) {
+        legacyClassQueries.push(
+          admin.from("classes").select("id, department_id").in("department_id", departmentIds),
+        );
+      }
+      if (classCreatorIds.length) {
+        legacyClassQueries.push(
+          admin.from("classes").select("id, department_id").in("teacher_id", classCreatorIds),
+        );
+      }
+      const legacyResults = await Promise.all(legacyClassQueries);
+      const legacyClassIds = new Set<string>();
+      const allowedDepartmentIds = new Set<string>(departmentIds);
+      for (const result of legacyResults) {
+        if (result.error) throw new Error("Could not load classes for this institution.");
+        for (const row of result.data ?? []) {
+          if (row.department_id && !allowedDepartmentIds.has(row.department_id)) continue;
+          legacyClassIds.add(row.id);
+        }
+      }
+      classIds = [...legacyClassIds];
     }
-    const classIds = (classRows ?? []).map((row: any) => row.id);
     const { data: assignmentRows, error: assignmentsError } = classIds.length
       ? await admin.from("assignments").select("id").in("class_id", classIds)
       : { data: [], error: null };

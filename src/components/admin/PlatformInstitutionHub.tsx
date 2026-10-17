@@ -198,7 +198,7 @@ export function PlatformInstitutionHub() {
                       <th className="p-3 font-medium">Students</th>
                       <th className="p-3 font-medium">Assignments</th>
                       <th className="p-3 font-medium">Status</th>
-                      <th className="p-3 font-medium">Open</th>
+                      {canSelectInstitution ? <th className="p-3 font-medium">Open</th> : null}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -217,11 +217,13 @@ export function PlatformInstitutionHub() {
                         <td className="p-3 tabular-nums">{row.studentCount}</td>
                         <td className="p-3 tabular-nums">{row.assignmentCount}</td>
                         <td className="p-3">{row.archived ? "Archived" : "Active"}</td>
-                        <td className="p-3">
-                          <Button asChild variant="outline" size="sm">
-                            <Link to="/classes/$classId" params={{ classId: row.id }}>View</Link>
-                          </Button>
-                        </td>
+                        {canSelectInstitution ? (
+                          <td className="p-3">
+                            <Button asChild variant="outline" size="sm">
+                              <Link to="/classes/$classId" params={{ classId: row.id }}>View</Link>
+                            </Button>
+                          </td>
+                        ) : null}
                       </tr>
                     ))}
                   </tbody>
@@ -250,13 +252,17 @@ export function PlatformInstitutionHub() {
                   <li key={assignment.id} className="flex flex-wrap items-center gap-3 p-4">
                     <div className="rounded-lg bg-primary/10 p-2"><ClipboardList className="size-4 text-primary" /></div>
                     <div className="min-w-0 flex-1">
-                      <Link
-                        to="/assignments/$assignmentId"
-                        params={{ assignmentId: assignment.id }}
-                        className="font-medium hover:underline"
-                      >
-                        {assignment.title}
-                      </Link>
+                      {canSelectInstitution ? (
+                        <Link
+                          to="/assignments/$assignmentId"
+                          params={{ assignmentId: assignment.id }}
+                          className="font-medium hover:underline"
+                        >
+                          {assignment.title}
+                        </Link>
+                      ) : (
+                        <p className="font-medium">{assignment.title}</p>
+                      )}
                       <p className="mt-1 text-xs text-muted-foreground">
                         {assignment.className} · {assignment.teacherName} · <CalendarDays className="mr-1 inline size-3" />{displayDate(assignment.dueDate)}
                       </p>

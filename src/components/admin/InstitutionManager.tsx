@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { fetchProfileEmails } from "@/lib/profile-emails";
 import { csvObjects, downloadCsv, toCsv } from "@/lib/csv";
-import { assignInstitutionMembers, bulkCreateInstitutionStudents, deleteInstitution, removeInstitutionMember, updateInstitutionDetails, type StudentOnboardingResult } from "@/lib/admin.functions";
+import { assignInstitutionMembers, bulkCreateInstitutionStudents, deleteInstitution, removeInstitutionMember, transferInstitutionMembers, updateInstitutionDetails, type StudentOnboardingResult } from "@/lib/admin.functions";
 import { InstitutionAdminsCard } from "@/components/admin/InstitutionAdminsCard";
 import { InstitutionJoinLinks } from "@/components/institution/InstitutionJoinLinks";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ const db = supabase as any;
 
 type InstitutionRow = { id: string; name: string; code: string | null; city: string | null; created_at: string };
 type InstitutionPerson = {
-  id: string; full_name: string; email: string; institution: string | null;
+  id: string; full_name: string; email: string; institution: string | null; institution_id: string | null;
   is_active: boolean; role: "student" | "teacher" | "institution_admin" | "admin" | "unknown";
 };
 type RosterResult = { assigned: number; skipped: number; skippedRows: { email: string; reason: string }[] };
@@ -33,6 +33,7 @@ export function InstitutionManager() {
   const qc = useQueryClient();
   const isAdmin = role === "admin";
   const assignMembersFn = useServerFn(assignInstitutionMembers);
+  const transferMembersFn = useServerFn(transferInstitutionMembers);
   const updateInstitutionFn = useServerFn(updateInstitutionDetails);
   const removeMemberFn = useServerFn(removeInstitutionMember);
   const deleteInstitutionFn = useServerFn(deleteInstitution);
@@ -71,7 +72,7 @@ export function InstitutionManager() {
     queryKey: ["admin-institution-people"],
     queryFn: async (): Promise<InstitutionPerson[]> => {
       const [{ data: profiles, error: profileError }, { data: roleRows, error: rolesError }] = await Promise.all([
-        db.from("profiles").select("id, full_name, institution, is_active, created_at").order("full_name", { ascending: true }),
+        db.from("profiles").select("id, full_name, institution, institution_id, is_active, created_at").order("full_name", { ascending: true }),
         db.from("user_roles").select("user_id, role"),
       ]);
       if (profileError) throw profileError;
@@ -94,6 +95,7 @@ export function InstitutionManager() {
           full_name: profile.full_name ?? "",
           email: emails.get(profile.id) ?? "",
           institution: typeof profile.institution === "string" ? profile.institution.trim() || null : null,
+          institution_id: typeof profile.institution_id === "string" ? profile.institution_id : null,
           is_active: profile.is_active !== false,
           role: resolved,
         };
@@ -189,6 +191,17 @@ export function InstitutionManager() {
     onError: (error: Error) => toast.error(error.message || "Couldn't save institution details."),
   });
 
+  const refreshInstitutionPeople = async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["admin-institution-people"] }),
+      qc.invalidateQueries({ queryKey: ["institution-readiness"] }),
+      qc.invalidateQueries({ queryKey: ["institution-admin-overview"] }),
+      qc.invalidateQueries({ queryKey: ["institution-hub-directory"] }),
+      qc.invalidateQueries({ queryKey: ["institution-hub-detail"] }),
+      qc.invalidateQueries({ queryKey: ["admin-institutions"] }),
+    ]);
+  };
+
   const assignMembers = useMutation({
     mutationFn: (payload: { userIds?: string[]; emails?: string[] }) => assignMembersFn({
       data: { institutionId: activeInstitution!.id, ...payload },
@@ -197,12 +210,25 @@ export function InstitutionManager() {
       setSelectedPeople([]); setLastResult(result);
       if (result.assigned) toast.success("Added " + result.assigned + " member(s).");
       else toast.info("No new members were added. Review the results below.");
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: ["admin-institution-people"] }),
-        qc.invalidateQueries({ queryKey: ["institution-readiness"] }),
-      ]);
+      await refreshInstitutionPeople();
     },
     onError: (error: Error) => toast.error(error.message || "Couldn't add members."),
+  });
+
+  const transferMembers = useMutation({
+    mutationFn: (userIds: string[]) => transferMembersFn({
+      data: { institutionId: activeInstitution!.id, userIds },
+    }),
+    onSuccess: async (result) => {
+      setSelectedPeople([]); setLastResult(result);
+      if (result.assigned) {
+        toast.success("Transferred " + result.assigned + " account(s). Old department and class roster access was removed; historical academic work was preserved.");
+      } else {
+        toast.info("No accounts were transferred. Review the results below.");
+      }
+      await refreshInstitutionPeople();
+    },
+    onError: (error: Error) => toast.error(error.message || "Couldn't transfer these accounts."),
   });
 
   const bulkOnboardStudents = useMutation({
@@ -267,7 +293,8 @@ export function InstitutionManager() {
     if (!activeInstitution) return [];
     const institutionName = activeInstitution.name.trim().toLowerCase();
     return (people.data ?? []).filter((person) =>
-      person.institution?.toLowerCase() === institutionName &&
+      (person.institution_id === activeInstitution.id ||
+        (!person.institution_id && person.institution?.trim().toLowerCase() === institutionName)) &&
       (person.role === "student" || person.role === "teacher" || person.role === "institution_admin"),
     );
   }, [activeInstitution, people.data]);
@@ -281,6 +308,14 @@ export function InstitutionManager() {
       return !query || person.full_name.toLowerCase().includes(query) || person.email.toLowerCase().includes(query);
     });
   }, [currentMembers, people.data, personSearch]);
+
+  const selectedTransferCount = useMemo(() => {
+    if (!activeInstitution) return 0;
+    const selected = new Set(selectedPeople);
+    return availablePeople.filter((person) =>
+      selected.has(person.id) && Boolean(person.institution_id) && person.institution_id !== activeInstitution.id,
+    ).length;
+  }, [activeInstitution, availablePeople, selectedPeople]);
 
   const csvRowCount = useMemo(() => csvObjects(csv).length, [csv]);
 
@@ -407,9 +442,27 @@ export function InstitutionManager() {
               </label>)}
               {availablePeople.length > 150 && <p className="p-2 text-xs text-muted-foreground">Showing 150 results. Refine your search to find others.</p>}
             </div>}
-          <Button disabled={!selectedPeople.length || assignMembers.isPending} onClick={() => assignMembers.mutate({ userIds: selectedPeople })}>
-            <UserPlus className="mr-2 size-4" />{assignMembers.isPending ? "Adding…" : "Add selected (" + selectedPeople.length + ")"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={!selectedPeople.length || assignMembers.isPending || transferMembers.isPending} onClick={() => assignMembers.mutate({ userIds: selectedPeople })}>
+              <UserPlus className="mr-2 size-4" />{assignMembers.isPending ? "Adding…" : "Add selected (" + selectedPeople.length + ")"}
+            </Button>
+            {selectedTransferCount > 0 && (
+              <Button
+                variant="outline"
+                disabled={transferMembers.isPending || assignMembers.isPending}
+                onClick={() => {
+                  const count = selectedTransferCount;
+                  if (window.confirm(
+                    "Transfer " + count + " selected account(s) to " + activeInstitution.name + "? Their old department and institution-class roster access will be removed. Historical submissions and grades will be retained.",
+                  )) {
+                    transferMembers.mutate(selectedPeople);
+                  }
+                }}
+              >
+                <Users className="mr-2 size-4" />{transferMembers.isPending ? "Transferring…" : "Transfer selected (" + selectedTransferCount + ")"}
+              </Button>
+            )}
+          </div>
 
           {lastResult && <div className="space-y-2 rounded-lg border border-border p-3">
             <p className="text-sm font-medium">Last manual roster action: {lastResult.assigned} added · {lastResult.skipped} skipped</p>

@@ -7,10 +7,10 @@ import { useAuth } from "@/lib/auth";
 export const Route = createFileRoute("/_authenticated/institution")({
   head: () => ({
     meta: [
-      { title: "Institution overview — ONYX" },
+      { title: "Institution — ONYX" },
       {
         name: "description",
-        content: "Platform-wide overview of institutions, departments, classes and enrolment.",
+        content: "Institution-scoped classes, assignments, departments and enrolment.",
       },
       { name: "robots", content: "noindex" },
     ],
@@ -21,14 +21,15 @@ export const Route = createFileRoute("/_authenticated/institution")({
 function InstitutionOverviewPage() {
   const { role, loading } = useAuth();
   const navigate = useNavigate();
+  const canViewInstitution = role === "admin" || role === "institution_admin";
 
   useEffect(() => {
-    if (!loading && role !== "admin") {
+    if (!loading && !canViewInstitution) {
       void navigate({ to: "/dashboard", replace: true });
     }
-  }, [loading, role, navigate]);
+  }, [loading, canViewInstitution, navigate]);
 
-  if (loading || role !== "admin") {
+  if (loading || !canViewInstitution) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-24 w-full rounded-xl" />

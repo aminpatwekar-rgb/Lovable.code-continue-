@@ -40,19 +40,21 @@ export const getInstitutionAdminOverview = createServerFn({ method: "GET" })
     const admin = supabaseAdmin as any;
     const { data: profile, error: profileError } = await admin
       .from("profiles")
-      .select("id, institution")
+      .select("id, institution, institution_id")
       .eq("id", context.userId)
       .maybeSingle();
     if (profileError) throw new Error("Could not load the institution administrator profile.");
-    const institutionLabel = String(profile?.institution ?? "").trim();
-    if (!institutionLabel) throw new Error("Your account is not assigned to an institution. Contact the platform administrator.");
 
     const { data: institutionRows, error: institutionError } = await admin
       .from("institutions")
       .select("id, name, code, city");
     if (institutionError) throw new Error("Could not load the institution directory.");
-    const institution = (institutionRows ?? []).find(
-      (item: any) => String(item.name ?? "").trim().toLowerCase() === institutionLabel.toLowerCase(),
+
+    const institutionId = typeof profile?.institution_id === "string" ? profile.institution_id : null;
+    const institutionLabel = String(profile?.institution ?? "").trim().toLowerCase();
+    const institution = (institutionRows ?? []).find((item: any) =>
+      institutionId ? item.id === institutionId
+        : String(item.name ?? "").trim().toLowerCase() === institutionLabel,
     );
     if (!institution) throw new Error("Your assigned institution could not be found. Contact the platform administrator.");
 
@@ -62,14 +64,30 @@ export const getInstitutionAdminOverview = createServerFn({ method: "GET" })
     if (scopeError) throw new Error("Could not verify institution access.");
     if (!verifiedScope) throw new Error("You are not authorized to manage this institution.");
 
-    const { data: profiles, error: membersError } = await admin
-      .from("profiles")
-      .select("id, full_name, email, is_active, created_at")
-      .eq("institution", institution.name)
-      .order("full_name", { ascending: true });
-    if (membersError) throw new Error("Could not load the institution roster.");
+    // institution_id is authoritative. The name-based query is only a temporary
+    // compatibility path for legacy profiles that have not yet been linked to an ID.
+    const [
+      { data: linkedProfiles, error: linkedProfilesError },
+      { data: legacyProfiles, error: legacyProfilesError },
+    ] = await Promise.all([
+      admin.from("profiles")
+        .select("id, full_name, email, is_active, created_at, institution, institution_id")
+        .eq("institution_id", institution.id),
+      admin.from("profiles")
+        .select("id, full_name, email, is_active, created_at, institution, institution_id")
+        .is("institution_id", null)
+        .ilike("institution", institution.name),
+    ]);
+    if (linkedProfilesError || legacyProfilesError) throw new Error("Could not load the institution roster.");
 
-    const rows = profiles ?? [];
+    const profileMap = new Map<string, any>();
+    for (const row of [...(linkedProfiles ?? []), ...(legacyProfiles ?? [])]) {
+      // Never use a stale legacy label when a profile is already linked to a
+      // different institution ID.
+      if (row.institution_id && row.institution_id !== institution.id) continue;
+      profileMap.set(row.id, row);
+    }
+    const rows = [...profileMap.values()];
     const ids = rows.map((row: any) => row.id);
     const { data: roles, error: rolesError } = ids.length
       ? await admin.from("user_roles").select("user_id, role").in("user_id", ids)
@@ -94,7 +112,6 @@ export const getInstitutionAdminOverview = createServerFn({ method: "GET" })
             : assignedRoles.includes("student")
               ? "student"
               : null;
-      // Global platform admins are never exposed as tenant roster members.
       if (!role) return [];
       return [{
         id: row.id,
@@ -106,26 +123,19 @@ export const getInstitutionAdminOverview = createServerFn({ method: "GET" })
       }];
     });
 
-    const teacherIds = roster.filter((member) => member.role === "teacher" || member.role === "institution_admin").map((member) => member.id);
-    const classIdSet = new Set<string>();
-    if (teacherIds.length) {
-      const [
-        { data: ownedClasses, error: ownedError },
-        { data: coTaughtRows, error: coTeacherError },
-      ] = await Promise.all([
-        admin.from("classes").select("id").in("teacher_id", teacherIds),
-        admin.from("class_members").select("class_id").eq("member_role", "teacher").in("student_id", teacherIds),
-      ]);
-      if (ownedError) throw new Error("Could not calculate institution class counts.");
-      if (coTeacherError) throw new Error("Could not calculate co-taught class counts.");
-      for (const item of ownedClasses ?? []) classIdSet.add(item.id);
-      for (const item of coTaughtRows ?? []) classIdSet.add(item.class_id);
+    const { data: classRows, error: classesError } = await admin
+      .from("classes")
+      .select("id")
+      .eq("institution_id", institution.id);
+    if (classesError) {
+      throw new Error("Could not load institution-scoped classes. Apply the institution transfer scope migration and retry.");
     }
-    const classIds = [...classIdSet];
+    const classIds = (classRows ?? []).map((row: any) => row.id);
     const { data: assignmentRows, error: assignmentsError } = classIds.length
       ? await admin.from("assignments").select("id").in("class_id", classIds)
       : { data: [], error: null };
     if (assignmentsError) throw new Error("Could not calculate institution assignment counts.");
+
     const assignmentIds = (assignmentRows ?? []).map((row: any) => row.id);
     const { count: submissionCount, error: submissionsError } = assignmentIds.length
       ? await admin.from("submissions").select("id", { count: "exact", head: true }).in("assignment_id", assignmentIds)
@@ -143,7 +153,6 @@ export const getInstitutionAdminOverview = createServerFn({ method: "GET" })
       roster,
     };
   });
-
 
 export type InstitutionDepartment = {
   id: string;

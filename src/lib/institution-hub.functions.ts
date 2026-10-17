@@ -113,17 +113,19 @@ export const getInstitutionHubData = createServerFn({ method: "GET" })
     } else {
       const { data: profile, error: profileError } = await admin
         .from("profiles")
-        .select("id, institution")
+        .select("id, institution, institution_id")
         .eq("id", context.userId)
         .maybeSingle();
       if (profileError) throw new Error("Could not load your institution assignment.");
 
-      const institutionLabel = String(profile?.institution ?? "").trim();
-      if (!institutionLabel) {
+      const institutionId = typeof profile?.institution_id === "string" ? profile.institution_id : null;
+      const institutionLabel = String(profile?.institution ?? "").trim().toLowerCase();
+      if (!institutionId && !institutionLabel) {
         throw new Error("Your account is not assigned to an institution. Contact the platform administrator.");
       }
-      selectedInstitution = allInstitutions.find(
-        (item) => item.name.trim().toLowerCase() === institutionLabel.toLowerCase(),
+      selectedInstitution = allInstitutions.find((item) =>
+        institutionId ? item.id === institutionId
+          : item.name.trim().toLowerCase() === institutionLabel,
       ) ?? null;
       if (!selectedInstitution) {
         throw new Error("Your assigned institution could not be found. Contact the platform administrator.");
@@ -157,7 +159,8 @@ export const getInstitutionHubData = createServerFn({ method: "GET" })
         .eq("institution_id", institution.id),
       admin.from("profiles")
         .select("id, full_name, is_active, institution, institution_id")
-        .eq("institution", institution.name),
+        .is("institution_id", null)
+        .ilike("institution", institution.name),
       admin.from("departments")
         .select("id, institution_id, name, code")
         .eq("institution_id", institution.id)
@@ -200,46 +203,21 @@ export const getInstitutionHubData = createServerFn({ method: "GET" })
       const roles = rolesByUser.get(profile.id);
       return profile.is_active !== false && roles?.has("teacher") && !roles.has("admin");
     });
-    const classCreatorIds = institutionProfiles.filter((profile) => {
-      const roles = rolesByUser.get(profile.id);
-      return !roles?.has("admin") && (roles?.has("teacher") || roles?.has("institution_admin"));
-    }).map((profile) => profile.id);
-
     const departmentRows = (departments ?? []) as Array<{ id: string; name: string; code: string | null; institution_id: string }>;
     const departmentById = new Map(departmentRows.map((department) => [department.id, department]));
-    const departmentIds = departmentRows.map((department) => department.id);
 
-    const classQueries: any[] = [];
-    if (departmentIds.length) {
-      classQueries.push(
-        admin.from("classes")
-          .select("id, name, subject, section, department_id, teacher_id, archived, created_at")
-          .in("department_id", departmentIds),
-      );
+    // Class tenant ownership is stored on the class row. Do not infer ownership
+    // from the current teacher's profile because teachers can transfer later.
+    const { data: scopedClassRows, error: classRowsError } = await admin
+      .from("classes")
+      .select("id, name, subject, section, department_id, teacher_id, archived, created_at")
+      .eq("institution_id", institution.id)
+      .order("created_at", { ascending: false });
+    if (classRowsError) {
+      throw new Error("Could not load institution-scoped classes. Apply the institution transfer scope migration and retry.");
     }
-    if (classCreatorIds.length) {
-      classQueries.push(
-        admin.from("classes")
-          .select("id, name, subject, section, department_id, teacher_id, archived, created_at")
-          .in("teacher_id", classCreatorIds),
-      );
-    }
-
-    const classResults = await Promise.all(classQueries);
-    const classById = new Map<string, any>();
-    for (const result of classResults) {
-      if (result.error) throw new Error("Could not load classes for this institution.");
-      for (const row of result.data ?? []) {
-        // A department is authoritative for a class's institution. Do not include
-        // a teacher-owned class assigned to a different institution's department.
-        if (row.department_id && !departmentById.has(row.department_id)) continue;
-        classById.set(row.id, row);
-      }
-    }
-    const rawClasses = [...classById.values()].sort(
-      (a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")),
-    );
-    const classIds = rawClasses.map((row) => row.id);
+    const rawClasses = scopedClassRows ?? [];
+    const classIds = rawClasses.map((row: any) => row.id);
 
     const [
       { data: assignments, error: assignmentsError },

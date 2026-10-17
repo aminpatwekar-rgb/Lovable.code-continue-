@@ -41,6 +41,7 @@ export type InstitutionHubResponse = {
   detail: null | {
     institution: HubInstitution;
     departments: number;
+    departmentList: Array<{ id: string; name: string; code: string | null }>;
     students: number;
     teachers: number;
     classes: HubClass[];
@@ -367,6 +368,11 @@ export const getInstitutionHubData = createServerFn({ method: "GET" })
       detail: {
         institution,
         departments: departmentRows.length,
+        departmentList: departmentRows.map((department) => ({
+          id: department.id,
+          name: department.name,
+          code: department.code,
+        })),
         students: studentCount,
         teachers: teacherCount,
         classes,

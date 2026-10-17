@@ -554,7 +554,7 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
     const { data: profiles, error: profilesError } = emailList.length
       ? await admin
           .from("profiles")
-          .select("id, full_name, email, institution, is_active, role_confirmed_at")
+          .select("id, full_name, email, institution, institution_id, is_active, role_confirmed_at")
           .in("email", emailList)
       : { data: [], error: null };
     if (profilesError) throw new Error("Could not check existing ONYX accounts.");
@@ -588,6 +588,9 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
       const userRoles = rolesByUser.get(profile.id) ?? [];
       const roleChanged = !userRoles.includes(row.role);
       const currentInstitution = String(profile.institution ?? "").trim();
+      const currentInstitutionId = typeof profile.institution_id === "string" ? profile.institution_id : null;
+      const alreadyInTargetInstitution = currentInstitutionId === institution.id ||
+        (!currentInstitutionId && currentInstitution.toLowerCase() === normalizedInstitution);
       if (userRoles.includes("admin")) {
         outcomes.push({ line: row.line, email: row.email, status: "skipped", message: "Platform-admin accounts can never be assigned or changed by the institution CSV." });
         return;
@@ -596,8 +599,9 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
         outcomes.push({ line: row.line, email: row.email, status: "skipped", message: "The existing account is suspended. Reactivate it before onboarding." });
         return;
       }
-      if (currentInstitution && currentInstitution.toLowerCase() !== normalizedInstitution) {
-        outcomes.push({ line: row.line, email: row.email, status: "skipped", message: "The existing account is affiliated with a different institution. No affiliation was changed." });
+      if ((currentInstitutionId && currentInstitutionId !== institution.id) ||
+          (!currentInstitutionId && currentInstitution && currentInstitution.toLowerCase() !== normalizedInstitution)) {
+        outcomes.push({ line: row.line, email: row.email, status: "skipped", message: "The existing account is affiliated with a different institution. Use the explicit Transfer selected action; this import does not transfer members." });
         return;
       }
       if (userRoles.length && !userRoles.includes(row.role) && !isPlatformAdmin) {
@@ -628,7 +632,7 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
       }
 
       const updates: Record<string, unknown> = {
-        institution: institution.name,
+        institution_id: institution.id,
         role: row.role,
         role_confirmed_at: profile.role_confirmed_at ?? now,
       };
@@ -649,7 +653,7 @@ export const bulkCreateInstitutionStudents = createServerFn({ method: "POST" })
           line: row.line, email: row.email, status: "assigned",
           message: `Existing account role updated to ${row.role.replace("_", " ")} and attached to the institution; its password was not changed.`,
         });
-      } else if (currentInstitution.toLowerCase() === normalizedInstitution) {
+      } else if (alreadyInTargetInstitution) {
         outcomes.push({ line: row.line, email: row.email, status: "already_assigned", message: `This ${row.role.replace("_", " ")} was already assigned to the institution.` });
       } else {
         outcomes.push({ line: row.line, email: row.email, status: "assigned", message: `Existing ${row.role.replace("_", " ")} account attached to the institution; no password was changed.` });

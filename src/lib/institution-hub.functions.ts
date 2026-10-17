@@ -56,6 +56,20 @@ function validateInstitutionId(value: unknown): string | null {
   return value;
 }
 
+function isMissingClassInstitutionScope(error: { code?: string; message?: string } | null): boolean {
+  const message = String(error?.message ?? "").toLowerCase();
+  return Boolean(
+    message.includes("institution_id") &&
+    (
+      error?.code === "42703" ||
+      error?.code === "PGRST204" ||
+      message.includes("does not exist") ||
+      message.includes("schema cache") ||
+      message.includes("could not find")
+    )
+  );
+}
+
 /**
  * The platform admin can choose an institution. An institution admin is always
  * resolved to the single institution on their authenticated profile; a supplied
@@ -206,17 +220,53 @@ export const getInstitutionHubData = createServerFn({ method: "GET" })
     const departmentRows = (departments ?? []) as Array<{ id: string; name: string; code: string | null; institution_id: string }>;
     const departmentById = new Map(departmentRows.map((department) => [department.id, department]));
 
-    // Class tenant ownership is stored on the class row. Do not infer ownership
-    // from the current teacher's profile because teachers can transfer later.
+    // Prefer persistent class ownership once the transfer-scope migration is
+    // installed. Until then, use the legacy department/owner relationship with
+    // strict department filtering so this page remains usable without mixing tenants.
     const { data: scopedClassRows, error: classRowsError } = await admin
       .from("classes")
       .select("id, name, subject, section, department_id, teacher_id, archived, created_at")
       .eq("institution_id", institution.id)
       .order("created_at", { ascending: false });
+
+    let rawClasses: any[] = scopedClassRows ?? [];
     if (classRowsError) {
-      throw new Error("Could not load institution-scoped classes. Apply the institution transfer scope migration and retry.");
+      if (!isMissingClassInstitutionScope(classRowsError)) {
+        throw new Error("Could not load classes for this institution.");
+      }
+
+      const rolesByUserForClasses = rolesByUser;
+      const classCreatorIds = institutionProfiles.filter((profile) => {
+        const roles = rolesByUserForClasses.get(profile.id);
+        return !roles?.has("admin") && (roles?.has("teacher") || roles?.has("institution_admin"));
+      }).map((profile) => profile.id);
+      const legacyClassQueries: any[] = [];
+      const classSelect = "id, name, subject, section, department_id, teacher_id, archived, created_at";
+      if (departmentRows.length) {
+        legacyClassQueries.push(
+          admin.from("classes").select(classSelect).in("department_id", departmentRows.map((d) => d.id)),
+        );
+      }
+      if (classCreatorIds.length) {
+        legacyClassQueries.push(
+          admin.from("classes").select(classSelect).in("teacher_id", classCreatorIds),
+        );
+      }
+      const legacyResults = await Promise.all(legacyClassQueries);
+      const scopedById = new Map<string, any>();
+      for (const result of legacyResults) {
+        if (result.error) throw new Error("Could not load classes for this institution.");
+        for (const row of result.data ?? []) {
+          // Department ownership wins. Exclude any class connected to another
+          // institution's department, even when its teacher belongs here now.
+          if (row.department_id && !departmentById.has(row.department_id)) continue;
+          scopedById.set(row.id, row);
+        }
+      }
+      rawClasses = [...scopedById.values()].sort(
+        (a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")),
+      );
     }
-    const rawClasses = scopedClassRows ?? [];
     const classIds = rawClasses.map((row: any) => row.id);
 
     const [

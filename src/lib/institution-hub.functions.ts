@@ -170,6 +170,13 @@ export const getInstitutionHubData = createServerFn({ method: "GET" })
 
     const profileMap = new Map<string, any>();
     for (const profile of [...(institutionProfilesById ?? []), ...(institutionProfilesByName ?? [])]) {
+      const linkedInstitutionId = typeof profile.institution_id === "string" ? profile.institution_id : null;
+      const legacyInstitutionLabel = String(profile.institution ?? "").trim().toLowerCase();
+      const matchesInstitutionId = linkedInstitutionId === institution.id;
+      const matchesLegacyAffiliation = !linkedInstitutionId && legacyInstitutionLabel === institution.name.trim().toLowerCase();
+      // A current institution_id is authoritative; only use the legacy institution
+      // name for profiles that have not yet been linked to an institution ID.
+      if (!matchesInstitutionId && !matchesLegacyAffiliation) continue;
       profileMap.set(profile.id, profile);
     }
     const institutionProfiles = [...profileMap.values()];

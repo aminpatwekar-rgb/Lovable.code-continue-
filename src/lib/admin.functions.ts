@@ -796,11 +796,26 @@ export const removeInstitutionMember = createServerFn({ method: "POST" })
     const { data: institution, error: loadError } = await admin
       .from("institutions").select("id, name").eq("id", data.institutionId).maybeSingle();
     if (loadError || !institution) throw new Error("Institution not found.");
+
+    const { data: profile, error: profileError } = await admin
+      .from("profiles")
+      .select("id, institution, institution_id")
+      .eq("id", data.userId)
+      .maybeSingle();
+    if (profileError || !profile) throw new Error("Account not found.");
+
+    const legacyMatches = !profile.institution_id &&
+      String(profile.institution ?? "").trim().toLowerCase() === String(institution.name).trim().toLowerCase();
+    if (profile.institution_id !== institution.id && !legacyMatches) {
+      throw new Error("This account is no longer assigned to the selected institution.");
+    }
+
     const { data: changed, error } = await admin.from("profiles")
-      .update({ institution: null }).eq("id", data.userId)
-      .eq("institution", institution.name).select("id");
-    if (error) throw new Error("Could not remove this member.");
-    if (!changed?.length) throw new Error("This account is no longer assigned to the institution.");
+      .update({ institution_id: null, institution: null })
+      .eq("id", data.userId)
+      .select("id");
+    if (error) throw new Error("Could not remove this member: " + error.message);
+    if (!changed?.length) throw new Error("This account could not be removed.");
     return { ok: true };
   });
 

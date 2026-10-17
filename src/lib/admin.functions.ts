@@ -266,14 +266,14 @@ export const assignInstitutionMembers = createServerFn({ method: "POST" })
     const skippedRows: { email: string; reason: string }[] = [];
     if (data.userIds.length) {
       const { data: found, error } = await admin.from("profiles")
-        .select("id, full_name, email, institution, is_active").in("id", data.userIds);
+        .select("id, full_name, email, institution, institution_id, is_active").in("id", data.userIds);
       if (error) throw new Error("Could not load selected accounts.");
       for (const profile of found ?? []) profilesById.set(profile.id, profile);
       for (const id of data.userIds) if (!profilesById.has(id)) skippedRows.push({ email: id, reason: "Account not found." });
     }
     if (data.emails.length) {
       const { data: found, error } = await admin.from("profiles")
-        .select("id, full_name, email, institution, is_active").in("email", data.emails);
+        .select("id, full_name, email, institution, institution_id, is_active").in("email", data.emails);
       if (error) throw new Error("Could not look up CSV email addresses.");
       const foundEmails = new Set<string>();
       for (const profile of found ?? []) {
@@ -304,16 +304,111 @@ export const assignInstitutionMembers = createServerFn({ method: "POST" })
       if (userRoles.includes("admin")) skippedRows.push({ email, reason: "Platform-admin accounts cannot be roster members." });
       else if (!userRoles.includes("student") && !userRoles.includes("teacher") && !userRoles.includes("institution_admin")) skippedRows.push({ email, reason: "Account must already have the student, teacher, or institution-admin role." });
       else if (profile.is_active === false) skippedRows.push({ email, reason: "Account is suspended. Reactivate it before assigning it." });
-      else if (String(profile.institution ?? "").trim().toLowerCase() === institution.name.trim().toLowerCase()) skippedRows.push({ email, reason: "Already assigned to this institution." });
-      else eligibleIds.push(profile.id);
+      else if (profile.institution_id === institution.id) skippedRows.push({ email, reason: "Already assigned to this institution." });
+      else if (profile.institution_id || String(profile.institution ?? "").trim()) {
+        skippedRows.push({ email, reason: "This account already belongs to another institution. Use the explicit Transfer selected action instead." });
+      } else eligibleIds.push(profile.id);
     }
 
     if (eligibleIds.length) {
       const { error } = await admin.from("profiles")
-        .update({ institution: institution.name }).in("id", eligibleIds);
+        .update({ institution_id: institution.id }).in("id", eligibleIds);
       if (error) throw new Error("Could not save institution roster: " + error.message);
     }
     return { assigned: eligibleIds.length, skipped: skippedRows.length, skippedRows };
+  });
+
+/** Explicit platform-admin-only transfer. Historical academic records are retained;
+ * institution/department membership links are cleaned by database triggers. */
+export const transferInstitutionMembers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { institutionId: string; userIds: string[] }) => {
+    const institutionId = validateInstitutionId(input?.institutionId);
+    const userIds = Array.isArray(input?.userIds)
+      ? [...new Set(input.userIds.filter((id) => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)))]
+      : [];
+    if (!userIds.length) throw new Error("Select at least one account to transfer.");
+    if (userIds.length > 500) throw new Error("Transfer up to 500 accounts per batch.");
+    return { institutionId, userIds };
+  })
+  .handler(async ({ data, context }) => {
+    await requireInstitutionAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+
+    const { data: institution, error: institutionError } = await admin
+      .from("institutions")
+      .select("id, name")
+      .eq("id", data.institutionId)
+      .maybeSingle();
+    if (institutionError || !institution) throw new Error("Target institution not found.");
+
+    const { data: profiles, error: profilesError } = await admin
+      .from("profiles")
+      .select("id, full_name, email, institution, institution_id, is_active")
+      .in("id", data.userIds);
+    if (profilesError) throw new Error("Could not load the selected accounts.");
+
+    const profilesById = new Map((profiles ?? []).map((profile: any) => [profile.id, profile]));
+    const skippedRows: { email: string; reason: string }[] = [];
+    for (const id of data.userIds) {
+      if (!profilesById.has(id)) skippedRows.push({ email: id, reason: "Account not found." });
+    }
+
+    const foundProfiles = [...profilesById.values()];
+    const { data: roleRows, error: rolesError } = foundProfiles.length
+      ? await admin.from("user_roles")
+          .select("user_id, role")
+          .in("user_id", foundProfiles.map((profile: any) => profile.id))
+      : { data: [], error: null };
+    if (rolesError) throw new Error("Could not verify account roles.");
+
+    const rolesByUser = new Map<string, string[]>();
+    for (const row of roleRows ?? []) {
+      const roles = rolesByUser.get(row.user_id) ?? [];
+      roles.push(String(row.role));
+      rolesByUser.set(row.user_id, roles);
+    }
+
+    const eligibleIds: string[] = [];
+    for (const profile of foundProfiles) {
+      const email = String(profile.email ?? profile.id);
+      const roles = rolesByUser.get(profile.id) ?? [];
+      if (roles.includes("admin")) {
+        skippedRows.push({ email, reason: "Platform-admin accounts cannot be transferred as institution members." });
+      } else if (!roles.includes("student") && !roles.includes("teacher") && !roles.includes("institution_admin")) {
+        skippedRows.push({ email, reason: "Account must already have a student, teacher or institution-admin role." });
+      } else if (profile.is_active === false) {
+        skippedRows.push({ email, reason: "Account is suspended. Reactivate it before transferring." });
+      } else if (profile.institution_id === institution.id) {
+        skippedRows.push({ email, reason: "Already belongs to the target institution." });
+      } else if (!profile.institution_id) {
+        skippedRows.push({
+          email,
+          reason: String(profile.institution ?? "").trim()
+            ? "This account has a legacy institution label but no institution ID. Repair its institution assignment before transferring."
+            : "This account is not assigned to an institution. Use Add selected instead.",
+        });
+      } else {
+        eligibleIds.push(profile.id);
+      }
+    }
+
+    if (eligibleIds.length) {
+      const { data: changed, error: transferError } = await admin
+        .from("profiles")
+        .update({ institution_id: institution.id })
+        .in("id", eligibleIds)
+        .select("id");
+      if (transferError) throw new Error("Could not transfer institution members: " + transferError.message);
+      const transferred = new Set((changed ?? []).map((profile: any) => profile.id));
+      for (const id of eligibleIds) {
+        if (!transferred.has(id)) skippedRows.push({ email: id, reason: "The account could not be transferred." });
+      }
+      return { assigned: transferred.size, skipped: skippedRows.length, skippedRows };
+    }
+
+    return { assigned: 0, skipped: skippedRows.length, skippedRows };
   });
 
 export type StudentOnboardingRowResult = {

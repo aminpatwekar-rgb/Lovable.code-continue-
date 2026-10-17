@@ -342,6 +342,10 @@ export const transferInstitutionMembers = createServerFn({ method: "POST" })
       .eq("id", data.institutionId)
       .maybeSingle();
     if (institutionError || !institution) throw new Error("Target institution not found.");
+    const { data: institutionRows, error: institutionsError } = await admin
+      .from("institutions")
+      .select("id, name");
+    if (institutionsError) throw new Error("Could not verify current institution assignments.");
 
     const { data: profiles, error: profilesError } = await admin
       .from("profiles")
@@ -380,17 +384,22 @@ export const transferInstitutionMembers = createServerFn({ method: "POST" })
         skippedRows.push({ email, reason: "Account must already have a student, teacher or institution-admin role." });
       } else if (profile.is_active === false) {
         skippedRows.push({ email, reason: "Account is suspended. Reactivate it before transferring." });
-      } else if (profile.institution_id === institution.id) {
-        skippedRows.push({ email, reason: "Already belongs to the target institution." });
-      } else if (!profile.institution_id) {
-        skippedRows.push({
-          email,
-          reason: String(profile.institution ?? "").trim()
-            ? "This account has a legacy institution label but no institution ID. Repair its institution assignment before transferring."
-            : "This account is not assigned to an institution. Use Add selected instead.",
-        });
       } else {
-        eligibleIds.push(profile.id);
+        const institutionLabel = String(profile.institution ?? "").trim().toLowerCase();
+        const resolvedInstitutionId = profile.institution_id ?? (institutionRows ?? []).find(
+          (item: any) => String(item.name ?? "").trim().toLowerCase() === institutionLabel,
+        )?.id ?? null;
+        if (resolvedInstitutionId === institution.id) {
+          skippedRows.push({ email, reason: "Already belongs to the target institution." });
+        } else if (!resolvedInstitutionId && !institutionLabel) {
+          skippedRows.push({ email, reason: "This account is not assigned to an institution. Use Add selected instead." });
+        } else if (!resolvedInstitutionId) {
+          skippedRows.push({ email, reason: "This account has an unknown legacy institution label. Repair its institution assignment before transferring." });
+        } else {
+          // Updating the institution_id (including for recognized legacy labels)
+          // fires the cleanup triggers that revoke old department/class access.
+          eligibleIds.push(profile.id);
+        }
       }
     }
 

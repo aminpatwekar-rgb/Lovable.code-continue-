@@ -312,12 +312,17 @@ export function InstitutionManager() {
   const selectedTransferIds = useMemo(() => {
     if (!activeInstitution) return [];
     const selected = new Set(selectedPeople);
+    const institutionIdByLegacyName = new Map(
+      (institutions.data ?? []).map((item) => [item.name.trim().toLowerCase(), item.id]),
+    );
     return availablePeople
-      .filter((person) =>
-        selected.has(person.id) && Boolean(person.institution_id) && person.institution_id !== activeInstitution.id,
-      )
+      .filter((person) => {
+        const legacyId = institutionIdByLegacyName.get(person.institution?.trim().toLowerCase() ?? "");
+        const assignedInstitutionId = person.institution_id ?? legacyId ?? null;
+        return selected.has(person.id) && Boolean(assignedInstitutionId) && assignedInstitutionId !== activeInstitution.id;
+      })
       .map((person) => person.id);
-  }, [activeInstitution, availablePeople, selectedPeople]);
+  }, [activeInstitution, availablePeople, institutions.data, selectedPeople]);
   const selectedTransferCount = selectedTransferIds.length;
 
   const csvRowCount = useMemo(() => csvObjects(csv).length, [csv]);

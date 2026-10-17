@@ -309,13 +309,16 @@ export function InstitutionManager() {
     });
   }, [currentMembers, people.data, personSearch]);
 
-  const selectedTransferCount = useMemo(() => {
-    if (!activeInstitution) return 0;
+  const selectedTransferIds = useMemo(() => {
+    if (!activeInstitution) return [];
     const selected = new Set(selectedPeople);
-    return availablePeople.filter((person) =>
-      selected.has(person.id) && Boolean(person.institution_id) && person.institution_id !== activeInstitution.id,
-    ).length;
+    return availablePeople
+      .filter((person) =>
+        selected.has(person.id) && Boolean(person.institution_id) && person.institution_id !== activeInstitution.id,
+      )
+      .map((person) => person.id);
   }, [activeInstitution, availablePeople, selectedPeople]);
+  const selectedTransferCount = selectedTransferIds.length;
 
   const csvRowCount = useMemo(() => csvObjects(csv).length, [csv]);
 
@@ -429,7 +432,7 @@ export function InstitutionManager() {
 
         <section className="space-y-3">
           <div><h4 className="flex items-center gap-2 font-semibold"><UserPlus className="size-4" />Add students and staff</h4>
-            <p className="mt-1 text-sm text-muted-foreground">Choose active registered ONYX accounts. Assigning a person changes institution affiliation but preserves their role.</p></div>
+            <p className="mt-1 text-sm text-muted-foreground">Choose active registered ONYX accounts. Add selected attaches unassigned accounts; Transfer selected explicitly moves accounts from another institution. Their role and historical academic work are preserved.</p></div>
           <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input className="pl-9" value={personSearch} onChange={(event) => setPersonSearch(event.target.value)} placeholder="Search by name or email" aria-label="Search accounts to add" /></div>
           {people.isLoading ? <Skeleton className="h-28 w-full rounded-lg" /> : availablePeople.length === 0
@@ -455,7 +458,7 @@ export function InstitutionManager() {
                   if (window.confirm(
                     "Transfer " + count + " selected account(s) to " + activeInstitution.name + "? Their old department and institution-class roster access will be removed. Historical submissions and grades will be retained.",
                   )) {
-                    transferMembers.mutate(selectedPeople);
+                    transferMembers.mutate(selectedTransferIds);
                   }
                 }}
               >

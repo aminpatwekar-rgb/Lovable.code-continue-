@@ -113,13 +113,21 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT EXISTS (
+  SELECT _user_id = auth.uid() AND EXISTS (
     SELECT 1
     FROM public.classes c
     LEFT JOIN public.profiles p ON p.id = _user_id
     WHERE c.id = _class_id
-      AND c.teacher_id = _user_id
       AND (c.institution_id IS NULL OR p.institution_id = c.institution_id)
+      AND (
+        c.teacher_id = _user_id
+        OR EXISTS (
+          SELECT 1 FROM public.class_members m
+          WHERE m.class_id = c.id
+            AND m.student_id = _user_id
+            AND m.member_role = 'teacher'
+        )
+      )
   );
 $$;
 
@@ -152,7 +160,6 @@ AS $$
     SELECT 1
     FROM public.assignments a
     WHERE a.id = _assignment_id
-      AND a.teacher_id = _user_id
       AND public.is_class_teacher(a.class_id, _user_id)
   );
 $$;
@@ -249,11 +256,29 @@ CREATE POLICY classes_read ON public.classes FOR SELECT TO authenticated
 
 DROP POLICY IF EXISTS classes_update ON public.classes;
 CREATE POLICY classes_update ON public.classes FOR UPDATE TO authenticated
-  USING (public.has_role(auth.uid(), 'admin') OR public.is_class_teacher(id, auth.uid()));
+  USING (
+    public.has_role(auth.uid(), 'admin')
+    OR (
+      teacher_id = auth.uid()
+      AND (institution_id IS NULL OR EXISTS (
+        SELECT 1 FROM public.profiles p
+        WHERE p.id = auth.uid() AND p.institution_id = classes.institution_id
+      ))
+    )
+  );
 
 DROP POLICY IF EXISTS classes_delete ON public.classes;
 CREATE POLICY classes_delete ON public.classes FOR DELETE TO authenticated
-  USING (public.has_role(auth.uid(), 'admin') OR public.is_class_teacher(id, auth.uid()));
+  USING (
+    public.has_role(auth.uid(), 'admin')
+    OR (
+      teacher_id = auth.uid()
+      AND (institution_id IS NULL OR EXISTS (
+        SELECT 1 FROM public.profiles p
+        WHERE p.id = auth.uid() AND p.institution_id = classes.institution_id
+      ))
+    )
+  );
 
 DROP POLICY IF EXISTS members_read ON public.class_members;
 CREATE POLICY members_read ON public.class_members FOR SELECT TO authenticated
@@ -311,14 +336,36 @@ DROP POLICY IF EXISTS assignments_update ON public.assignments;
 CREATE POLICY assignments_update ON public.assignments FOR UPDATE TO authenticated
   USING (
     public.has_role(auth.uid(), 'admin')
-    OR public.is_assignment_owner(id, auth.uid())
+    OR (
+      teacher_id = auth.uid()
+      AND public.is_class_teacher(class_id, auth.uid())
+      AND EXISTS (
+        SELECT 1 FROM public.classes c
+        WHERE c.id = assignments.class_id
+          AND (c.institution_id IS NULL OR EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid() AND p.institution_id = c.institution_id
+          ))
+      )
+    )
   );
 
 DROP POLICY IF EXISTS assignments_delete ON public.assignments;
 CREATE POLICY assignments_delete ON public.assignments FOR DELETE TO authenticated
   USING (
     public.has_role(auth.uid(), 'admin')
-    OR public.is_assignment_owner(id, auth.uid())
+    OR (
+      teacher_id = auth.uid()
+      AND public.is_class_teacher(class_id, auth.uid())
+      AND EXISTS (
+        SELECT 1 FROM public.classes c
+        WHERE c.id = assignments.class_id
+          AND (c.institution_id IS NULL OR EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid() AND p.institution_id = c.institution_id
+          ))
+      )
+    )
   );
 
 DROP POLICY IF EXISTS att_read ON public.assignment_attachments;

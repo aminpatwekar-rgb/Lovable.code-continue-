@@ -202,7 +202,7 @@ export const getInstitutionHubData = createServerFn({ method: "GET" })
     const departmentById = new Map(departmentRows.map((department) => [department.id, department]));
     const departmentIds = departmentRows.map((department) => department.id);
 
-    const classQueries: Promise<any>[] = [];
+    const classQueries: any[] = [];
     if (departmentIds.length) {
       classQueries.push(
         admin.from("classes")

@@ -160,7 +160,7 @@ export const getInstitutionHubData = createServerFn({ method: "GET" })
       admin.from("profiles")
         .select("id, full_name, is_active, institution, institution_id")
         .is("institution_id", null)
-        .ilike("institution", institution.name),
+        .eq("institution", institution.name),
       admin.from("departments")
         .select("id, institution_id, name, code")
         .eq("institution_id", institution.id)

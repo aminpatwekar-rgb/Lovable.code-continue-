@@ -182,12 +182,13 @@ async function resolveInstitutionAdminScope(context: InstitutionAdminServerConte
 
   const { data: profile, error: profileError } = await admin
     .from("profiles")
-    .select("id, institution")
+    .select("id, institution, institution_id")
     .eq("id", context.userId)
     .maybeSingle();
   if (profileError) throw new Error("Could not load the institution administrator profile.");
-  const institutionLabel = String(profile?.institution ?? "").trim();
-  if (!institutionLabel) {
+  const institutionId = typeof profile?.institution_id === "string" ? profile.institution_id : null;
+  const institutionLabel = String(profile?.institution ?? "").trim().toLowerCase();
+  if (!institutionId && !institutionLabel) {
     throw new Error("Your account is not assigned to an institution. Contact the platform administrator.");
   }
 
@@ -196,8 +197,9 @@ async function resolveInstitutionAdminScope(context: InstitutionAdminServerConte
     .select("id, name");
   if (institutionError) throw new Error("Could not load the institution directory.");
 
-  const institution = (institutionRows ?? []).find(
-    (item: any) => String(item.name ?? "").trim().toLowerCase() === institutionLabel.toLowerCase(),
+  const institution = (institutionRows ?? []).find((item: any) =>
+    institutionId ? item.id === institutionId
+      : String(item.name ?? "").trim().toLowerCase() === institutionLabel,
   );
   if (!institution) {
     throw new Error("Your assigned institution could not be found. Contact the platform administrator.");

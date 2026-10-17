@@ -193,6 +193,28 @@ function validateInstitutionId(id: unknown): string {
   return id;
 }
 
+async function requireInstitutionTransferSchema(admin: any) {
+  const { error } = await admin.from("classes").select("institution_id").limit(1);
+  if (!error) return;
+
+  const message = String(error.message ?? "").toLowerCase();
+  if (
+    message.includes("institution_id") &&
+    (
+      error.code === "42703" ||
+      error.code === "PGRST204" ||
+      message.includes("does not exist") ||
+      message.includes("schema cache") ||
+      message.includes("could not find")
+    )
+  ) {
+    throw new Error(
+      "Member removal and transfers are temporarily paused because the active database has not applied the institution transfer-scope migration. Ask Lovable to apply supabase/migrations/20261017100000_institution_transfer_scope_hardening.sql, then retry.",
+    );
+  }
+  throw new Error("Could not verify institution transfer permissions. No membership changes were made.");
+}
+
 /** Edit directory details and keep profile affiliation labels in sync with institution renames. */
 export const updateInstitutionDetails = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -335,6 +357,7 @@ export const transferInstitutionMembers = createServerFn({ method: "POST" })
     await requireInstitutionAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin = supabaseAdmin as any;
+    await requireInstitutionTransferSchema(admin);
 
     const { data: institution, error: institutionError } = await admin
       .from("institutions")
@@ -806,6 +829,7 @@ export const removeInstitutionMember = createServerFn({ method: "POST" })
     await requireInstitutionAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin = supabaseAdmin as any;
+    await requireInstitutionTransferSchema(admin);
     const { data: institution, error: loadError } = await admin
       .from("institutions").select("id, name").eq("id", data.institutionId).maybeSingle();
     if (loadError || !institution) throw new Error("Institution not found.");

@@ -370,3 +370,44 @@ CREATE POLICY sub_delete ON public.submissions FOR DELETE TO authenticated
     public.has_role(auth.uid(), 'admin')
     OR (student_id = auth.uid() AND public.can_view_assignment(assignment_id, auth.uid()))
   );
+
+
+-- Keep students' existing submission files readable as their own history, but
+-- prevent new uploads/updates/deletes for assignments in their former institution.
+DROP POLICY IF EXISTS sub_files_student_all ON storage.objects;
+
+DROP POLICY IF EXISTS sub_files_student_read ON storage.objects;
+CREATE POLICY sub_files_student_read ON storage.objects FOR SELECT TO authenticated
+  USING (
+    bucket_id = 'submissions'
+    AND (storage.foldername(name))[2] = auth.uid()::text
+  );
+
+DROP POLICY IF EXISTS sub_files_student_write ON storage.objects;
+CREATE POLICY sub_files_student_write ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'submissions'
+    AND (storage.foldername(name))[2] = auth.uid()::text
+    AND public.can_view_assignment(((storage.foldername(name))[1])::uuid, auth.uid())
+  );
+
+DROP POLICY IF EXISTS sub_files_student_update ON storage.objects;
+CREATE POLICY sub_files_student_update ON storage.objects FOR UPDATE TO authenticated
+  USING (
+    bucket_id = 'submissions'
+    AND (storage.foldername(name))[2] = auth.uid()::text
+    AND public.can_view_assignment(((storage.foldername(name))[1])::uuid, auth.uid())
+  )
+  WITH CHECK (
+    bucket_id = 'submissions'
+    AND (storage.foldername(name))[2] = auth.uid()::text
+    AND public.can_view_assignment(((storage.foldername(name))[1])::uuid, auth.uid())
+  );
+
+DROP POLICY IF EXISTS sub_files_student_delete ON storage.objects;
+CREATE POLICY sub_files_student_delete ON storage.objects FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'submissions'
+    AND (storage.foldername(name))[2] = auth.uid()::text
+    AND public.can_view_assignment(((storage.foldername(name))[1])::uuid, auth.uid())
+  );

@@ -458,3 +458,139 @@ CREATE POLICY sub_files_student_delete ON storage.objects FOR DELETE TO authenti
     AND (storage.foldername(name))[2] = auth.uid()::text
     AND public.can_view_assignment(((storage.foldername(name))[1])::uuid, auth.uid())
   );
+
+
+-- Quiz permissions must follow the persistent class tenant too; otherwise an
+-- instructor transferred to another university could retain direct quiz-owner access.
+CREATE OR REPLACE FUNCTION public.owns_quiz(_quiz_id uuid, _user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT _user_id = auth.uid() AND EXISTS (
+    SELECT 1
+    FROM public.quizzes q
+    WHERE q.id = _quiz_id
+      AND (
+        public.has_role(_user_id, 'admin')
+        OR (q.teacher_id = _user_id AND public.is_class_teacher(q.class_id, _user_id))
+      )
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.can_view_quiz(_quiz_id uuid, _user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT _user_id = auth.uid() AND EXISTS (
+    SELECT 1
+    FROM public.quizzes q
+    WHERE q.id = _quiz_id
+      AND (
+        public.has_role(_user_id, 'admin')
+        OR (q.teacher_id = _user_id AND public.is_class_teacher(q.class_id, _user_id))
+        OR (q.published AND public.is_class_member(q.class_id, _user_id))
+      )
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.reviews_attempt(_attempt_id uuid, _user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT _user_id = auth.uid() AND EXISTS (
+    SELECT 1
+    FROM public.quiz_attempts a
+    JOIN public.quizzes q ON q.id = a.quiz_id
+    WHERE a.id = _attempt_id
+      AND (
+        public.has_role(_user_id, 'admin')
+        OR (q.teacher_id = _user_id AND public.is_class_teacher(q.class_id, _user_id))
+      )
+  );
+$$;
+
+DROP POLICY IF EXISTS "quiz select" ON public.quizzes;
+CREATE POLICY "quiz select" ON public.quizzes FOR SELECT TO authenticated
+  USING (public.can_view_quiz(id, auth.uid()));
+
+DROP POLICY IF EXISTS "quiz update" ON public.quizzes;
+CREATE POLICY "quiz update" ON public.quizzes FOR UPDATE TO authenticated
+  USING (
+    public.has_role(auth.uid(), 'admin')
+    OR (teacher_id = auth.uid() AND public.is_class_teacher(class_id, auth.uid()))
+  )
+  WITH CHECK (
+    public.has_role(auth.uid(), 'admin')
+    OR (teacher_id = auth.uid() AND public.is_class_teacher(class_id, auth.uid()))
+  );
+
+DROP POLICY IF EXISTS "quiz delete" ON public.quizzes;
+CREATE POLICY "quiz delete" ON public.quizzes FOR DELETE TO authenticated
+  USING (
+    public.has_role(auth.uid(), 'admin')
+    OR (teacher_id = auth.uid() AND public.is_class_teacher(class_id, auth.uid()))
+  );
+
+DROP POLICY IF EXISTS "attempt update" ON public.quiz_attempts;
+CREATE POLICY "attempt update" ON public.quiz_attempts FOR UPDATE TO authenticated
+  USING (
+    public.owns_quiz(quiz_id, auth.uid())
+    OR (student_id = auth.uid() AND public.can_view_quiz(quiz_id, auth.uid()))
+  )
+  WITH CHECK (
+    public.owns_quiz(quiz_id, auth.uid())
+    OR (student_id = auth.uid() AND public.can_view_quiz(quiz_id, auth.uid()))
+  );
+
+DROP POLICY IF EXISTS "answer insert" ON public.quiz_answers;
+CREATE POLICY "answer insert" ON public.quiz_answers FOR INSERT TO authenticated
+  WITH CHECK (
+    public.owns_attempt(attempt_id, auth.uid())
+    AND EXISTS (
+      SELECT 1 FROM public.quiz_attempts a
+      WHERE a.id = quiz_answers.attempt_id
+        AND public.can_view_quiz(a.quiz_id, auth.uid())
+    )
+  );
+
+DROP POLICY IF EXISTS "answer update" ON public.quiz_answers;
+CREATE POLICY "answer update" ON public.quiz_answers FOR UPDATE TO authenticated
+  USING (
+    public.reviews_attempt(attempt_id, auth.uid())
+    OR (
+      public.owns_attempt(attempt_id, auth.uid())
+      AND EXISTS (
+        SELECT 1 FROM public.quiz_attempts a
+        WHERE a.id = quiz_answers.attempt_id
+          AND public.can_view_quiz(a.quiz_id, auth.uid())
+      )
+    )
+  )
+  WITH CHECK (
+    public.reviews_attempt(attempt_id, auth.uid())
+    OR (
+      public.owns_attempt(attempt_id, auth.uid())
+      AND EXISTS (
+        SELECT 1 FROM public.quiz_attempts a
+        WHERE a.id = quiz_answers.attempt_id
+          AND public.can_view_quiz(a.quiz_id, auth.uid())
+      )
+    )
+  );
+
+DROP POLICY IF EXISTS "violation insert" ON public.quiz_violations;
+CREATE POLICY "violation insert" ON public.quiz_violations FOR INSERT TO authenticated
+  WITH CHECK (
+    student_id = auth.uid()
+    AND public.owns_attempt(attempt_id, auth.uid())
+    AND public.can_view_quiz(quiz_id, auth.uid())
+  );

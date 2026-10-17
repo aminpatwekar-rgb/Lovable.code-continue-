@@ -278,8 +278,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className={cn("min-h-screen lg:grid bg-background transition-[grid-template-columns] duration-200", sidebarCollapsed ? "lg:grid-cols-[4.5rem_1fr]" : "lg:grid-cols-[16.5rem_1fr]")}>
       <aside className="sticky top-0 z-30 hidden h-screen flex-col justify-between border-r border-sidebar-border bg-sidebar/95 backdrop-blur-xl lg:flex">
-        <div className="flex flex-col">
-          <div className={cn("flex h-16 items-center border-b border-sidebar-border", sidebarCollapsed ? "justify-center px-2" : "justify-between px-5")}>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className={cn("flex items-center border-b border-sidebar-border", sidebarCollapsed ? "h-20 flex-col justify-center gap-2 px-2 py-2" : "h-16 justify-between px-5")}>
             <Link to="/dashboard" className="transition-opacity hover:opacity-90">
               {sidebarCollapsed ? <span className="text-sm font-bold">O</span> : branding.data ? <span className="text-sm font-semibold">Workspace</span> : <Wordmark size="sm" />}
             </Link>
@@ -303,7 +303,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <div className={cn("space-y-4", sidebarCollapsed ? "p-2" : "p-4")}>
+          <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-4", sidebarCollapsed ? "p-2" : "p-4")}>
             {!sidebarCollapsed && <GlobalSearch />}
             <div className={cn("pt-1", sidebarCollapsed && "flex justify-center")}>{nav}</div>
           </div>

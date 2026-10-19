@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   LayoutDashboard,
   BookOpen,
+  Calculator,
   Building2,
   GraduationCap,
   Moon,
@@ -55,6 +56,7 @@ const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/classes", label: "Classes", icon: GraduationCap },
   { to: "/assignments", label: "Assignments", icon: BookOpen },
+  { to: "/calculator", label: "Calculator", icon: Calculator },
   { to: "/quizzes", label: "Quizzes", icon: ClipboardList },
   { to: "/calendar", label: "Calendar", icon: Calendar, feature: "calendar" },
   { to: "/attendance", label: "Attendance", icon: ClipboardCheck, feature: "attendance" },

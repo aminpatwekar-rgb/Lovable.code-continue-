@@ -216,6 +216,7 @@ function evaluate(node: Expr, x: number): number {
         case "ln": return Math.log(value);
         case "log": return Math.log10(value);
         case "exp": return Math.exp(value);
+        default: throw new Error("Unsupported function: " + node.name);
       }
     }
   }
@@ -353,6 +354,7 @@ function derivative(node: Expr): Expr {
         case "log": return bin("/", du, bin("*", u, { kind: "number", value: Math.LN10 }));
         case "exp": return bin("*", f("exp"), du);
         case "abs": return bin("*", bin("/", u, f("abs")), du);
+        default: throw new Error("Unsupported derivative for: " + node.name);
       }
     }
   }
@@ -505,7 +507,6 @@ function MathWorkspace() {
   const [upperBound, setUpperBound] = useState("1");
   const [output, setOutput] = useState<{ title: string; value: string; type: "text" | "latex"; note?: string } | null>(null);
   const [showPlot, setShowPlot] = useState(false);
-  const [plotError, setPlotError] = useState("");
   const [copied, setCopied] = useState(false);
 
   const parsedForPlot = useMemo(() => {
@@ -528,7 +529,6 @@ function MathWorkspace() {
       const expr = parseExpression(latexToExpression(expression));
       if (action === "plot") {
         setShowPlot(true);
-        setPlotError("");
         setOutput(null);
         return;
       }
@@ -615,7 +615,7 @@ function MathWorkspace() {
     { label: "log", latex: "\\log\\left(x\\right)", tone: "function" },
     { label: "eˣ", latex: "\\exp\\left(x\\right)", tone: "function" },
     { label: "|x|", latex: "\\left|x\\right|", tone: "function" },
-    { label: "=", latex: "=", tone: "operator" },
+    { label: "1/x", latex: "\\frac{1}{x}", tone: "function" },
   ];
 
   return (
@@ -808,7 +808,7 @@ function MathWorkspace() {
               </div>
               <button
                 type="button"
-                onClick={() => { setShowPlot(false); setPlotError(""); }}
+                onClick={() => { setShowPlot(false); }}
                 disabled={!showPlot}
                 className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-40"
               >

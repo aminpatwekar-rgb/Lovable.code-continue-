@@ -148,6 +148,16 @@ export function AssignmentDialog({
       if (!Number.isFinite(marks) || marks <= 0 || marks > 1000) {
         throw new Error("Max marks must be between 1 and 1000");
       }
+      // Resolve the actor from the live Supabase session at save time.
+      // The RLS policy requires assignments.teacher_id = auth.uid(); a stale
+      // or mismatched prop must never be used as the inserted owner.
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      const authenticatedUserId = authData.user?.id;
+      if (!authenticatedUserId) {
+        throw new Error("Your session has expired. Sign in again to create an assignment.");
+      }
+
       const payload = {
         title: title.trim().slice(0, 160),
         subject: subject.trim() || null,
@@ -177,7 +187,7 @@ export function AssignmentDialog({
           .insert({
             ...payload,
             class_id: classId,
-            teacher_id: teacherId,
+            teacher_id: authenticatedUserId,
             published: attachmentFiles.length ? false : publish,
           })
           .select("id")

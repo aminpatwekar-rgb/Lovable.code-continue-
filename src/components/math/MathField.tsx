@@ -55,6 +55,7 @@ export const MathField = forwardRef<MathFieldHandle, Props>(function MathField(
     backspace() {
       const mf = fieldRef.current;
       if (!mf) return false;
+      mf.focus();
       mf.executeCommand("deleteBackward");
       onChangeRef.current(mf.value);
       return true;

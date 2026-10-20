@@ -269,7 +269,7 @@ export const getQuizReviewAttempt = createServerFn({ method: "GET" })
     const { data: attempt, error: attemptError } = await supabaseAdmin
       .from("quiz_attempts")
       .select(
-        "id, quiz_id, student_id, attempt_no, status, score, max_score, submitted_at, started_at",
+        "id, quiz_id, student_id, attempt_no, status, score, max_score, submitted_at, started_at, locked_at",
       )
       .eq("id", data.attemptId)
       .maybeSingle();
@@ -341,6 +341,7 @@ export const getQuizReviewAttempt = createServerFn({ method: "GET" })
         max_score: attempt.max_score == null ? null : Number(attempt.max_score),
         submitted_at: attempt.submitted_at,
         started_at: attempt.started_at,
+        locked_at: attempt.locked_at,
       },
       student_name: profile?.full_name ?? "Student",
       answers: (questions ?? []).map((q) => {
@@ -353,7 +354,7 @@ export const getQuizReviewAttempt = createServerFn({ method: "GET" })
           prompt: q.prompt,
           points: Number(q.points) || 0,
           response: Array.isArray(a?.response)
-            ? (a!.response as unknown[]).map(String)
+            ? (a.response as unknown[]).map(String)
             : [],
           correct: Array.isArray(q.correct)
             ? (q.correct as unknown[]).map(String)

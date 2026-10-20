@@ -122,10 +122,10 @@ function Page() {
         id: null,
         title: generated.title,
         description: generated.description,
-        criteria: generated.criteria.map((criterion) => ({
+        criteria: generated.criteria.map((criterion: Omit<Criterion, "key" | "id">) => ({
           key: newKey(), title: criterion.title, description: criterion.description,
           max_points: criterion.max_points,
-          levels: criterion.levels.map((level) => ({ key: newKey(), label: level.label, description: level.description, points: level.points })),
+          levels: criterion.levels.map((level: Omit<RubricLevel, "key" | "id">) => ({ key: newKey(), label: level.label, description: level.description, points: level.points })),
         })),
       });
       toast.success("Rubric generated. Review it and edit anything before saving.");

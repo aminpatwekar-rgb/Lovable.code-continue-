@@ -2,6 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 import { LoadingScreen } from "./components/LoadingScreen";
+import { PageLoadError } from "./components/PageLoadError";
 
 export const getRouter = () => {
   const queryClient = new QueryClient({
@@ -23,6 +24,7 @@ export const getRouter = () => {
     scrollRestoration: true,
     // Avoid refetching route data immediately after a preload.\n    defaultPreloadStaleTime: 30_000,
     defaultPendingComponent: LoadingScreen,
+    defaultErrorComponent: PageLoadError,
     defaultPendingMs: 200,
     defaultPendingMinMs: 300,
   });

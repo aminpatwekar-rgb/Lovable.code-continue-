@@ -190,7 +190,7 @@ function AuthPage() {
     }
     setBusy(true);
     try {
-      const { error } = await supabase.rpc("confirm_account_role", { _role: role });
+      const { error } = await (supabase as any).rpc("confirm_account_role", { _role: role });
       if (error) throw error;
       await refresh();
       markSessionConfirmed(session?.user.id);

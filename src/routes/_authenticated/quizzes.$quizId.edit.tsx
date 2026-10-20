@@ -662,13 +662,9 @@ function Page() {
               index={i}
               question={q}
               regenerating={regenIndex === i}
-              aiReviewStatus={
-                aiGeneratedIds.has(q.id)
-                  ? approvedAiIds.has(q.id)
-                    ? "approved"
-                    : "needs_review"
-                  : undefined
-              }
+              {...(aiGeneratedIds.has(q.id) ? {
+                aiReviewStatus: approvedAiIds.has(q.id) ? "approved" as const : "needs_review" as const,
+              } : {})}
               onApproveAiQuestion={() => approveAiQuestion(q.id)}
               onChange={(next) => {
                 setQuestions((prev) => prev.map((x, j) => (j === i ? next : x)));

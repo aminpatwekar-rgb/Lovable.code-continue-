@@ -22,23 +22,23 @@ export function PlanUsageCard() {
   const get = useServerFn(getPlanSummary);
   const q = useQuery({ queryKey: ["plan-summary"], queryFn: () => get(), staleTime: 30_000 });
 
-  if (q.isLoading) return <Card><CardContent className="p-6 text-sm text-muted-foreground">Loading plan…</CardContent></Card>;
-  if (q.isError) return <Card><CardContent className="p-6 text-sm text-destructive">Could not load plan information.</CardContent></Card>;
+  if (q.isLoading || (!q.data && !q.isError)) return <Card><CardContent className="p-6 text-sm text-muted-foreground">Loading plan…</CardContent></Card>;
+  if (q.isError || !q.data) return <Card><CardContent className="p-6 text-sm text-destructive">Could not load plan information.</CardContent></Card>;
 
   const plan = q.data.plan;
   const limits = (plan?.limits ?? {}) as Record<string, number>;
   const features = (plan?.features ?? {}) as Record<string, boolean>;
-  const storageLimit = Number(limits.storage_bytes ?? 0);
+  const storageLimit = Number(limits["storage_bytes"] ?? 0);
   const storageUsed = Number(q.data.storageUsed ?? 0);
   const storagePct = storageLimit > 0 ? Math.min(100, (storageUsed / storageLimit) * 100) : 0;
 
   const stats = [
-    ["Classes", limit(limits.max_classes)],
-    ["Students / class", limit(limits.max_students_per_class)],
-    ["AI quiz questions / month", limit(limits.ai_questions_per_month)],
-    ["Assignments / month", limit(limits.assignments_per_month)],
-    ["Manual quizzes / month", limit(limits.quizzes_per_month)],
-    ["Saved question bank", limit(limits.question_bank_total)],
+    ["Classes", limit(limits["max_classes"])],
+    ["Students / class", limit(limits["max_students_per_class"])],
+    ["AI quiz questions / month", limit(limits["ai_questions_per_month"])],
+    ["Assignments / month", limit(limits["assignments_per_month"])],
+    ["Manual quizzes / month", limit(limits["quizzes_per_month"])],
+    ["Saved question bank", limit(limits["question_bank_total"])],
   ];
 
   return (

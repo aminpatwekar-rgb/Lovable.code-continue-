@@ -129,9 +129,9 @@ export function InstitutionReadiness() {
   const onboardingRows = useMemo(() => {
     const seen = new Set<string>();
     return csvObjects(csv).map((row, index) => {
-      const email = String(row.email ?? "").trim().toLowerCase();
-      const accountRole = String(row.role ?? "").trim().toLowerCase();
-      const institution = String(row.institution ?? "").trim();
+      const email = String(row["email"] ?? "").trim().toLowerCase();
+      const accountRole = String(row["role"] ?? "").trim().toLowerCase();
+      const institution = String(row["institution"] ?? "").trim();
       let issue = "";
       if (!/^\\S+@\\S+\\.\\S+$/.test(email)) issue = "Valid email required";
       else if (accountRole !== "student" && accountRole !== "teacher") issue = "Role must be student or teacher";
@@ -359,8 +359,8 @@ export function InstitutionReadiness() {
               <tbody className="divide-y divide-border">
                 {onboardingRows.slice(0, 8).map((row) => (
                   <tr key={row.line}>
-                    <td className="p-2.5 tabular-nums">{row.line}</td><td className="p-2.5">{row.email || "—"}</td>
-                    <td className="p-2.5 capitalize">{row.role || "—"}</td><td className="p-2.5">{row.institution || "—"}</td>
+                    <td className="p-2.5 tabular-nums">{row.line}</td><td className="p-2.5">{row["email"] || "—"}</td>
+                    <td className="p-2.5 capitalize">{row["role"] || "—"}</td><td className="p-2.5">{row["institution"] || "—"}</td>
                     <td className={row.issue ? "p-2.5 text-destructive" : "p-2.5 text-success"}>{row.issue || "Looks valid"}</td>
                   </tr>
                 ))}

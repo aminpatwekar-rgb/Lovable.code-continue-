@@ -74,7 +74,7 @@ function Stat({
     return (
       <Link
         to={to}
-        search={search}
+        {...(search ? { search } : {})}
         aria-label={`${label}: ${value}. Open ${label.toLowerCase()}.`}
         className="panel relative block overflow-hidden bg-card p-3.5 sm:p-5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 group"
       >

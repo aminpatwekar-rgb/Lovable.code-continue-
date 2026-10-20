@@ -18,8 +18,8 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authenticated/attendance'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedInstitutionAdminRouteImport } from './routes/_authenticated/institution-admin'
 import { Route as AuthenticatedInstitutionRouteImport } from './routes/_authenticated/institution'
+import { Route as AuthenticatedInstitutionAdminRouteImport } from './routes/_authenticated/institution-admin'
 import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenticated/leaderboard'
 import { Route as AuthenticatedQuestionBankRouteImport } from './routes/_authenticated/question-bank'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
@@ -41,6 +41,7 @@ import { Route as AuthenticatedQuizzesQuizIdIndexRouteImport } from './routes/_a
 import { Route as AuthenticatedQuizzesQuizIdAnalyticsRouteImport } from './routes/_authenticated/quizzes.$quizId.analytics'
 import { Route as AuthenticatedQuizzesQuizIdEditRouteImport } from './routes/_authenticated/quizzes.$quizId.edit'
 import { Route as AuthenticatedQuizzesQuizIdTakeRouteImport } from './routes/_authenticated/quizzes.$quizId.take'
+import { Route as ApiFilePreviewSourceFileIdRouteImport } from './routes/api.file-preview.$source.$fileId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -87,17 +88,18 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedInstitutionRoute =
+  AuthenticatedInstitutionRouteImport.update({
+    id: '/institution',
+    path: '/institution',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedInstitutionAdminRoute =
   AuthenticatedInstitutionAdminRouteImport.update({
     id: '/institution-admin',
     path: '/institution-admin',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedInstitutionRoute = AuthenticatedInstitutionRouteImport.update({
-  id: '/institution',
-  path: '/institution',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedLeaderboardRoute =
   AuthenticatedLeaderboardRouteImport.update({
     id: '/leaderboard',
@@ -220,6 +222,12 @@ const AuthenticatedQuizzesQuizIdTakeRoute =
     path: '/quizzes/$quizId/take',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiFilePreviewSourceFileIdRoute =
+  ApiFilePreviewSourceFileIdRouteImport.update({
+    id: '/api/file-preview/$source/$fileId',
+    path: '/api/file-preview/$source/$fileId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -252,6 +260,7 @@ export interface FileRoutesByFullPath {
   '/quizzes/$quizId/analytics': typeof AuthenticatedQuizzesQuizIdAnalyticsRoute
   '/quizzes/$quizId/edit': typeof AuthenticatedQuizzesQuizIdEditRoute
   '/quizzes/$quizId/take': typeof AuthenticatedQuizzesQuizIdTakeRoute
+  '/api/file-preview/$source/$fileId': typeof ApiFilePreviewSourceFileIdRoute
   '/quizzes/$quizId/': typeof AuthenticatedQuizzesQuizIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -285,6 +294,7 @@ export interface FileRoutesByTo {
   '/quizzes/$quizId/analytics': typeof AuthenticatedQuizzesQuizIdAnalyticsRoute
   '/quizzes/$quizId/edit': typeof AuthenticatedQuizzesQuizIdEditRoute
   '/quizzes/$quizId/take': typeof AuthenticatedQuizzesQuizIdTakeRoute
+  '/api/file-preview/$source/$fileId': typeof ApiFilePreviewSourceFileIdRoute
   '/quizzes/$quizId': typeof AuthenticatedQuizzesQuizIdIndexRoute
 }
 export interface FileRoutesById {
@@ -320,6 +330,7 @@ export interface FileRoutesById {
   '/_authenticated/quizzes/$quizId/analytics': typeof AuthenticatedQuizzesQuizIdAnalyticsRoute
   '/_authenticated/quizzes/$quizId/edit': typeof AuthenticatedQuizzesQuizIdEditRoute
   '/_authenticated/quizzes/$quizId/take': typeof AuthenticatedQuizzesQuizIdTakeRoute
+  '/api/file-preview/$source/$fileId': typeof ApiFilePreviewSourceFileIdRoute
   '/_authenticated/quizzes/$quizId/': typeof AuthenticatedQuizzesQuizIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -355,6 +366,7 @@ export interface FileRouteTypes {
     | '/quizzes/$quizId/analytics'
     | '/quizzes/$quizId/edit'
     | '/quizzes/$quizId/take'
+    | '/api/file-preview/$source/$fileId'
     | '/quizzes/$quizId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -388,6 +400,7 @@ export interface FileRouteTypes {
     | '/quizzes/$quizId/analytics'
     | '/quizzes/$quizId/edit'
     | '/quizzes/$quizId/take'
+    | '/api/file-preview/$source/$fileId'
     | '/quizzes/$quizId'
   id:
     | '__root__'
@@ -422,6 +435,7 @@ export interface FileRouteTypes {
     | '/_authenticated/quizzes/$quizId/analytics'
     | '/_authenticated/quizzes/$quizId/edit'
     | '/_authenticated/quizzes/$quizId/take'
+    | '/api/file-preview/$source/$fileId'
     | '/_authenticated/quizzes/$quizId/'
   fileRoutesById: FileRoutesById
 }
@@ -431,6 +445,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   JoinCodeRoute: typeof JoinCodeRoute
+  ApiFilePreviewSourceFileIdRoute: typeof ApiFilePreviewSourceFileIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -659,6 +674,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedQuizzesQuizIdTakeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/file-preview/$source/$fileId': {
+      id: '/api/file-preview/$source/$fileId'
+      path: '/api/file-preview/$source/$fileId'
+      fullPath: '/api/file-preview/$source/$fileId'
+      preLoaderRoute: typeof ApiFilePreviewSourceFileIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -683,8 +705,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAttendanceRoute: typeof AuthenticatedAttendanceRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedInstitutionAdminRoute: typeof AuthenticatedInstitutionAdminRoute
   AuthenticatedInstitutionRoute: typeof AuthenticatedInstitutionRoute
+  AuthenticatedInstitutionAdminRoute: typeof AuthenticatedInstitutionAdminRoute
   AuthenticatedLeaderboardRoute: typeof AuthenticatedLeaderboardRoute
   AuthenticatedQuestionBankRoute: typeof AuthenticatedQuestionBankRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
@@ -712,8 +734,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAttendanceRoute: AuthenticatedAttendanceRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedInstitutionAdminRoute: AuthenticatedInstitutionAdminRoute,
   AuthenticatedInstitutionRoute: AuthenticatedInstitutionRoute,
+  AuthenticatedInstitutionAdminRoute: AuthenticatedInstitutionAdminRoute,
   AuthenticatedLeaderboardRoute: AuthenticatedLeaderboardRoute,
   AuthenticatedQuestionBankRoute: AuthenticatedQuestionBankRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
@@ -749,6 +771,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   JoinCodeRoute: JoinCodeRoute,
+  ApiFilePreviewSourceFileIdRoute: ApiFilePreviewSourceFileIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

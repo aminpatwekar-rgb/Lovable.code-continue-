@@ -81,7 +81,9 @@ function readPresentation(zip: Record<string, Uint8Array>): Slide[] {
   const paths = slideOrder.length ? slideOrder : Object.keys(zip).filter((p) => /^ppt\/slides\/slide\d+\.xml$/.test(p)).sort((a, b) => Number(a.match(/slide(\d+)/)?.[1]) - Number(b.match(/slide(\d+)/)?.[1]));
   if (!paths.length) throw new Error("No slides were found in this presentation.");
   return paths.map((path, slideIndex) => {
-    const doc = parseXml(strFromU8(zip[path]));
+    const bytes = zip[path];
+    if (!bytes) throw new Error("A slide is missing from this presentation.");
+    const doc = parseXml(strFromU8(bytes));
     const slideRelsPath = path.replace(/([^/]+)$/, "_rels/$1.rels");
     const relsForSlide = relationships(zip, slideRelsPath, path.slice(0, path.lastIndexOf("/")));
     const tree = first(doc, "spTree");

@@ -101,7 +101,7 @@ export function PlatformInstitutionHub() {
         ) : canSelectInstitution ? (
           institutions.length ? (
             <Select
-              value={selectedInstitutionId ?? undefined}
+              value={selectedInstitutionId ?? ""}
               onValueChange={(value) => setSelectedInstitutionId(value)}
             >
               <SelectTrigger id="institution-hub-picker" className="max-w-xl">

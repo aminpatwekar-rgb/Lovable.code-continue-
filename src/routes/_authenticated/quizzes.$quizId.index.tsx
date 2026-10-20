@@ -117,7 +117,7 @@ function Page() {
         const { data: studentAttempts, error: attemptsError } = await supabase
           .from("quiz_attempts")
           .select(
-            "id, student_id, attempt_no, status, score, max_score, submitted_at, started_at",
+            "id, student_id, attempt_no, status, score, max_score, submitted_at, started_at, locked_at, lock_reason",
           )
           .eq("quiz_id", quizId)
           .eq("student_id", user.id)

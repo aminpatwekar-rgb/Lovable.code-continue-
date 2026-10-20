@@ -10,51 +10,10 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
-      departments: {
-        Row: {
-          code: string | null
-          created_at: string
-          created_by: string | null
-          description: string | null
-          id: string
-          institution_id: string
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          code?: string | null
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          id?: string
-          institution_id: string
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          code?: string | null
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          id?: string
-          institution_id?: string
-          name?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "departments_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       ai_usage_ledger: {
         Row: {
           created_at: string
@@ -786,6 +745,7 @@ export type Database = {
           department_id: string | null
           description: string | null
           id: string
+          institution_id: string | null
           join_code: string
           name: string
           section: string | null
@@ -800,6 +760,7 @@ export type Database = {
           department_id?: string | null
           description?: string | null
           id?: string
+          institution_id?: string | null
           join_code: string
           name: string
           section?: string | null
@@ -814,6 +775,7 @@ export type Database = {
           department_id?: string | null
           description?: string | null
           id?: string
+          institution_id?: string | null
           join_code?: string
           name?: string
           section?: string | null
@@ -821,7 +783,15 @@ export type Database = {
           teacher_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "classes_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       comments: {
         Row: {
@@ -861,6 +831,229 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      department_members: {
+        Row: {
+          created_at: string
+          department_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          department_id: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_members_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "department_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      departments: {
+        Row: {
+          code: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          institution_id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          institution_id: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          institution_id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      institution_join_links: {
+        Row: {
+          code: string
+          created_at: string
+          department_id: string | null
+          expires_at: string | null
+          id: string
+          institution_id: string
+          is_active: boolean
+          max_uses: number | null
+          requires_approval: boolean
+          role: string
+          use_count: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          department_id?: string | null
+          expires_at?: string | null
+          id?: string
+          institution_id: string
+          is_active?: boolean
+          max_uses?: number | null
+          requires_approval: boolean
+          role: string
+          use_count?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          department_id?: string | null
+          expires_at?: string | null
+          id?: string
+          institution_id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          requires_approval?: boolean
+          role?: string
+          use_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "institution_join_links_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "institution_join_links_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      institution_join_requests: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          institution_id: string
+          role: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          institution_id: string
+          role: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          institution_id?: string
+          role?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "institution_join_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "institution_join_requests_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "institution_join_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      institutions: {
+        Row: {
+          city: string | null
+          code: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          city?: string | null
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          city?: string | null
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       notification_preferences: {
         Row: {
@@ -998,9 +1191,10 @@ export type Database = {
           full_name: string
           id: string
           institution: string | null
-          role_confirmed_at: string | null
-          role: string | null
+          institution_id: string | null
           is_active: boolean
+          role: string | null
+          role_confirmed_at: string | null
           updated_at: string
         }
         Insert: {
@@ -1010,9 +1204,10 @@ export type Database = {
           full_name?: string
           id: string
           institution?: string | null
-          role_confirmed_at?: string | null
-          role?: string | null
+          institution_id?: string | null
           is_active?: boolean
+          role?: string | null
+          role_confirmed_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -1022,12 +1217,21 @@ export type Database = {
           full_name?: string
           id?: string
           institution?: string | null
-          role_confirmed_at?: string | null
-          role?: string | null
+          institution_id?: string | null
           is_active?: boolean
+          role?: string | null
+          role_confirmed_at?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       question_bank: {
         Row: {
@@ -1869,7 +2073,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _can_manage_institution: {
+        Args: { _institution_id: string }
+        Returns: boolean
+      }
+      _department_institution: {
+        Args: { _department_id: string }
+        Returns: string
+      }
       _new_co_teacher_code: { Args: never; Returns: string }
+      _new_institution_join_code: { Args: never; Returns: string }
+      _place_student_in_department: {
+        Args: { _department_id: string; _user_id: string }
+        Returns: undefined
+      }
       admin_set_user_active: {
         Args: { _active: boolean; _user_id: string }
         Returns: undefined
@@ -1889,11 +2106,11 @@ export type Database = {
         Args: { _additional_bytes: number }
         Returns: boolean
       }
-      bootstrap_first_admin: { Args: never; Returns: boolean }
-      confirm_account_role: {
-        Args: { _role: Database["public"]["Enums"]["app_role"] }
-        Returns: boolean
+      assign_department_members: {
+        Args: { _department_id: string; _user_ids: string[] }
+        Returns: Json
       }
+      bootstrap_first_admin: { Args: never; Returns: boolean }
       can_view_announcement: {
         Args: { _announcement_id: string; _user_id: string }
         Returns: boolean
@@ -1911,9 +2128,21 @@ export type Database = {
         Returns: boolean
       }
       current_plan_code: { Args: { _user_id: string }; Returns: string }
+      decide_institution_join_request: {
+        Args: {
+          _approve: boolean
+          _department_id?: string
+          _request_id: string
+        }
+        Returns: undefined
+      }
       enforce_csv_import_feature: {
         Args: { _class_id: string }
         Returns: boolean
+      }
+      enroll_students_in_class: {
+        Args: { _class_id: string; _user_ids: string[] }
+        Returns: Json
       }
       generate_due_reminders: { Args: never; Returns: number }
       get_class_roster: {
@@ -1929,18 +2158,15 @@ export type Database = {
           student_id: string
         }[]
       }
-      update_class_member_identity: {
-        Args: {
-          _class_id: string
-          _er_no: string
-          _full_name: string
-          _member_id: string
-          _roll_no: string
-          _sr_no: string
-        }
-        Returns: undefined
-      }
       get_co_teacher_code: { Args: { _class_id: string }; Returns: string }
+      get_department_join_link: {
+        Args: { _department_id: string }
+        Returns: Json
+      }
+      get_institution_join_links: {
+        Args: { _institution_id: string }
+        Returns: Json
+      }
       get_profile_emails: {
         Args: { _ids: string[] }
         Returns: {
@@ -1996,12 +2222,16 @@ export type Database = {
         Args: { _class_id: string; _user_id: string }
         Returns: boolean
       }
-      is_institution_admin: {
-        Args: { _institution_id: string }
-        Returns: boolean
-      }
       is_class_teacher: {
         Args: { _class_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_department_member: {
+        Args: { _department_id: string }
+        Returns: boolean
+      }
+      is_institution_admin: {
+        Args: { _institution_id: string }
         Returns: boolean
       }
       join_class_by_code: {
@@ -2014,7 +2244,25 @@ export type Database = {
         }
         Returns: string
       }
+      join_institution_with_code: { Args: { _code: string }; Returns: Json }
       leave_class: { Args: { _class_id: string }; Returns: undefined }
+      list_department_classes: {
+        Args: { _department_id: string }
+        Returns: Json
+      }
+      list_department_students: {
+        Args: { _department_id: string }
+        Returns: Json
+      }
+      list_institution_join_requests: {
+        Args: { _institution_id: string }
+        Returns: Json
+      }
+      list_institution_people: {
+        Args: { _institution_id: string }
+        Returns: Json
+      }
+      list_my_departments: { Args: never; Returns: Json }
       owns_attempt: {
         Args: { _attempt_id: string; _user_id: string }
         Returns: boolean
@@ -2037,11 +2285,24 @@ export type Database = {
       }
       plan_limit: { Args: { _key: string; _user_id: string }; Returns: number }
       plan_remove_branding: { Args: { _user_id: string }; Returns: boolean }
+      preview_institution_join: { Args: { _code: string }; Returns: Json }
       regenerate_co_teacher_code: {
         Args: { _class_id: string }
         Returns: string
       }
+      regenerate_department_join_link: {
+        Args: { _department_id: string }
+        Returns: string
+      }
+      regenerate_institution_join_link: {
+        Args: { _institution_id: string; _role: string }
+        Returns: string
+      }
       release_ai_questions: { Args: { _ledger_id: string }; Returns: undefined }
+      remove_department_member: {
+        Args: { _department_id: string; _user_id: string }
+        Returns: undefined
+      }
       request_co_teacher_access: {
         Args: { _code: string; _full_name: string }
         Returns: string
@@ -2071,10 +2332,30 @@ export type Database = {
         Returns: undefined
       }
       shares_class_with: { Args: { _a: string; _b: string }; Returns: boolean }
+      update_department_join_link: {
+        Args: {
+          _department_id: string
+          _expires_at: string
+          _is_active: boolean
+          _max_uses: number
+        }
+        Returns: undefined
+      }
+      update_institution_join_link: {
+        Args: {
+          _expires_at: string
+          _institution_id: string
+          _is_active: boolean
+          _max_uses: number
+          _requires_approval: boolean
+          _role: string
+        }
+        Returns: undefined
+      }
       user_has_feature: { Args: { _feature: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "student" | "teacher" | "institution_admin" | "admin"
+      app_role: "student" | "teacher" | "admin" | "institution_admin"
       quiz_attempt_status:
         | "in_progress"
         | "submitted"
@@ -2226,7 +2507,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["student", "teacher", "institution_admin", "admin"],
+      app_role: ["student", "teacher", "admin", "institution_admin"],
       quiz_attempt_status: [
         "in_progress",
         "submitted",

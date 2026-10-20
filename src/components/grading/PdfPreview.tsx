@@ -34,7 +34,7 @@ export function PdfPreview({ url, fileName }: { url: string; fileName: string })
       .then((pdf) => {
         loaded = pdf;
         if (!active) {
-          void pdf.destroy();
+          void pdf.loadingTask.destroy();
           return;
         }
         setDocument(pdf);
@@ -50,7 +50,7 @@ export function PdfPreview({ url, fileName }: { url: string; fileName: string })
 
     return () => {
       active = false;
-      if (loaded) void loaded.destroy();
+      if (loaded) void loaded.loadingTask.destroy();
     };
   }, [url]);
 
@@ -79,7 +79,7 @@ export function PdfPreview({ url, fileName }: { url: string; fileName: string })
         canvas.style.width = `${Math.floor(viewport.width)}px`;
         canvas.style.height = `${Math.floor(viewport.height)}px`;
         context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-        task = page.render({ canvasContext: context, viewport });
+        task = page.render({ canvas, canvasContext: context, viewport });
         await task.promise;
       } catch (cause: unknown) {
         if (active) setError(cause instanceof Error ? cause.message : "Could not render this PDF page.");

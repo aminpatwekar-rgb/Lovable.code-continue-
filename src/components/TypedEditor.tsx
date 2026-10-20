@@ -257,7 +257,7 @@ export function TypedEditor({
               disabled={disabled}
               onClick={openMathEditor}
             >
-              <Sigma className="mr-1.5 size-3.5" /> Insert equation
+              <Sigma className="mr-1.5 size-3.5" /> Math keyboard
             </Button>
           )}
 

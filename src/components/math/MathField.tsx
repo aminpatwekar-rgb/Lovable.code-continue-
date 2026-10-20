@@ -6,6 +6,10 @@ import { cn } from "@/lib/utils";
 export type MathFieldHandle = {
   /** Insert LaTeX at the caret. Returns false while the field is still loading. */
   insert: (latex: string) => boolean;
+  /** Delete the character/atom before the caret. */
+  backspace: () => boolean;
+  /** Move the caret left or right (steps out of fractions, powers, roots). */
+  move: (dir: "left" | "right") => boolean;
   focus: () => void;
 };
 
@@ -47,8 +51,29 @@ export const MathField = forwardRef<MathFieldHandle, Props>(function MathField(
     insert(latex) {
       const mf = fieldRef.current;
       if (!mf) return false;
-      mf.insert(latex, { format: "latex", focus: true, feedback: false, mode: "math" });
+      mf.insert(latex, {
+        format: "latex",
+        focus: true,
+        feedback: false,
+        mode: "math",
+        selectionMode: "placeholder",
+      });
       onChangeRef.current(mf.value);
+      return true;
+    },
+    backspace() {
+      const mf = fieldRef.current;
+      if (!mf) return false;
+      mf.executeCommand("deleteBackward");
+      mf.focus();
+      onChangeRef.current(mf.value);
+      return true;
+    },
+    move(dir) {
+      const mf = fieldRef.current;
+      if (!mf) return false;
+      mf.executeCommand(dir === "left" ? "moveToPreviousChar" : "moveToNextChar");
+      mf.focus();
       return true;
     },
     focus() {

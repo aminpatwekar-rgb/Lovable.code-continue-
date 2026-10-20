@@ -21,6 +21,32 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { downloadCsv, toCsv } from "@/lib/csv";
 import { Pagination } from "@/components/Pagination";
 
+type DraftBackup = { text: string; at: number };
+function readDraftBackup(key: string): DraftBackup | null {
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as DraftBackup;
+    return typeof parsed?.text === "string" && typeof parsed?.at === "number" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+function writeDraftBackup(key: string, text: string) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify({ text, at: Date.now() }));
+  } catch {
+    /* storage full or blocked — server autosave still runs */
+  }
+}
+function clearDraftBackup(key: string) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
 export const Route = createFileRoute("/_authenticated/assignments/$assignmentId")({
   head: () => ({
     meta: [
@@ -320,6 +346,8 @@ function StudentSubmission({
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosavePromise = useRef<Promise<void> | null>(null);
   const submissionIdRef = useRef<string | null>(null);
+  const draftKey = `onyx:draft:${assignment.id}:${userId}`;
+  const unsavedTextRef = useRef<{ text: string; mode: string } | null>(null);
   const ensureSubmissionPromise = useRef<Promise<string> | null>(null);
 
   const submission = useQuery({
@@ -362,13 +390,31 @@ function StudentSubmission({
 
   useEffect(() => {
     if (hydrated || submission.isLoading || submission.isError) return;
+    const backup = readDraftBackup(draftKey);
     if (!submission.data) {
       lastSavedSnapshot.current = JSON.stringify([mode, ""]);
+      if (backup?.text.trim()) {
+        setText(backup.text);
+        toast.info("Restored your unsaved work from this device");
+      }
       setHydrated(true);
       return;
     }
     const { sub, files } = submission.data;
-    setText(sub.typed_content ?? "");
+    const serverText = sub.typed_content ?? "";
+    const serverLocked = ["submitted", "reviewed", "completed", "late"].includes(sub.status ?? "");
+    if (
+      !serverLocked &&
+      backup &&
+      backup.text.trim() &&
+      backup.text !== serverText &&
+      backup.at > new Date(sub.updated_at ?? 0).getTime()
+    ) {
+      setText(backup.text);
+      toast.info("Restored your unsaved work from this device");
+    } else {
+      setText(serverText);
+    }
     lastSavedSnapshot.current = JSON.stringify([sub.mode ?? mode, sub.typed_content ?? ""]);
     setChoice(sub.mode === "typed" ? "typed" : "handwritten");
     setViolations(sub.paste_violation_count ?? 0);
@@ -388,6 +434,46 @@ function StudentSubmission({
   const draftSnapshot = JSON.stringify([activeMode, text]);
   latestAutosaveSnapshot.current = draftSnapshot;
   const existingSubmissionId = submission.data?.sub?.id ?? null;
+
+  // Local safety net: every keystroke is mirrored to this device, so a dropped
+  // connection, closed tab or crash never loses typed work.
+  useEffect(() => {
+    if (!hydrated || locked || activeMode !== "typed") return;
+    if (draftSnapshot === lastSavedSnapshot.current) {
+      unsavedTextRef.current = null;
+      return;
+    }
+    unsavedTextRef.current = { text, mode: activeMode };
+    writeDraftBackup(draftKey, text);
+  }, [hydrated, locked, activeMode, draftSnapshot, draftKey, text]);
+
+  // Warn before leaving while edits have not reached the server yet.
+  useEffect(() => {
+    const warn = (e: BeforeUnloadEvent) => {
+      if (draftSaveState === "pending" || draftSaveState === "saving" || draftSaveState === "error") {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [draftSaveState]);
+
+  // Leaving this page (navigation) saves any last edit instead of dropping it.
+  useEffect(() => {
+    return () => {
+      const pending = unsavedTextRef.current;
+      const id = submissionIdRef.current;
+      if (!pending || !id) return;
+      void supabase
+        .from("submissions")
+        .update({ typed_content: pending.text, mode: pending.mode })
+        .eq("id", id)
+        .then(({ error }) => {
+          if (!error) clearDraftBackup(draftKey);
+        });
+    };
+  }, [draftKey]);
 
   const ensureSubmission = useCallback(async () => {
     if (submissionIdRef.current) return submissionIdRef.current;
@@ -455,6 +541,7 @@ function StudentSubmission({
           if (error) throw error;
           if (latestAutosaveSnapshot.current === snapshot) {
             lastSavedSnapshot.current = snapshot;
+            clearDraftBackup(draftKey);
             setDraftSaveState("saved");
             setLastSavedAt(new Date());
             void qc.invalidateQueries({ queryKey: ["my-submission", assignment.id, userId] });
@@ -477,6 +564,7 @@ function StudentSubmission({
   }, [
     activeMode,
     assignment.id,
+    draftKey,
     draftSnapshot,
     ensureSubmission,
     existingSubmissionId,
@@ -665,6 +753,7 @@ function StudentSubmission({
     },
     onSuccess: (submitted) => {
       lastSavedSnapshot.current = JSON.stringify([activeMode, text]);
+      clearDraftBackup(draftKey);
       setDraftSaveState("saved");
       setLastSavedAt(new Date());
       toast.success(submitted ? "Submitted" : "Draft saved");

@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MathPreview } from "@/components/math/MathPreview";
 import { MathField, type MathFieldHandle } from "@/components/math/MathField";
-import { SYMBOL_GROUPS, emptyMatrix, fractionLatex, matrixLatex } from "@/lib/math/symbols";
+import { MathKeyboard } from "@/components/math/MathKeyboard";
+import { emptyMatrix, fractionLatex, matrixLatex } from "@/lib/math/symbols";
 import { FORMULA_LIBRARY } from "@/lib/science/formulas";
 
 /**
@@ -43,6 +44,7 @@ export function MathEditor({
 
   function insert(snippet: string) {
     if (visualReady && fieldRef.current?.insert(snippet)) return;
+    snippet = snippet.replace(/#\?/g, "");
     const el = ref.current;
     if (!el) {
       onChange(value + snippet);
@@ -125,6 +127,18 @@ export function MathEditor({
         </div>
       )}
 
+      <MathKeyboard
+        onInsert={insert}
+        onBackspace={() => {
+          if (visualReady && fieldRef.current?.backspace()) return;
+          onChange(value.slice(0, -1));
+        }}
+        onMove={(dir) => {
+          if (visualReady) fieldRef.current?.move(dir);
+        }}
+        onClear={() => onChange("")}
+      />
+
       <details open={visualFailed} className="group rounded-md border border-border/70 px-3 py-2">
         <summary className="cursor-pointer text-sm text-muted-foreground">
           Edit as LaTeX code (advanced)
@@ -152,38 +166,12 @@ export function MathEditor({
         )}
       </details>
 
-      <Tabs defaultValue="symbols">
+      <Tabs defaultValue="fraction">
         <TabsList>
-          <TabsTrigger value="symbols">Symbols</TabsTrigger>
           <TabsTrigger value="fraction">Fraction</TabsTrigger>
           <TabsTrigger value="matrix">Matrix</TabsTrigger>
           <TabsTrigger value="library">Library</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="symbols" className="mt-4 space-y-4">
-          {SYMBOL_GROUPS.map((g) => (
-            <div key={g.id} className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {g.name}
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {g.symbols.map((s) => (
-                  <Button
-                    key={g.id + s.label}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    title={s.hint ?? s.latex}
-                    className="h-8 min-w-9 px-2 font-serif"
-                    onClick={() => insert(s.latex)}
-                  >
-                    {s.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </TabsContent>
 
         <TabsContent value="fraction" className="mt-4 space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">

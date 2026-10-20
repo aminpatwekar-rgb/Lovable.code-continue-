@@ -81,7 +81,7 @@ export function MathEditor({
     { label: "tan", latex: "\\tan ", kind: "function" },
     { label: "√", latex: "\\sqrt{x}", kind: "function" },
     { label: "x²", latex: "x^{2}", kind: "function" },
-    { label: "xʸ", latex: "^{ }", kind: "function" },
+    { label: "xʸ", latex: "^", kind: "function" },
     { label: "a/b", latex: "\\frac{a}{b}", kind: "function" },
     { label: "π", latex: "\\pi ", kind: "function" },
     { label: "e", latex: "e", kind: "function" },
@@ -111,6 +111,14 @@ export function MathEditor({
     { label: "α", latex: "\\alpha ", kind: "function" },
     { label: "β", latex: "\\beta ", kind: "function" },
     { label: "θ", latex: "\\theta ", kind: "function" },
+    { label: "∫", latex: "\\int ", kind: "function" },
+    { label: "Σ", latex: "\\sum ", kind: "function" },
+    { label: "lim", latex: "\\lim ", kind: "function" },
+    { label: "∞", latex: "\\infty ", kind: "function" },
+    { label: "≤", latex: "\\le ", kind: "operator" },
+    { label: "≥", latex: "\\ge ", kind: "operator" },
+    { label: "≠", latex: "\\neq ", kind: "operator" },
+    { label: "±", latex: "\\pm ", kind: "operator" },
     { label: "⌫", kind: "action" },
   ];
 

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 export type MathFieldHandle = {
   /** Insert LaTeX at the caret. Returns false while the field is still loading. */
   insert: (latex: string) => boolean;
+  backspace: () => boolean;
   focus: () => void;
 };
 
@@ -48,6 +49,13 @@ export const MathField = forwardRef<MathFieldHandle, Props>(function MathField(
       const mf = fieldRef.current;
       if (!mf) return false;
       mf.insert(latex, { format: "latex", focus: true, feedback: false, mode: "math" });
+      onChangeRef.current(mf.value);
+      return true;
+    },
+    backspace() {
+      const mf = fieldRef.current;
+      if (!mf) return false;
+      mf.executeCommand("deleteBackward");
       onChangeRef.current(mf.value);
       return true;
     },

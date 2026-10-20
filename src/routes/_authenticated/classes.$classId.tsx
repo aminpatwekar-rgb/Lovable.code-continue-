@@ -277,7 +277,7 @@ function ClassDetail() {
   const updateMemberIdentity = useMutation({
     mutationFn: async () => {
       if (!editingMember) throw new Error("Choose a student first.");
-      const { error } = await supabase.rpc("update_class_member_identity", {
+      const { error } = await (supabase as any).rpc("update_class_member_identity", {
         _class_id: classId,
         _member_id: editingMember.id,
         _full_name: identityDraft.full_name,

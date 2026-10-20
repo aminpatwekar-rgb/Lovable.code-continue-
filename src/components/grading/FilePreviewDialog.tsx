@@ -68,7 +68,7 @@ export function FilePreviewDialog({ file, onClose }: { file: PreviewableFile | n
   const [loading, setLoading] = useState(false);
   const type = file ? kind(file) : "other";
   const { url: previewUrl, loading: proxyLoading, error: proxyError } = useProxiedFileUrl(
-    file ? { id: file.id, source: file.source } : null,
+    file ? { id: file.id, ...(file.source ? { source: file.source } : {}) } : null,
   );
 
   useEffect(() => {

@@ -198,15 +198,9 @@ export function AssignmentDialog({
 
             const extension = fileExtension(file);
             const path = `${id}/${crypto.randomUUID()}.${extension || "bin"}`;
-            const { error: uploadError } = await supabase.storage
-              .from("assignment-attachments")
-              .upload(path, file, {
-                contentType: file.type || "application/octet-stream",
-                upsert: false,
-              });
-            if (uploadError) throw uploadError;
-            uploadedPaths.push(path);
 
+            // The Storage INSERT policy verifies that a matching, owner-authorized
+            // assignment_attachments row already exists for this exact path.
             const { data: row, error: rowError } = await db
               .from("assignment_attachments")
               .insert({
@@ -220,6 +214,17 @@ export function AssignmentDialog({
               .single();
             if (rowError) throw rowError;
             attachmentRowIds.push(row.id as string);
+
+            // Track the attempted path while its metadata row exists so rollback
+            // can remove an object even if Storage reports an error after writing it.
+            uploadedPaths.push(path);
+            const { error: uploadError } = await supabase.storage
+              .from("assignment-attachments")
+              .upload(path, file, {
+                contentType: file.type || "application/octet-stream",
+                upsert: false,
+              });
+            if (uploadError) throw uploadError;
           }
         }
 
@@ -235,18 +240,20 @@ export function AssignmentDialog({
       } catch (error) {
         // Best-effort compensation so a failed multi-file upload never leaves
         // orphaned metadata or storage objects from this save attempt.
+        // Remove Storage objects while their metadata rows still exist;
+        // the Storage DELETE policy uses those rows to verify assignment ownership.
+        if (uploadedPaths.length) {
+          const { error: storageCleanupError } = await supabase.storage
+            .from("assignment-attachments")
+            .remove(uploadedPaths);
+          if (storageCleanupError) console.error("Failed to clean uploaded assignment files", storageCleanupError);
+        }
         if (attachmentRowIds.length) {
           const { error: metadataCleanupError } = await db
             .from("assignment_attachments")
             .delete()
             .in("id", attachmentRowIds);
           if (metadataCleanupError) console.error("Failed to clean attachment metadata", metadataCleanupError);
-        }
-        if (uploadedPaths.length) {
-          const { error: storageCleanupError } = await supabase.storage
-            .from("assignment-attachments")
-            .remove(uploadedPaths);
-          if (storageCleanupError) console.error("Failed to clean uploaded assignment files", storageCleanupError);
         }
         if (createdInThisSave && id) {
           const { error: assignmentCleanupError } = await db

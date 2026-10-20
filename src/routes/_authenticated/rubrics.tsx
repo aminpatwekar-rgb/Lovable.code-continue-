@@ -368,7 +368,7 @@ function Page() {
         criterion.key === criterionKey
           ? {
               ...criterion,
-              levels: criterion.levels.map((level: Omit<RubricLevel, "key" | "id">) =>
+              levels: criterion.levels.map((level) =>
                 level.key === levelKey ? { ...level, ...updates } : level,
               ),
             }

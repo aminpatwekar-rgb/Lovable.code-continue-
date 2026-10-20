@@ -494,14 +494,15 @@ export const regenerateQuizQuestion = createServerFn({ method: "POST" })
       throw new Error("Only teachers and admins can generate quiz questions.");
     }
 
-    const reservation = await context.supabase.rpc("reserve_ai_questions", { _requested: 1 });
+    const db = context.supabase as any;
+    const reservation = await db.rpc("reserve_ai_questions", { _requested: 1 });
     if (reservation.error) throw new Error(reservation.error.message);
     const ledgerId = reservation.data as string;
     try {
       const [question] = await generateQuestions({ ...data, count: 1 });
       if (!question) throw new Error("Couldn't regenerate that question. Try again.");
 
-      const settled = await context.supabase.rpc("settle_ai_questions", {
+      const settled = await db.rpc("settle_ai_questions", {
         _ledger_id: ledgerId,
         _successful: 1,
         _provider: "google-gemini-api",

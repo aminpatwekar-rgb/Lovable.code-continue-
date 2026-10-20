@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 type ClassAccess = {
-  supabaseAdmin: any;
+  supabaseAdmin: typeof import("@/integrations/supabase/client.server").supabaseAdmin;
   classId: string;
   userId: string;
 };
@@ -534,14 +534,14 @@ export const analyzeHandwritingFile = createServerFn({ method: "POST" })
       throw new Error("Handwriting AI returned invalid structured data.");
     }
 
-    const transcription = typeof parsed.transcription === "string" ? parsed.transcription.trim().slice(0, 20_000) : "";
-    const unclearSegments = Array.isArray(parsed.unclearSegments)
-      ? parsed.unclearSegments.filter((item): item is string => typeof item === "string").map((item) => item.slice(0, 240)).slice(0, 30)
+    const transcription = typeof parsed["transcription"] === "string" ? parsed["transcription"].trim().slice(0, 20_000) : "";
+    const unclearSegments = Array.isArray(parsed["unclearSegments"])
+      ? parsed["unclearSegments"].filter((item): item is string => typeof item === "string").map((item) => item.slice(0, 240)).slice(0, 30)
       : [];
-    const observations = Array.isArray(parsed.observations)
-      ? parsed.observations.filter((item): item is string => typeof item === "string").map((item) => item.slice(0, 240)).slice(0, 10)
+    const observations = Array.isArray(parsed["observations"])
+      ? parsed["observations"].filter((item): item is string => typeof item === "string").map((item) => item.slice(0, 240)).slice(0, 10)
       : [];
-    const confidence = parsed.confidence === "high" || parsed.confidence === "medium" ? parsed.confidence : "low";
+    const confidence = parsed["confidence"] === "high" || parsed["confidence"] === "medium" ? parsed["confidence"] : "low";
     if (!transcription) throw new Error("No handwriting could be transcribed from this image.");
 
     return { transcription, unclearSegments, observations, confidence };

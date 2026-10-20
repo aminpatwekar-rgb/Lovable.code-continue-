@@ -376,7 +376,8 @@ export const transferInstitutionMembers = createServerFn({ method: "POST" })
       .in("id", data.userIds);
     if (profilesError) throw new Error("Could not load the selected accounts.");
 
-    const profilesById = new Map((profiles ?? []).map((profile: any) => [profile.id, profile]));
+    type TransferProfile = { id: string; full_name: string; email: string | null; institution: string | null; institution_id: string | null; is_active: boolean | null };
+    const profilesById = new Map<string, TransferProfile>((profiles ?? []).map((profile: TransferProfile) => [profile.id, profile]));
     const skippedRows: { email: string; reason: string }[] = [];
     for (const id of data.userIds) {
       if (!profilesById.has(id)) skippedRows.push({ email: id, reason: "Account not found." });

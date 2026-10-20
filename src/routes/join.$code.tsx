@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { saveInstitutionWelcome } from "@/lib/my-institution";
 import { GraduationCap, Loader2, Presentation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
@@ -50,6 +51,7 @@ function JoinPage() {
       const result = await joinWithCode(code);
       clearPendingJoinCode();
       await refresh();
+      saveInstitutionWelcome(result);
       toast.success(
         result.status === "pending"
           ? `Request sent. ${result.institutionName} will approve you shortly.`

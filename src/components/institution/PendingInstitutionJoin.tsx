@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { saveInstitutionWelcome } from "@/lib/my-institution";
 import { clearPendingJoinCode, joinWithCode, readPendingJoinCode } from "@/lib/institution-join";
 
 /**
@@ -21,6 +22,7 @@ export function PendingInstitutionJoin() {
     void joinWithCode(code)
       .then(async (result) => {
         await refresh();
+        saveInstitutionWelcome(result);
         if (result.status === "pending") {
           toast.success(`Request sent. ${result.institutionName} will approve you shortly.`);
         } else if (result.status === "joined") {

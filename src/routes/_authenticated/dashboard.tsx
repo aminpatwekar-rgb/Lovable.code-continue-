@@ -21,6 +21,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { InstitutionBanner } from "@/components/institution/InstitutionBanner";
+import { InstitutionWelcomeDialog } from "@/components/institution/InstitutionWelcomeDialog";
 import { daysLate, formatDue, type SubmissionStatus } from "@/lib/assignments";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -216,6 +218,9 @@ function Dashboard() {
           </div>
         </header>
 
+        <InstitutionWelcomeDialog />
+        <InstitutionBanner />
+
         {teacher.isLoading ? (
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {[0, 1, 2, 3].map((i) => (
@@ -379,6 +384,9 @@ function Dashboard() {
           </Button>
         </div>
       </header>
+
+      <InstitutionWelcomeDialog />
+      <InstitutionBanner />
 
       {student.isLoading ? (
         <div className="space-y-4">

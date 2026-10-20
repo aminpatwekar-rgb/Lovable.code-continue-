@@ -45,6 +45,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";
+import { fetchMyInstitution, MY_INSTITUTION_KEY } from "@/lib/my-institution";
 import { useViewRole } from "@/lib/viewRole";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -77,6 +78,8 @@ const GRADING_NAV = { to: "/grading", label: "Grading", icon: ClipboardCheck } a
 const ADMIN_NAV = [{ to: "/admin", label: "Admin", icon: Shield }] as const;
 const INSTITUTION_HUB_NAV = [{ to: "/institution", label: "Institution", icon: Building2 }] as const;
 const INSTITUTION_ADMIN_NAV = [{ to: "/institution", label: "Institution", icon: Building2 }] as const;
+// Students and teachers who belong to an institution get a read-only page about it.
+const MY_INSTITUTION_NAV = [{ to: "/my-institution", label: "My Institution", icon: Building2 }] as const;
 
 const MotionLink = motion.create(Link);
 
@@ -116,6 +119,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     navigate({ to: "/auth", replace: true });
   }
 
+  const isInstitutionMember = role === "student" || role === "teacher";
+  const myInstitution = useQuery({
+    queryKey: [MY_INSTITUTION_KEY, profile?.id],
+    enabled: Boolean(profile?.id) && isInstitutionMember,
+    queryFn: fetchMyInstitution,
+    staleTime: 60_000,
+  });
+  const institutionName = isInstitutionMember ? (myInstitution.data?.institution?.name ?? null) : null;
+
   const initials = (profile?.full_name || profile?.email || "U")
     .split(" ")
     .map((s) => s[0])
@@ -131,7 +143,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     ? [...baseNav, ...INSTITUTION_ADMIN_NAV]
     : effectiveRole === "admin"
       ? [...baseNav.slice(0, 2), ...INSTITUTION_HUB_NAV, ...baseNav.slice(2), ...ADMIN_NAV]
-      : baseNav;
+      : institutionName
+        ? [...baseNav.slice(0, 2), ...MY_INSTITUTION_NAV, ...baseNav.slice(2)]
+        : baseNav;
   // Phone tab bar: grading replaces Quizzes for teachers (Quizzes stays in the More menu).
   const bottomItems = canGrade
     ? [BOTTOM_NAV[0], BOTTOM_NAV[1], GRADING_NAV, BOTTOM_NAV[2]]
@@ -323,6 +337,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               <p className="truncate text-[11px] capitalize text-muted-foreground">
                 {isOverridden ? `${effectiveRole} (preview)` : role}
               </p>
+              {institutionName && (
+                <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-primary" title={institutionName}>
+                  <Building2 className="size-3 shrink-0" />
+                  <span className="truncate">{institutionName}</span>
+                </p>
+              )}
             </div>}
           </div>
           <div className={cn("flex gap-2", sidebarCollapsed && "flex-col items-center")}>
@@ -353,6 +373,16 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Link to="/dashboard" className="flex items-center gap-2">
           {branding.data ? <span className="text-sm font-semibold">Workspace</span> : <Wordmark size="sm" />}
         </Link>
+        {institutionName && (
+          <Link
+            to="/my-institution"
+            className="flex min-w-0 max-w-[40%] items-center gap-1 rounded-full border border-primary/25 bg-primary/5 px-2 py-0.5 text-[10px] font-medium text-primary"
+            title={institutionName}
+          >
+            <Building2 className="size-3 shrink-0" />
+            <span className="truncate">{institutionName}</span>
+          </Link>
+        )}
         <div className="flex items-center gap-1">
           <NotificationCenter />
           {canSwitchRole && renderRoleSwitcher(true)}
@@ -419,6 +449,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <p className="truncate text-[11px] capitalize text-muted-foreground">
                   {isOverridden ? `${effectiveRole} (preview)` : role}
                 </p>
+                {institutionName && (
+                  <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-primary">
+                    <Building2 className="size-3 shrink-0" />
+                    <span className="truncate">{institutionName}</span>
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex gap-2">

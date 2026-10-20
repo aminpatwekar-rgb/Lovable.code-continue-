@@ -21,6 +21,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedInstitutionRouteImport } from './routes/_authenticated/institution'
 import { Route as AuthenticatedInstitutionAdminRouteImport } from './routes/_authenticated/institution-admin'
 import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenticated/leaderboard'
+import { Route as AuthenticatedMyInstitutionRouteImport } from './routes/_authenticated/my-institution'
 import { Route as AuthenticatedQuestionBankRouteImport } from './routes/_authenticated/question-bank'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedRubricsRouteImport } from './routes/_authenticated/rubrics'
@@ -104,6 +105,12 @@ const AuthenticatedLeaderboardRoute =
   AuthenticatedLeaderboardRouteImport.update({
     id: '/leaderboard',
     path: '/leaderboard',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedMyInstitutionRoute =
+  AuthenticatedMyInstitutionRouteImport.update({
+    id: '/my-institution',
+    path: '/my-institution',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedQuestionBankRoute =
@@ -241,6 +248,7 @@ export interface FileRoutesByFullPath {
   '/institution': typeof AuthenticatedInstitutionRoute
   '/institution-admin': typeof AuthenticatedInstitutionAdminRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
+  '/my-institution': typeof AuthenticatedMyInstitutionRoute
   '/question-bank': typeof AuthenticatedQuestionBankRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rubrics': typeof AuthenticatedRubricsRoute
@@ -275,6 +283,7 @@ export interface FileRoutesByTo {
   '/institution': typeof AuthenticatedInstitutionRoute
   '/institution-admin': typeof AuthenticatedInstitutionAdminRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
+  '/my-institution': typeof AuthenticatedMyInstitutionRoute
   '/question-bank': typeof AuthenticatedQuestionBankRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rubrics': typeof AuthenticatedRubricsRoute
@@ -311,6 +320,7 @@ export interface FileRoutesById {
   '/_authenticated/institution': typeof AuthenticatedInstitutionRoute
   '/_authenticated/institution-admin': typeof AuthenticatedInstitutionAdminRoute
   '/_authenticated/leaderboard': typeof AuthenticatedLeaderboardRoute
+  '/_authenticated/my-institution': typeof AuthenticatedMyInstitutionRoute
   '/_authenticated/question-bank': typeof AuthenticatedQuestionBankRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/rubrics': typeof AuthenticatedRubricsRoute
@@ -347,6 +357,7 @@ export interface FileRouteTypes {
     | '/institution'
     | '/institution-admin'
     | '/leaderboard'
+    | '/my-institution'
     | '/question-bank'
     | '/reports'
     | '/rubrics'
@@ -381,6 +392,7 @@ export interface FileRouteTypes {
     | '/institution'
     | '/institution-admin'
     | '/leaderboard'
+    | '/my-institution'
     | '/question-bank'
     | '/reports'
     | '/rubrics'
@@ -416,6 +428,7 @@ export interface FileRouteTypes {
     | '/_authenticated/institution'
     | '/_authenticated/institution-admin'
     | '/_authenticated/leaderboard'
+    | '/_authenticated/my-institution'
     | '/_authenticated/question-bank'
     | '/_authenticated/reports'
     | '/_authenticated/rubrics'
@@ -532,6 +545,13 @@ declare module '@tanstack/react-router' {
       path: '/leaderboard'
       fullPath: '/leaderboard'
       preLoaderRoute: typeof AuthenticatedLeaderboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/my-institution': {
+      id: '/_authenticated/my-institution'
+      path: '/my-institution'
+      fullPath: '/my-institution'
+      preLoaderRoute: typeof AuthenticatedMyInstitutionRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/question-bank': {
@@ -708,6 +728,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedInstitutionRoute: typeof AuthenticatedInstitutionRoute
   AuthenticatedInstitutionAdminRoute: typeof AuthenticatedInstitutionAdminRoute
   AuthenticatedLeaderboardRoute: typeof AuthenticatedLeaderboardRoute
+  AuthenticatedMyInstitutionRoute: typeof AuthenticatedMyInstitutionRoute
   AuthenticatedQuestionBankRoute: typeof AuthenticatedQuestionBankRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedRubricsRoute: typeof AuthenticatedRubricsRoute
@@ -737,6 +758,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedInstitutionRoute: AuthenticatedInstitutionRoute,
   AuthenticatedInstitutionAdminRoute: AuthenticatedInstitutionAdminRoute,
   AuthenticatedLeaderboardRoute: AuthenticatedLeaderboardRoute,
+  AuthenticatedMyInstitutionRoute: AuthenticatedMyInstitutionRoute,
   AuthenticatedQuestionBankRoute: AuthenticatedQuestionBankRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedRubricsRoute: AuthenticatedRubricsRoute,

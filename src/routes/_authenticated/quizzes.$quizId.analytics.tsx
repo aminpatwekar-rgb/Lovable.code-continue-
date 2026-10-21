@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, CheckCircle2, Clock3, Users } from "lucide-react";
-import { fetchQuizAnalytics } from "@/lib/quiz/analytics";
+import { useServerFn } from "@tanstack/react-start";
+import { getQuizAnalytics } from "@/lib/quiz/analytics.functions";
 import { useViewRole } from "@/lib/viewRole";
 import { Button } from "@/components/ui/button";
 import { PlanGate } from "@/components/PlanGate";
@@ -13,8 +14,9 @@ export const Route=createFileRoute("/_authenticated/quizzes/$quizId/analytics")(
 
 function Page(){
   const {quizId}=Route.useParams(); const {effectiveRole}=useViewRole();
+  const fetchAnalytics=useServerFn(getQuizAnalytics);
   const allowed=effectiveRole==="teacher"||effectiveRole==="admin";
-  const q=useQuery({queryKey:["quiz-analytics",quizId],enabled:allowed,queryFn:()=>fetchQuizAnalytics(quizId),staleTime:15_000});
+  const q=useQuery({queryKey:["quiz-analytics",quizId],enabled:allowed,queryFn:()=>fetchAnalytics({data:{quizId}}),staleTime:15_000});
   if(!allowed)return <div className="panel p-10 text-center">Analytics are available to teachers and administrators.</div>;
   if(q.isLoading)return <div className="panel p-10">Loading analytics…</div>;
   if(q.isError)return <div className="panel p-10 text-center"><p className="text-sm text-destructive">{(q.error as Error).message}</p></div>;

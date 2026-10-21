@@ -2167,6 +2167,7 @@ export type Database = {
         Args: { _institution_id: string }
         Returns: Json
       }
+      get_my_institution: { Args: never; Returns: Json }
       get_profile_emails: {
         Args: { _ids: string[] }
         Returns: {

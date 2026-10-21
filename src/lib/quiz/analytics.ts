@@ -117,8 +117,8 @@ function toStrings(value: unknown): string[] {
   return Array.isArray(value) ? value.map((v) => String(v)) : [];
 }
 
-export async function fetchQuizAnalytics(quizId: string): Promise<QuizAnalytics> {
-  const { data: quiz, error: qErr } = await supabase
+export async function fetchQuizAnalytics(quizId: string, client: typeof supabase = supabase): Promise<QuizAnalytics> {
+  const { data: quiz, error: qErr } = await client
     .from("quizzes")
     .select("id, title, passing_marks, published, class_id, classes(name)")
     .eq("id", quizId)
@@ -127,16 +127,16 @@ export async function fetchQuizAnalytics(quizId: string): Promise<QuizAnalytics>
   if (!quiz) throw new Error("Quiz not found.");
 
   const [questionsRes, attemptsRes, rosterRes] = await Promise.all([
-    supabase
+    client
       .from("quiz_questions")
       .select("id, position, type, prompt, options, points")
       .eq("quiz_id", quizId)
       .order("position"),
-    supabase
+    client
       .from("quiz_attempts")
       .select("id, student_id, attempt_no, status, score, max_score, started_at, submitted_at")
       .eq("quiz_id", quizId),
-    supabase
+    client
       .from("class_members")
       .select("student_id, full_name, member_role")
       .eq("class_id", quiz.class_id),
@@ -158,7 +158,7 @@ export async function fetchQuizAnalytics(quizId: string): Promise<QuizAnalytics>
 
   let answers: AnswerRow[] = [];
   if (attempts.length) {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from("quiz_answers")
       .select("attempt_id, question_id, response, is_correct, awarded_points")
       .in(
@@ -187,7 +187,7 @@ export async function fetchQuizAnalytics(quizId: string): Promise<QuizAnalytics>
     ),
   ];
   if (missing.length) {
-    const { data } = await supabase.from("profiles").select("id, full_name").in("id", missing);
+    const { data } = await client.from("profiles").select("id, full_name").in("id", missing);
     for (const p of data ?? []) names.set(p.id, p.full_name);
   }
 

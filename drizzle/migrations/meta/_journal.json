@@ -50,6 +50,13 @@
       "when": 1791246967611,
       "tag": "0006_enforce_onyx_usage_quotas",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792583940053,
+      "tag": "0007_migration",
+      "breakpoints": true
     }
   ]
 }

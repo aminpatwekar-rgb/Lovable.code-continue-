@@ -117,7 +117,7 @@ function toStrings(value: unknown): string[] {
   return Array.isArray(value) ? value.map((v) => String(v)) : [];
 }
 
-export async function fetchQuizAnalytics(quizId: string, client: any = supabase): Promise<QuizAnalytics> {
+export async function fetchQuizAnalytics(quizId: string, client: typeof supabase = supabase): Promise<QuizAnalytics> {
   const { data: quiz, error: qErr } = await client
     .from("quizzes")
     .select("id, title, passing_marks, published, class_id, classes(name)")

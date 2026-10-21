@@ -18,5 +18,5 @@ export const getQuizAnalytics = createServerFn({ method: "POST" })
     });
     if (error) throw new Error("Could not verify your plan");
     if (!allowed) throw new Error("Quiz analytics require a plan that includes advanced analytics.");
-    return fetchQuizAnalytics(data.quizId, context.supabase);
+    return fetchQuizAnalytics(data.quizId, context.supabase as any);
   });

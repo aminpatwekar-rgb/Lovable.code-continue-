@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MathEditor } from "@/components/math/MathEditor";
+import { DockedMathBar } from "@/components/math/DockedMathBar";
 import {
   RichMathEditor,
   type MathTarget,
@@ -85,6 +86,7 @@ export function TypedEditor({
   const editorRef = useRef<RichMathEditorHandle>(null);
   const [uploading, setUploading] = useState(false);
   const [listening, setListening] = useState(false);
+  const [mathDock, setMathDock] = useState(false);
   // Equation dialog: inserting a new equation, or editing one the student clicked.
   const [mathDialog, setMathDialog] = useState<{
     latex: string;
@@ -213,10 +215,6 @@ export function TypedEditor({
     }
   }
 
-  function openMathEditor() {
-    setMathDialog({ latex: "", block: false, target: null });
-  }
-
   function editMath(target: MathTarget) {
     if (disabled) return;
     setMathDialog({ latex: target.latex, block: target.kind === "block", target });
@@ -252,10 +250,11 @@ export function TypedEditor({
           {allowMath && (
             <Button
               type="button"
-              variant="outline"
+              variant={mathDock ? "default" : "outline"}
               size="sm"
+              aria-pressed={mathDock}
               disabled={disabled}
-              onClick={openMathEditor}
+              onClick={() => setMathDock((v) => !v)}
             >
               <Sigma className="mr-1.5 size-3.5" /> Math keyboard
             </Button>
@@ -360,6 +359,15 @@ export function TypedEditor({
           }}
           placeholder="Write your answer here. Pasting is disabled."
           className="min-h-[320px] resize-y font-normal leading-7"
+        />
+      )}
+
+      {allowMath && mathDock && !disabled && (
+        <DockedMathBar
+          className="sticky bottom-2 z-20"
+          onClipboardBlocked={block}
+          onClose={() => setMathDock(false)}
+          onAdd={(latex, kind) => editorRef.current?.insertMath(latex, kind)}
         />
       )}
 

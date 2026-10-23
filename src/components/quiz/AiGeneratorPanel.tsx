@@ -54,6 +54,8 @@ export function AiGeneratorPanel({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [reading, setReading] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const dragDepth = useRef(0);
   const [sources, setSources] = useState<string[]>([]);
   const [count, setCount] = useState(8);
   const [difficulty, setDifficulty] = useState<GenerationOptions["difficulty"]>("mixed");
@@ -122,15 +124,58 @@ export function AiGeneratorPanel({
   return (
     <div className="space-y-4">
       <div
-        onDragOver={(e) => e.preventDefault()}
+        role="button"
+        tabIndex={0}
+        aria-label="Upload study files: drag and drop, paste, or press Enter to choose"
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest("button")) return;
+          if (!reading) fileRef.current?.click();
+        }}
+        onKeyDown={(e) => {
+          if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
+            e.preventDefault();
+            if (!reading) fileRef.current?.click();
+          }
+        }}
+        onDragEnter={(e) => {
+          e.preventDefault();
+          dragDepth.current += 1;
+          setDragging(true);
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          dragDepth.current = Math.max(0, dragDepth.current - 1);
+          if (dragDepth.current === 0) setDragging(false);
+        }}
         onDrop={(e) => {
           e.preventDefault();
-          void ingest(e.dataTransfer.files);
+          dragDepth.current = 0;
+          setDragging(false);
+          if (!reading) void ingest(e.dataTransfer.files);
         }}
-        className="rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center"
+        onPaste={(e) => {
+          const pasted = Array.from(e.clipboardData.files);
+          if (pasted.length) {
+            e.preventDefault();
+            const dt = new DataTransfer();
+            pasted.forEach((f) => dt.items.add(f));
+            void ingest(dt.files);
+          }
+        }}
+        className={`cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          dragging
+            ? "border-primary bg-primary/10"
+            : "border-border bg-muted/30 hover:bg-muted/50"
+        }`}
       >
         <FileUp className="mx-auto size-6 text-muted-foreground" aria-hidden />
-        <p className="mt-2 text-sm font-medium">Drop notes here or upload</p>
+        <p className="mt-2 text-sm font-medium">
+          {dragging ? "Drop files to add them" : "Drag & drop files here, paste an image, or click to upload"}
+        </p>
         <p className="text-xs text-muted-foreground">PDF, DOCX, PPTX, images (PNG/JPG) or TXT — up to 20 MB each. Charts, diagrams and slides are read visually.</p>
         <Button
           type="button"

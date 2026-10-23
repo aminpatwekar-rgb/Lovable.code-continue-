@@ -13,7 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ACCEPTED_MATERIAL, extractMaterial } from "@/lib/quiz/extract";
+import { ACCEPTED_MATERIAL, extractMaterialWithMedia } from "@/lib/quiz/extract";
+import {
+  MAX_ATTACHMENT_COUNT,
+  MAX_ATTACHMENT_TOTAL_BYTES,
+  type MaterialAttachment,
+} from "@/lib/quiz/attachments";
 import { QUESTION_TYPES, type QuestionType } from "@/lib/quiz/types";
 
 export type GenerationOptions = {
@@ -23,21 +28,28 @@ export type GenerationOptions = {
   types: QuestionType[];
   withExplanations: boolean;
   topic: string;
+  attachments: MaterialAttachment[];
 };
 
 /**
  * Study-material intake + AI generation controls. Files are parsed in the
- * browser; only the extracted text is handed to the generator.
+ * browser; the extracted text plus any visual content (PDF pages, images,
+ * pictures inside Word / PowerPoint) is handed to the generator so the AI
+ * actually looks at charts and diagrams.
  */
 export function AiGeneratorPanel({
   busy,
   onGenerate,
   material,
   onMaterialChange,
+  attachments,
+  onAttachmentsChange,
 }: {
   busy: boolean;
   material: string;
   onMaterialChange: (text: string) => void;
+  attachments: MaterialAttachment[];
+  onAttachmentsChange: (next: MaterialAttachment[]) => void;
   onGenerate: (opts: GenerationOptions) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -53,16 +65,41 @@ export function AiGeneratorPanel({
     if (!files?.length) return;
     setReading(true);
     let added = 0;
+    let textSoFar = material;
+    let attachedSoFar = attachments;
+    let bytes = attachedSoFar.reduce((n, a) => n + a.data.length, 0);
     for (const file of Array.from(files)) {
       try {
-        const text = await extractMaterial(file);
-        if (!text.trim()) {
-          toast.error(`No readable text found in ${file.name}`);
+        const { text, attachments: media } = await extractMaterialWithMedia(file);
+        if (!text.trim() && !media.length) {
+          toast.error(`Nothing readable found in ${file.name}`);
           continue;
         }
-        onMaterialChange(
-          [material.trim(), `--- ${file.name} ---\n${text}`].filter(Boolean).join("\n\n"),
-        );
+        const mediaBytes = media.reduce((n, a) => n + a.data.length, 0);
+        let keep = media;
+        if (
+          bytes + mediaBytes > MAX_ATTACHMENT_TOTAL_BYTES ||
+          attachedSoFar.length + media.length > MAX_ATTACHMENT_COUNT
+        ) {
+          keep = [];
+          if (text.trim()) {
+            toast.warning(`${file.name}: too many images/pages attached already, using its text only.`);
+          } else {
+            toast.error(`${file.name} can't be added — the attached files are too large together.`);
+            continue;
+          }
+        }
+        if (text.trim()) {
+          textSoFar = [textSoFar.trim(), `--- ${file.name} ---\n${text}`]
+            .filter(Boolean)
+            .join("\n\n");
+          onMaterialChange(textSoFar);
+        }
+        if (keep.length) {
+          attachedSoFar = [...attachedSoFar, ...keep];
+          bytes += keep.reduce((n, a) => n + a.data.length, 0);
+          onAttachmentsChange(attachedSoFar);
+        }
         setSources((s) => [...s, file.name]);
         added += 1;
       } catch (err) {
@@ -79,7 +116,8 @@ export function AiGeneratorPanel({
   }
 
   const wordCount = material.trim() ? material.trim().split(/\s+/).length : 0;
-  const canGenerate = !busy && !reading && wordCount >= 10 && types.length > 0;
+  const canGenerate =
+    !busy && !reading && (wordCount >= 10 || attachments.length > 0) && types.length > 0;
 
   return (
     <div className="space-y-4">
@@ -93,7 +131,7 @@ export function AiGeneratorPanel({
       >
         <FileUp className="mx-auto size-6 text-muted-foreground" aria-hidden />
         <p className="mt-2 text-sm font-medium">Drop notes here or upload</p>
-        <p className="text-xs text-muted-foreground">PDF, DOCX, PPTX or TXT — up to 20 MB each</p>
+        <p className="text-xs text-muted-foreground">PDF, DOCX, PPTX, images (PNG/JPG) or TXT — up to 20 MB each. Charts, diagrams and slides are read visually.</p>
         <Button
           type="button"
           variant="outline"
@@ -133,6 +171,23 @@ export function AiGeneratorPanel({
             </span>
           ))}
         </div>
+      )}
+
+      {attachments.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {attachments.length} visual file{attachments.length === 1 ? "" : "s"} attached (images /
+          PDF pages) — the AI will look at them directly.{" "}
+          <button
+            type="button"
+            className="underline"
+            onClick={() => {
+              onAttachmentsChange([]);
+              setSources([]);
+            }}
+          >
+            Clear all
+          </button>
+        </p>
       )}
 
       <div className="space-y-1.5">
@@ -214,7 +269,7 @@ export function AiGeneratorPanel({
       <Button
         type="button"
         disabled={!canGenerate}
-        onClick={() => onGenerate({ material, count, difficulty, types, withExplanations, topic })}
+        onClick={() => onGenerate({ material, count, difficulty, types, withExplanations, topic, attachments })}
         className="w-full"
       >
         {busy ? (

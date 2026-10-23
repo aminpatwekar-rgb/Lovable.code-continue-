@@ -25,6 +25,7 @@ import {
 import { percent } from "@/lib/quiz/types";
 import { QuestionEditor } from "@/components/quiz/QuestionEditor";
 import { AiGeneratorPanel, type GenerationOptions } from "@/components/quiz/AiGeneratorPanel";
+import type { MaterialAttachment } from "@/lib/quiz/attachments";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -206,6 +207,7 @@ function Page() {
   const [questions, setQuestions] = useState<QuestionDraft[]>([]);
   const [removed, setRemoved] = useState<string[]>([]);
   const [material, setMaterial] = useState("");
+  const [attachments, setAttachments] = useState<MaterialAttachment[]>([]);
   const [regenIndex, setRegenIndex] = useState<number | null>(null);
   const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
   const [aiGeneratedIds, setAiGeneratedIds] = useState<Set<string>>(() => new Set());
@@ -441,6 +443,7 @@ function Page() {
       generate({
         data: {
           material: opts.material,
+          attachments: opts.attachments,
           count: opts.count,
           difficulty: opts.difficulty,
           types: opts.types,
@@ -477,7 +480,7 @@ function Page() {
   async function regenerateAt(index: number) {
     const target = questions[index];
     if (!target) return;
-    if (material.trim().length < 40) {
+    if (material.trim().length < 40 && !attachments.length) {
       toast.error("Add study material in the AI tab first.");
       return;
     }
@@ -486,6 +489,7 @@ function Page() {
       const res = await regenerate({
         data: {
           material,
+          attachments,
           count: 1,
           difficulty: target.difficulty,
           types: [target.type],
@@ -887,6 +891,8 @@ function Page() {
               busy={aiGenerate.isPending}
               material={material}
               onMaterialChange={setMaterial}
+              attachments={attachments}
+              onAttachmentsChange={setAttachments}
               onGenerate={(opts) => aiGenerate.mutate(opts)}
             />
           </div>

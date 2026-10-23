@@ -1,5 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  ATTACHMENT_MIMES,
+  MAX_ATTACHMENT_COUNT,
+  MAX_ATTACHMENT_TOTAL_BYTES,
+  type MaterialAttachment,
+} from "./attachments";
 
 /**
  * Gemini-backed quiz generation. The API key never leaves the server: every
@@ -9,7 +15,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const MODEL = "gemini-3.8-flash";
 const FALLBACK_MODELS = ["gemini-3.5-flash-lite"];
-const TIMEOUT_MS = 90_000;
+const TIMEOUT_MS = 120_000;
 
 export type GeneratedQuestion = {
   type: string;
@@ -29,13 +35,29 @@ type GenerateInput = {
   withExplanations: boolean;
   topic?: string | undefined;
   avoid?: string[] | undefined;
+  /** Images / PDFs the model should look at directly. */
+  attachments?: MaterialAttachment[] | undefined;
 };
 
 const ALLOWED_TYPES = ["mcq", "multi_select", "true_false", "fill_blank", "short_answer", "essay"];
 
 function validate(input: GenerateInput): GenerateInput {
   const material = String(input?.material ?? "").trim();
-  if (material.length < 40) {
+  const attachments: MaterialAttachment[] = [];
+  let attachedBytes = 0;
+  for (const a of Array.isArray(input?.attachments) ? input.attachments : []) {
+    const mime = String(a?.mime ?? "");
+    const data = String(a?.data ?? "");
+    if (!(ATTACHMENT_MIMES as readonly string[]).includes(mime) || !data) continue;
+    if (!/^[A-Za-z0-9+/=]+$/.test(data)) continue;
+    attachedBytes += data.length;
+    if (attachedBytes > MAX_ATTACHMENT_TOTAL_BYTES) {
+      throw new Error("The attached files are too large together. Remove some and try again.");
+    }
+    attachments.push({ name: String(a?.name ?? "file").slice(0, 120), mime, data });
+    if (attachments.length >= MAX_ATTACHMENT_COUNT) break;
+  }
+  if (material.length < 40 && !attachments.length) {
     throw new Error("Add at least a short paragraph of study material to generate from.");
   }
   const types = (Array.isArray(input.types) ? input.types : []).filter((t) =>
@@ -58,6 +80,7 @@ function validate(input: GenerateInput): GenerateInput {
     avoid: Array.isArray(input.avoid)
       ? input.avoid.slice(0, 60).map((s) => String(s).slice(0, 300))
       : [],
+    attachments,
   };
 }
 
@@ -117,8 +140,17 @@ function buildPrompt(input: GenerateInput) {
     "",
     'Reply with JSON only, shaped { "questions": [ { "type", "difficulty", "prompt", "options", "correct", "explanation", "points", "source_evidence" } ] }.',
     "",
-    "STUDY MATERIAL:",
-    input.material,
+    input.attachments?.length
+      ? [
+          "ATTACHED FILES",
+          "- The attached images, PDF pages and slides are part of the study material. Read them like a teacher would: understand charts, graphs, diagrams, tables, equations, handwriting and screenshots, not just the printed words.",
+          "- Questions may test what the visuals show (trends, labelled parts, relationships, values), but students will NOT see the attached files. Every question must be fully self-contained: describe or state any data, labels or values a student needs inside the question itself.",
+          "- For anything taken from an image, use \"\" for source_evidence or a short description in your own words.",
+          "",
+        ].join("\n")
+      : "",
+    "STUDY MATERIAL (extracted text, may be empty or incomplete when the material is mostly visual):",
+    input.material || "(none - use the attached files)",
   ]
     .filter((line, i, arr) => line !== "" || (arr[i - 1] ?? "") !== "")
     .join("\n");
@@ -308,7 +340,11 @@ function parseAndCleanQuestions(raw: string, input: GenerateInput) {
       continue;
     }
     // Only reject answers whose supporting evidence is clearly NOT from the material.
-    if (cleaned.evidence && evidenceCoverage(cleaned.evidence, materialWords) < 0.5) {
+    if (
+      !input.attachments?.length &&
+      cleaned.evidence &&
+      evidenceCoverage(cleaned.evidence, materialWords) < 0.5
+    ) {
       rejections.push("evidence not found in material");
       continue;
     }
@@ -327,7 +363,17 @@ function parseAndCleanQuestions(raw: string, input: GenerateInput) {
 // Model call
 // ---------------------------------------------------------------------------
 
-async function callModel(model: string, prompt: string): Promise<{ ok: true; content: string } | { ok: false; status: number; message: string }> {
+function buildParts(prompt: string, attachments: MaterialAttachment[] | undefined) {
+  const parts: Array<Record<string, unknown>> = [];
+  for (const a of attachments ?? []) {
+    parts.push({ text: `Attached file: ${a.name}` });
+    parts.push({ inlineData: { mimeType: a.mime, data: a.data } });
+  }
+  parts.push({ text: prompt });
+  return parts;
+}
+
+async function callModel(model: string, prompt: string, attachments?: MaterialAttachment[]): Promise<{ ok: true; content: string } | { ok: false; status: number; message: string }> {
   const key = process.env["GEMINI_API_KEY"];
   if (!key) throw new Error("Gemini AI is not configured. Add GEMINI_API_KEY to the server secrets.");
 
@@ -346,7 +392,7 @@ async function callModel(model: string, prompt: string): Promise<{ ok: true; con
         },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          contents: [{ role: "user", parts: buildParts(prompt, attachments) }],
           generationConfig: { responseMimeType: "application/json" },
         }),
       },
@@ -385,10 +431,13 @@ async function callModel(model: string, prompt: string): Promise<{ ok: true; con
 }
 
 /** Tries the main model, then fallbacks if it errors out. */
-async function callWithFallback(prompt: string): Promise<string> {
+async function callWithFallback(
+  prompt: string,
+  attachments?: MaterialAttachment[],
+): Promise<string> {
   let lastMessage = "The AI service failed. Please try again.";
   for (const model of [MODEL, ...FALLBACK_MODELS]) {
-    const result = await callModel(model, prompt);
+    const result = await callModel(model, prompt, attachments);
     if (result.ok) return result.content;
     lastMessage = result.message;
   }
@@ -414,6 +463,7 @@ async function generateQuestions(data: GenerateInput): Promise<GeneratedQuestion
           count: needed,
           avoid: [...(data.avoid ?? []), ...collected.map((q) => q.prompt)].slice(0, 60),
         }),
+        data.attachments,
       );
       const { accepted, rejections } = parseAndCleanQuestions(content, data);
       allRejections.push(...rejections);

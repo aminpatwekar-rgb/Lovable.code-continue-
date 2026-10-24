@@ -43,6 +43,8 @@ import { Route as AuthenticatedQuizzesQuizIdAnalyticsRouteImport } from './route
 import { Route as AuthenticatedQuizzesQuizIdEditRouteImport } from './routes/_authenticated/quizzes.$quizId.edit'
 import { Route as AuthenticatedQuizzesQuizIdTakeRouteImport } from './routes/_authenticated/quizzes.$quizId.take'
 import { Route as ApiFilePreviewSourceFileIdRouteImport } from './routes/api.file-preview.$source.$fileId'
+import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
+import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -235,6 +237,16 @@ const ApiFilePreviewSourceFileIdRoute =
     path: '/api/file-preview/$source/$fileId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
+  id: '/lovable/email/auth/preview',
+  path: '/lovable/email/auth/preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LovableEmailAuthWebhookRoute = LovableEmailAuthWebhookRouteImport.update({
+  id: '/lovable/email/auth/webhook',
+  path: '/lovable/email/auth/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -269,6 +281,8 @@ export interface FileRoutesByFullPath {
   '/quizzes/$quizId/edit': typeof AuthenticatedQuizzesQuizIdEditRoute
   '/quizzes/$quizId/take': typeof AuthenticatedQuizzesQuizIdTakeRoute
   '/api/file-preview/$source/$fileId': typeof ApiFilePreviewSourceFileIdRoute
+  '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
+  '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/quizzes/$quizId/': typeof AuthenticatedQuizzesQuizIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -304,6 +318,8 @@ export interface FileRoutesByTo {
   '/quizzes/$quizId/edit': typeof AuthenticatedQuizzesQuizIdEditRoute
   '/quizzes/$quizId/take': typeof AuthenticatedQuizzesQuizIdTakeRoute
   '/api/file-preview/$source/$fileId': typeof ApiFilePreviewSourceFileIdRoute
+  '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
+  '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/quizzes/$quizId': typeof AuthenticatedQuizzesQuizIdIndexRoute
 }
 export interface FileRoutesById {
@@ -341,6 +357,8 @@ export interface FileRoutesById {
   '/_authenticated/quizzes/$quizId/edit': typeof AuthenticatedQuizzesQuizIdEditRoute
   '/_authenticated/quizzes/$quizId/take': typeof AuthenticatedQuizzesQuizIdTakeRoute
   '/api/file-preview/$source/$fileId': typeof ApiFilePreviewSourceFileIdRoute
+  '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
+  '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/_authenticated/quizzes/$quizId/': typeof AuthenticatedQuizzesQuizIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -378,6 +396,8 @@ export interface FileRouteTypes {
     | '/quizzes/$quizId/edit'
     | '/quizzes/$quizId/take'
     | '/api/file-preview/$source/$fileId'
+    | '/lovable/email/auth/preview'
+    | '/lovable/email/auth/webhook'
     | '/quizzes/$quizId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -413,6 +433,8 @@ export interface FileRouteTypes {
     | '/quizzes/$quizId/edit'
     | '/quizzes/$quizId/take'
     | '/api/file-preview/$source/$fileId'
+    | '/lovable/email/auth/preview'
+    | '/lovable/email/auth/webhook'
     | '/quizzes/$quizId'
   id:
     | '__root__'
@@ -449,6 +471,8 @@ export interface FileRouteTypes {
     | '/_authenticated/quizzes/$quizId/edit'
     | '/_authenticated/quizzes/$quizId/take'
     | '/api/file-preview/$source/$fileId'
+    | '/lovable/email/auth/preview'
+    | '/lovable/email/auth/webhook'
     | '/_authenticated/quizzes/$quizId/'
   fileRoutesById: FileRoutesById
 }
@@ -459,6 +483,8 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   JoinCodeRoute: typeof JoinCodeRoute
   ApiFilePreviewSourceFileIdRoute: typeof ApiFilePreviewSourceFileIdRoute
+  LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
+  LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -701,6 +727,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFilePreviewSourceFileIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lovable/email/auth/preview': {
+      id: '/lovable/email/auth/preview'
+      path: '/lovable/email/auth/preview'
+      fullPath: '/lovable/email/auth/preview'
+      preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lovable/email/auth/webhook': {
+      id: '/lovable/email/auth/webhook'
+      path: '/lovable/email/auth/webhook'
+      fullPath: '/lovable/email/auth/webhook'
+      preLoaderRoute: typeof LovableEmailAuthWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -794,6 +834,8 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   JoinCodeRoute: JoinCodeRoute,
   ApiFilePreviewSourceFileIdRoute: ApiFilePreviewSourceFileIdRoute,
+  LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
+  LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

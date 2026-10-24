@@ -111,6 +111,7 @@
     "vitest": "^5.0.5"
   },
   "overrides": {
+    "dompurify": "3.4.17",
     "@tanstack/react-router": "1.170.41",
     "@tanstack/router-core": "1.171.34",
     "@tanstack/router-plugin": "1.168.42",

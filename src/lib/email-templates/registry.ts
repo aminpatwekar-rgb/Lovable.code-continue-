@@ -17,7 +17,13 @@ export interface TemplateEntry {
  *   import { template as welcomeTemplate } from './welcome'
  *   // then add to TEMPLATES: 'welcome': welcomeTemplate
  */
+import { assignmentPosted, coTeacherRequest, gradeReleased, submissionReceived } from './onyx-templates'
+
 export const TEMPLATES: Record<string, TemplateEntry> = {
+  'assignment-posted': assignmentPosted,
+  'grade-released': gradeReleased,
+  'submission-received': submissionReceived,
+  'co-teacher-request': coTeacherRequest,
   // Add templates here as they are created, e.g.:
   // 'welcome': welcomeTemplate,
 }

@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { classJoinUrl } from "@/lib/institution-join";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -442,7 +443,7 @@ function ClassDetail() {
               className="hidden sm:inline-flex"
               onClick={() => {
                 void navigator.clipboard.writeText(
-                  `${window.location.origin}/classes?join=${klass.data!.join_code}`,
+                  classJoinUrl(klass.data!.join_code),
                 );
                 toast.success("Invitation link copied");
               }}
@@ -480,7 +481,7 @@ function ClassDetail() {
                 <DropdownMenuItem
                   onClick={() => {
                     void navigator.clipboard.writeText(
-                      `${window.location.origin}/classes?join=${klass.data!.join_code}`,
+                      classJoinUrl(klass.data!.join_code),
                     );
                     toast.success("Invitation link copied");
                   }}

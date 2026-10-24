@@ -8,17 +8,24 @@ import { useAuth } from "@/lib/auth";
 import { lovable } from "@/integrations/lovable";
 import {
   clearPendingJoinCode,
+  joinClassWithCode,
   joinWithCode,
+  previewClassJoin,
   previewJoin,
+  savePendingClassJoinCode,
   savePendingJoinCode,
+  type ClassJoinPreview,
   type JoinPreview,
 } from "@/lib/institution-join";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { BookOpen } from "lucide-react";
 import onyxMark from "@/assets/onyx-mark.png.asset.json";
 
 export const Route = createFileRoute("/join/$code")({
   head: () => ({
     meta: [
-      { title: "Join your institution — ONYX" },
+      { title: "Join on ONYX" },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -28,18 +35,59 @@ export const Route = createFileRoute("/join/$code")({
 function JoinPage() {
   const { code } = Route.useParams();
   const navigate = useNavigate();
-  const { session, profile, loading, refresh } = useAuth();
+  const { session, profile, role, loading, refresh } = useAuth();
   const [preview, setPreview] = useState<JoinPreview | null>(null);
+  const [classPreview, setClassPreview] = useState<ClassJoinPreview | null>(null);
   const [busy, setBusy] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [rollNo, setRollNo] = useState("");
+  const [erNo, setErNo] = useState("");
+  const [srNo, setSrNo] = useState("");
 
+  // The same /join/<code> link works for institution join links and for class invitations.
   useEffect(() => {
     let active = true;
-    void previewJoin(code).then((p) => {
+    setPreview(null);
+    setClassPreview(null);
+    void (async () => {
+      const inst = await previewJoin(code);
       if (!active) return;
-      setPreview(p);
-    });
+      if (inst.valid) {
+        setPreview(inst);
+        setClassPreview({ valid: false });
+        return;
+      }
+      const cls = await previewClassJoin(code);
+      if (!active) return;
+      setPreview(inst);
+      setClassPreview(cls);
+    })();
     return () => { active = false; };
   }, [code]);
+
+  const isClass = classPreview?.valid === true;
+  const isStaff = role === "teacher" || role === "admin" || role === "institution_admin";
+
+  async function joinClassNow() {
+    const name = (fullName || profile?.full_name || "").trim();
+    if (!isStaff) {
+      if (!name) { toast.error("Full name is required"); return; }
+      if (!rollNo.trim() && !erNo.trim() && !srNo.trim()) {
+        toast.error("Enter at least one identifier: Roll No., ER No., or Sr No.");
+        return;
+      }
+    }
+    setBusy(true);
+    try {
+      const classId = await joinClassWithCode(code, { fullName: name, rollNo, erNo, srNo });
+      toast.success("You've joined the class");
+      navigate({ to: "/classes/$classId", params: { classId }, replace: true });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not join this class.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const signedIn = Boolean(session);
   // A signed-in account that has not confirmed a role yet finishes inside the auth screen.
@@ -71,7 +119,7 @@ function JoinPage() {
   // which finishes the join once the account exists.
   async function continueWithGoogle() {
     // Keep the invitation code before using Lovable-managed Google authentication.
-    savePendingJoinCode(code);
+    if (isClass) savePendingClassJoinCode(code); else savePendingJoinCode(code);
     setBusy(true);
     try {
       const result = await lovable.auth.signInWithOAuth("google", {
@@ -86,7 +134,7 @@ function JoinPage() {
 
   // Remember the code so sign-up, e-mail confirmation or Google sign-in can finish the join.
   function startAuth(mode: "signup" | "signin") {
-    savePendingJoinCode(code);
+    if (isClass) savePendingClassJoinCode(code); else savePendingJoinCode(code);
     navigate({ to: "/auth", search: { mode } });
   }
 
@@ -101,15 +149,99 @@ function JoinPage() {
           <span className="font-semibold tracking-tight">ONYX</span>
         </Link>
 
-        {preview === null || loading ? (
+        {preview === null || classPreview === null || loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />Checking your link…
+          </div>
+        ) : isClass && classPreview.valid ? (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <BookOpen className="mt-1 size-6 text-primary" />
+              <div>
+                <h1 className="text-2xl font-semibold">Join {classPreview.className}</h1>
+                {[classPreview.subject, classPreview.section].filter(Boolean).length > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    {[classPreview.subject, classPreview.section].filter(Boolean).join(" · ")}
+                  </p>
+                )}
+                {classPreview.teacherName && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Taught by <span className="font-medium text-foreground">{classPreview.teacherName}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {needsRoleStep ? (
+              <Button className="w-full" onClick={() => navigate({ to: "/auth" })}>Continue</Button>
+            ) : signedIn ? (
+              <>
+                {!isStaff && (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="jc-name">Full name</Label>
+                      <Input
+                        id="jc-name"
+                        maxLength={100}
+                        value={fullName || profile?.full_name || ""}
+                        onChange={(e) => setFullName(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="jc-roll">Roll No.</Label>
+                        <Input id="jc-roll" maxLength={40} value={rollNo} onChange={(e) => setRollNo(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="jc-er">ER No.</Label>
+                        <Input id="jc-er" maxLength={40} value={erNo} onChange={(e) => setErNo(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="jc-sr">Sr No.</Label>
+                        <Input id="jc-sr" maxLength={40} value={srNo} onChange={(e) => setSrNo(e.target.value)} />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Enter at least one identifier so your teacher can match your work.
+                    </p>
+                  </div>
+                )}
+                <Button className="w-full" disabled={busy} onClick={() => void joinClassNow()}>
+                  {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
+                  Join class
+                </Button>
+                <p className="text-center text-xs text-muted-foreground">
+                  Signed in as {session?.user.email}.
+                </p>
+              </>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex h-12 w-full items-center justify-center gap-3 border-2 border-border bg-background text-base font-semibold shadow-sm hover:border-primary/60 hover:bg-accent"
+                  disabled={busy}
+                  onClick={() => void continueWithGoogle()}
+                >
+                  <span>Continue with Google</span>
+                </Button>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
+                </div>
+                <Button variant="secondary" className="w-full" onClick={() => startAuth("signup")}>
+                  Create an account with email
+                </Button>
+                <Button variant="outline" className="w-full" onClick={() => startAuth("signin")}>
+                  I already have an account
+                </Button>
+              </>
+            )}
           </div>
         ) : !preview.valid ? (
           <div className="space-y-3">
             <h1 className="text-2xl font-semibold">This link isn't active</h1>
             <p className="text-sm text-muted-foreground">
-              It may have expired, been switched off, or been replaced. Ask your institution for a new join link.
+              It may have expired, been switched off, or been replaced. Ask your teacher or institution for a new join link.
             </p>
             <Button asChild variant="outline" className="w-full"><Link to="/">Go to ONYX</Link></Button>
           </div>

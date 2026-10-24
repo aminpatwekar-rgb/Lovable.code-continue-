@@ -119,3 +119,51 @@ export async function decideJoinRequest(requestId: string, approve: boolean, dep
   });
   if (error) throw new Error(error.message);
 }
+
+// ---------------------------------------------------------------------------
+// Class invitation links (/join/<code> also works for a class's student join code)
+// ---------------------------------------------------------------------------
+
+export type ClassJoinPreview =
+  | { valid: false }
+  | { valid: true; className: string; subject: string | null; section: string | null; teacherName: string | null };
+
+const PENDING_CLASS_KEY = "onyx.pending-class-join-code";
+
+/** Shareable class invitation link: opens a preview page, then joins after sign-in. */
+export function classJoinUrl(code: string): string {
+  return joinUrl(code.trim().toUpperCase());
+}
+
+export async function previewClassJoin(code: string): Promise<ClassJoinPreview> {
+  const { data, error } = await db.rpc("preview_class_join", { _code: normalizeJoinCode(code) });
+  if (error || !data?.valid) return { valid: false };
+  return data as ClassJoinPreview;
+}
+
+export function savePendingClassJoinCode(code: string) {
+  try { localStorage.setItem(PENDING_CLASS_KEY, normalizeJoinCode(code)); } catch { /* private mode */ }
+}
+export function readPendingClassJoinCode(): string | null {
+  try { return localStorage.getItem(PENDING_CLASS_KEY) || null; } catch { return null; }
+}
+export function clearPendingClassJoinCode() {
+  try { localStorage.removeItem(PENDING_CLASS_KEY); } catch { /* ignore */ }
+}
+
+/** Join a class by its code. Returns the class id. */
+export async function joinClassWithCode(
+  code: string,
+  identity: { fullName: string; rollNo: string; erNo: string; srNo: string },
+): Promise<string> {
+  const { data, error } = await db.rpc("join_class_by_code", {
+    _code: normalizeJoinCode(code),
+    _full_name: identity.fullName.trim(),
+    _roll_no: identity.rollNo.trim(),
+    _er_no: identity.erNo.trim(),
+    _sr_no: identity.srNo.trim(),
+  });
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("No class found with that code");
+  return data as string;
+}

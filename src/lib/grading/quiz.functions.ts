@@ -168,14 +168,11 @@ export const saveQuizAttemptGrade = createServerFn({ method: "POST" })
     const answerByQuestion = new Map((answers ?? []).map((a) => [a.question_id, a]));
     const oldScore = Number(attempt.score) || 0;
 
-    // Only hand-marked questions can be changed here; automatic marks stay as the platform set them.
+    // Teachers and admins (authorised in loadAttempt) may mark any question by hand, which also
+    // lets them override an automatic mark (correct -> incorrect or incorrect -> correct).
     for (const g of data.grades) {
       const q = questionById.get(g.questionId);
       if (!q) throw new Error("A question in this grade does not belong to the quiz.");
-      const correct = Array.isArray(q.correct) ? (q.correct as unknown[]).map(String) : [];
-      if (!needsHandMarking(q.type, correct)) {
-        throw new Error("Only written answers can be marked by hand.");
-      }
       const max = Number(q.points) || 0;
       if (g.points > max) throw new Error(`Marks cannot be more than ${max} for a question.`);
       const row = answerByQuestion.get(g.questionId);

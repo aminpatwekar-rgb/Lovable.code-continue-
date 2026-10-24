@@ -39,11 +39,18 @@ export function QuizAttemptGrader({
   const qc = useQueryClient();
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [hydrated, setHydrated] = useState(false);
+  // Teacher overrides of automatically graded answers: question id -> marks awarded.
+  const [overrides, setOverrides] = useState<Record<string, number>>({});
 
   const q = useQuery({
     queryKey: ["grading", "quiz-attempt", attemptId],
     queryFn: () => getQuizAttemptForGrading({ data: { attemptId } }),
   });
+
+  useEffect(() => {
+    setOverrides({});
+    setHydrated(false);
+  }, [attemptId]);
 
   useEffect(() => {
     if (hydrated || !q.data) return;
@@ -64,10 +71,13 @@ export function QuizAttemptGrader({
     const manual = answers.filter((a) => a.manual);
     const marked = manual.filter((a) => a.response.some((r) => r.trim()) || a.answer_id !== null);
     const auto = answers.filter((a) => !a.manual);
-    const autoScore = auto.reduce((n, a) => n + (a.awarded_points ?? 0), 0);
+    const autoScore = auto.reduce(
+      (n, a) => n + (overrides[a.question_id] ?? a.awarded_points ?? 0),
+      0,
+    );
     const max = answers.reduce((n, a) => n + a.points, 0);
     return { manual, marked, auto, autoScore, max };
-  }, [q.data]);
+  }, [q.data, overrides]);
 
   const save = useMutation({
     mutationFn: async (mode: "all" | "progress") => {
@@ -86,8 +96,14 @@ export function QuizAttemptGrader({
       }
       if (mode === "all" && grades.length < parts.marked.length)
         throw new Error("Enter marks for every written answer, or use Save progress");
-      if (grades.length === 0) throw new Error("Enter marks for at least one answer");
-      return saveQuizAttemptGrade({ data: { attemptId, grades } });
+      const overrideGrades = Object.entries(overrides).map(([questionId, points]) => ({
+        questionId,
+        points,
+        feedback: parts.auto.find((a) => a.question_id === questionId)?.feedback ?? "",
+      }));
+      const all = [...grades, ...overrideGrades];
+      if (all.length === 0) throw new Error("Enter marks or change an answer first");
+      return saveQuizAttemptGrade({ data: { attemptId, grades: all } });
     },
     onSuccess: (result) => {
       toast.success(
@@ -95,8 +111,9 @@ export function QuizAttemptGrader({
           ? `Graded: ${result.score} / ${result.max}`
           : "Progress saved. Some answers still need marks",
       );
+      setOverrides({});
       void qc.invalidateQueries();
-      if (result.finished) onDone();
+      if (result.finished && parts.marked.length > 0) onDone();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -149,8 +166,8 @@ export function QuizAttemptGrader({
 
       {parts.manual.length === 0 && (
         <div className="panel p-6 text-center text-sm text-muted-foreground">
-          Every answer in this attempt was graded automatically. There&apos;s nothing to mark by
-          hand.
+          Every answer in this attempt was graded automatically. You can still change any answer
+          below to correct or incorrect.
         </div>
       )}
 
@@ -164,39 +181,83 @@ export function QuizAttemptGrader({
       ))}
 
       {parts.auto.length > 0 && (
-        <details className="panel p-4">
+        <details className="panel p-4" open>
           <summary className="cursor-pointer text-sm font-medium">
             Automatically graded answers ({parts.auto.length})
           </summary>
           <ul className="mt-3 divide-y divide-border">
-            {parts.auto.map((a) => (
-              <li key={a.question_id} className="flex items-start gap-3 py-3">
-                <span
-                  className={cn(
-                    "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full",
-                    a.is_correct
-                      ? "bg-success/15 text-success"
-                      : "bg-destructive/15 text-destructive",
-                  )}
-                >
-                  {a.is_correct ? <Check className="size-3.5" /> : <X className="size-3.5" />}
-                </span>
-                <div className="min-w-0 flex-1 text-sm">
-                  <RenderMathText text={a.prompt} />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Answered: {a.response.length ? a.response.join(", ") : "no answer"}
-                  </p>
-                </div>
-                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                  {a.awarded_points ?? 0}/{a.points}
-                </span>
-              </li>
-            ))}
+            {parts.auto.map((a) => {
+              const pts = overrides[a.question_id] ?? a.awarded_points ?? 0;
+              const correct = pts >= a.points && a.points > 0;
+              const changed = a.question_id in overrides;
+              return (
+                <li key={a.question_id} className="flex items-start gap-3 py-3">
+                  <span
+                    className={cn(
+                      "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full",
+                      correct
+                        ? "bg-success/15 text-success"
+                        : "bg-destructive/15 text-destructive",
+                    )}
+                  >
+                    {correct ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                  </span>
+                  <div className="min-w-0 flex-1 text-sm">
+                    <RenderMathText text={a.prompt} />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Answered: {a.response.length ? a.response.join(", ") : "no answer"}
+                    </p>
+                    {a.correct.some((c) => c.trim()) && (
+                      <p className="text-xs text-muted-foreground">
+                        Expected: <span className="text-foreground">{a.correct.join(", ")}</span>
+                      </p>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Change mark">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={correct ? "default" : "outline"}
+                        onClick={() => setOverrides((p) => ({ ...p, [a.question_id]: a.points }))}
+                      >
+                        Mark correct
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={!correct ? "destructive" : "outline"}
+                        onClick={() => setOverrides((p) => ({ ...p, [a.question_id]: 0 }))}
+                      >
+                        Mark incorrect
+                      </Button>
+                      {changed && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            setOverrides((p) => {
+                              const { [a.question_id]: _drop, ...rest } = p;
+                              return rest;
+                            })
+                          }
+                        >
+                          Undo
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                    {pts}/{a.points}
+                    {changed && " *"}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </details>
       )}
 
-      {parts.marked.length > 0 && (
+      {(parts.marked.length > 0 || Object.keys(overrides).length > 0) && (
         <div className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-30 lg:bottom-4">
           <div className="panel glass flex flex-wrap items-center gap-2 p-3 shadow-lg">
             <Button onClick={() => save.mutate("all")} disabled={busy} className="gap-1.5">
@@ -205,11 +266,13 @@ export function QuizAttemptGrader({
               ) : (
                 <CornerDownLeft className="size-4" />
               )}
-              {wasGraded ? "Update grade" : hasNext ? "Save & next" : "Save grade"}
+              {wasGraded || parts.marked.length === 0 ? "Update grade" : hasNext ? "Save & next" : "Save grade"}
             </Button>
-            <Button variant="outline" onClick={() => save.mutate("progress")} disabled={busy}>
-              Save progress
-            </Button>
+            {parts.marked.length > 0 && (
+              <Button variant="outline" onClick={() => save.mutate("progress")} disabled={busy}>
+                Save progress
+              </Button>
+            )}
             {hasNext && (
               <Button variant="ghost" onClick={onSkip} disabled={busy} className="ml-auto gap-1.5">
                 <SkipForward className="size-4" /> Skip

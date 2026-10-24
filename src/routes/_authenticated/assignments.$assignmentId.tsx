@@ -1,3 +1,4 @@
+import { emailSubmissionReceived } from "@/lib/notify-email.functions";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -749,6 +750,7 @@ function StudentSubmission({
           .eq("id", b.id);
         if (blockError) throw blockError;
       }
+      if (submit) void emailSubmissionReceived({ data: { id: submissionId } }).catch(() => {});
       return submit;
     },
     onSuccess: (submitted) => {

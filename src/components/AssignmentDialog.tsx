@@ -1,3 +1,4 @@
+import { emailAssignmentPosted } from "@/lib/notify-email.functions";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -280,6 +281,7 @@ export function AssignmentDialog({
       return id as string;
     },
     onSuccess: (id) => {
+      if (!editing) void emailAssignmentPosted({ data: { id } }).catch(() => {});
       toast.success(editing ? "Assignment updated" : "Assignment created");
       onOpenChange(false);
       void qc.invalidateQueries({ queryKey: ["class-assignments"] });

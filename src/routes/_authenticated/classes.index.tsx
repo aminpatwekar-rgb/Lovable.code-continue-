@@ -1,3 +1,4 @@
+import { emailCoTeacherRequest } from "@/lib/notify-email.functions";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -159,6 +160,7 @@ function Classes() {
         _full_name: profile?.full_name?.trim() || "",
       });
       if (error) throw error;
+      if (data !== "member") void emailCoTeacherRequest({ data: { code: coCode.trim() } }).catch(() => {});
       return data as string;
     },
     onSuccess: (status) => {

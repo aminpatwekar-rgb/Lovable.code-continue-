@@ -18,7 +18,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "Smart Assignment Hub"
+const SITE_NAME = "ONYX"
 const ROOT_DOMAIN = "workonyx.org"
 
 // Sample data for preview mode ONLY (not used in actual email sending).

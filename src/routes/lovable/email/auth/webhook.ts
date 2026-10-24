@@ -9,7 +9,7 @@ import { EmailChangeEmail } from '@/lib/email-templates/email-change'
 import { ReauthenticationEmail } from '@/lib/email-templates/reauthentication'
 
 // Configuration
-const SITE_NAME = "Smart Assignment Hub"
+const SITE_NAME = "ONYX"
 const SENDER_DOMAIN = "notify.workonyx.org"
 const ROOT_DOMAIN = "workonyx.org"
 const FROM_DOMAIN = "workonyx.org"

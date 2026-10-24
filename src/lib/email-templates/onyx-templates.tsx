@@ -2,7 +2,7 @@ import * as React from 'react'
 import type { TemplateEntry } from './registry'
 import { OnyxNotice, appUrl } from './onyx-notice'
 
-type D = Record<string, any>
+type D = { [k: string]: any; name?: string; title?: string; className?: string; dueDate?: string | null; assignmentId?: string; marks?: number | null; maxMarks?: number | null; late?: boolean; requester?: string; classId?: string }
 const due = (d?: string | null) => (d ? `Due ${new Date(d).toUTCString().slice(0, 22)} UTC.` : 'No due date.')
 
 const AssignmentPosted = (p: D) => (

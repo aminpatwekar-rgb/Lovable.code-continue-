@@ -1,3 +1,4 @@
+import { emailGradesReleased } from "@/lib/notify-email.functions";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, Loader2 } from "lucide-react";
@@ -41,6 +42,7 @@ export function ReleaseGradesButton({
         .in("status", ["reviewed", "completed"])
         .eq("grade_released", false);
       if (error) throw error;
+      void emailGradesReleased({ data: { id: assignmentId } }).catch(() => {});
     },
     onSuccess: () => {
       toast.success(`Released ${count} grade${count === 1 ? "" : "s"}`);

@@ -134,14 +134,11 @@ export const emailCoTeacherRequest = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false })
       .limit(5);
     if (!reqs?.length) return { sent: false };
-    const { data: classes } = await supabaseAdmin
-      .from("classes")
-      .select("id, name, teacher_id, co_teacher_code")
-      .in("id", reqs.map((r) => r.class_id));
-    const cls = (classes ?? []).find((c: any) => String(c.co_teacher_code ?? "").toUpperCase() === data.code)
-      ?? (reqs.length === 1 ? (classes ?? [])[0] : undefined);
+    // The request the caller just created is their newest pending one.
+    const req = reqs[0]!;
+    const { data: cls } = await supabaseAdmin
+      .from("classes").select("id, name, teacher_id").eq("id", req.class_id).maybeSingle();
     if (!cls) return { sent: false };
-    const req = reqs.find((r) => r.class_id === cls.id)!;
     const owner = (await profilesById(supabaseAdmin, [cls.teacher_id])).get(cls.teacher_id);
     const sent = await safeSend("co-teacher-request", owner?.email, {
       name: owner?.full_name, requester: req.full_name, className: cls.name, classId: cls.id,

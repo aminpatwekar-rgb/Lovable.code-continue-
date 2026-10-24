@@ -21,20 +21,6 @@ export type InstitutionAdminOverview = {
   roster: InstitutionAdminMember[];
 };
 
-function isMissingClassInstitutionScope(error: { code?: string; message?: string } | null): boolean {
-  const message = String(error?.message ?? "").toLowerCase();
-  return Boolean(
-    message.includes("institution_id") &&
-    (
-      error?.code === "42703" ||
-      error?.code === "PGRST204" ||
-      message.includes("does not exist") ||
-      message.includes("schema cache") ||
-      message.includes("could not find")
-    )
-  );
-}
-
 /**
  * Institution admins can only read a roster and activity counts for the single
  * institution associated with their authenticated account. Service-role access
@@ -50,159 +36,41 @@ export const getInstitutionAdminOverview = createServerFn({ method: "GET" })
     if (roleError) throw new Error("Could not verify institution administrator permissions.");
     if (!isInstitutionAdmin) throw new Error("Only institution administrators can open this console.");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const admin = supabaseAdmin as any;
-    const { data: profile, error: profileError } = await admin
+    const { data: profile, error: profileError } = await (context.supabase as any)
       .from("profiles")
-      .select("id, institution, institution_id")
+      .select("institution_id")
       .eq("id", context.userId)
       .maybeSingle();
     if (profileError) throw new Error("Could not load the institution administrator profile.");
-
-    const { data: institutionRows, error: institutionError } = await admin
-      .from("institutions")
-      .select("id, name, code, city");
-    if (institutionError) throw new Error("Could not load the institution directory.");
-
     const institutionId = typeof profile?.institution_id === "string" ? profile.institution_id : null;
-    const institutionLabel = String(profile?.institution ?? "").trim().toLowerCase();
-    const institution = (institutionRows ?? []).find((item: any) =>
-      institutionId ? item.id === institutionId
-        : String(item.name ?? "").trim().toLowerCase() === institutionLabel,
-    );
-    if (!institution) throw new Error("Your assigned institution could not be found. Contact the platform administrator.");
+    if (!institutionId) {
+      throw new Error("Your account is not assigned to an institution. Contact the platform administrator.");
+    }
 
-    const { data: verifiedScope, error: scopeError } = await context.supabase.rpc("is_institution_admin", {
-      _institution_id: institution.id,
+    // One database function does the scope check and all counts; no service-role reads, no ID lists.
+    const { data, error } = await (context.supabase as any).rpc("institution_admin_overview", {
+      _institution_id: institutionId,
     });
-    if (scopeError) throw new Error("Could not verify institution access.");
-    if (!verifiedScope) throw new Error("You are not authorized to manage this institution.");
+    if (error) throw new Error(error.message || "Could not load the institution overview.");
 
-    // institution_id is authoritative. The name-based query is only a temporary
-    // compatibility path for legacy profiles that have not yet been linked to an ID.
-    const [
-      { data: linkedProfiles, error: linkedProfilesError },
-      { data: legacyProfiles, error: legacyProfilesError },
-    ] = await Promise.all([
-      admin.from("profiles")
-        .select("id, full_name, email, is_active, created_at, institution, institution_id")
-        .eq("institution_id", institution.id),
-      admin.from("profiles")
-        .select("id, full_name, email, is_active, created_at, institution, institution_id")
-        .is("institution_id", null)
-        .eq("institution", institution.name),
-    ]);
-    if (linkedProfilesError || legacyProfilesError) throw new Error("Could not load the institution roster.");
-
-    const profileMap = new Map<string, any>();
-    for (const row of [...(linkedProfiles ?? []), ...(legacyProfiles ?? [])]) {
-      // Never use a stale legacy label when a profile is already linked to a
-      // different institution ID.
-      if (row.institution_id && row.institution_id !== institution.id) continue;
-      profileMap.set(row.id, row);
-    }
-    const rows = [...profileMap.values()];
-    const ids = rows.map((row: any) => row.id);
-    const { data: roles, error: rolesError } = ids.length
-      ? await admin.from("user_roles").select("user_id, role").in("user_id", ids)
-      : { data: [], error: null };
-    if (rolesError) throw new Error("Could not load institutional roles.");
-
-    const byUser = new Map<string, string[]>();
-    for (const item of roles ?? []) {
-      const existing = byUser.get(item.user_id) ?? [];
-      existing.push(String(item.role));
-      byUser.set(item.user_id, existing);
-    }
-
-    const roster: InstitutionAdminMember[] = rows.flatMap((row: any) => {
-      const assignedRoles = byUser.get(row.id) ?? [];
-      const role: InstitutionAdminMember["role"] | null = assignedRoles.includes("admin")
-        ? null
-        : assignedRoles.includes("institution_admin")
-          ? "institution_admin"
-          : assignedRoles.includes("teacher")
-            ? "teacher"
-            : assignedRoles.includes("student")
-              ? "student"
-              : null;
-      if (!role) return [];
-      return [{
-        id: row.id,
-        fullName: String(row.full_name ?? ""),
-        email: String(row.email ?? ""),
-        role,
-        isActive: row.is_active !== false,
-        createdAt: String(row.created_at ?? ""),
-      }];
-    });
-
-    const { data: classRows, error: classesError } = await admin
-      .from("classes")
-      .select("id")
-      .eq("institution_id", institution.id);
-
-    let classIds = (classRows ?? []).map((row: any) => row.id);
-    if (classesError) {
-      if (!isMissingClassInstitutionScope(classesError)) {
-        throw new Error("Could not load classes for this institution.");
-      }
-
-      const institutionProfileIds = rows.map((row: any) => row.id);
-      const classCreatorIds = institutionProfileIds.filter((id: string) => {
-        const assignedRoles = byUser.get(id) ?? [];
-        return !assignedRoles.includes("admin") &&
-          (assignedRoles.includes("teacher") || assignedRoles.includes("institution_admin"));
-      });
-      const { data: departments, error: departmentsError } = await admin
-        .from("departments")
-        .select("id")
-        .eq("institution_id", institution.id);
-      if (departmentsError) throw new Error("Could not load this institution's departments.");
-
-      const departmentIds = (departments ?? []).map((department: any) => department.id);
-      const legacyClassQueries: any[] = [];
-      if (departmentIds.length) {
-        legacyClassQueries.push(
-          admin.from("classes").select("id, department_id").in("department_id", departmentIds),
-        );
-      }
-      if (classCreatorIds.length) {
-        legacyClassQueries.push(
-          admin.from("classes").select("id, department_id").in("teacher_id", classCreatorIds),
-        );
-      }
-      const legacyResults = await Promise.all(legacyClassQueries);
-      const legacyClassIds = new Set<string>();
-      const allowedDepartmentIds = new Set<string>(departmentIds);
-      for (const result of legacyResults) {
-        if (result.error) throw new Error("Could not load classes for this institution.");
-        for (const row of result.data ?? []) {
-          if (row.department_id && !allowedDepartmentIds.has(row.department_id)) continue;
-          legacyClassIds.add(row.id);
-        }
-      }
-      classIds = [...legacyClassIds];
-    }
-    const { data: assignmentRows, error: assignmentsError } = classIds.length
-      ? await admin.from("assignments").select("id").in("class_id", classIds)
-      : { data: [], error: null };
-    if (assignmentsError) throw new Error("Could not calculate institution assignment counts.");
-
-    const assignmentIds = (assignmentRows ?? []).map((row: any) => row.id);
-    const { count: submissionCount, error: submissionsError } = assignmentIds.length
-      ? await admin.from("submissions").select("id", { count: "exact", head: true }).in("assignment_id", assignmentIds)
-      : { count: 0, error: null };
-    if (submissionsError) throw new Error("Could not calculate institution submission counts.");
+    const roster = ((data?.roster ?? []) as InstitutionAdminMember[]).map((m) => ({
+      id: String(m.id),
+      fullName: String(m.fullName ?? ""),
+      email: String(m.email ?? ""),
+      role: m.role,
+      isActive: m.isActive !== false,
+      createdAt: String(m.createdAt ?? ""),
+    }));
+    const inst = data?.institution ?? {};
 
     return {
-      institution: { id: institution.id, name: institution.name, code: institution.code ?? null, city: institution.city ?? null },
-      students: roster.filter((member) => member.role === "student").length,
-      teachers: roster.filter((member) => member.role === "teacher").length,
-      institutionAdmins: roster.filter((member) => member.role === "institution_admin").length,
-      classes: classIds.length,
-      assignments: assignmentIds.length,
-      submissions: submissionCount ?? 0,
+      institution: { id: inst.id, name: inst.name, code: inst.code ?? null, city: inst.city ?? null },
+      students: roster.filter((m) => m.role === "student").length,
+      teachers: roster.filter((m) => m.role === "teacher").length,
+      institutionAdmins: roster.filter((m) => m.role === "institution_admin").length,
+      classes: Number(data?.classes ?? 0),
+      assignments: Number(data?.assignments ?? 0),
+      submissions: Number(data?.submissions ?? 0),
       roster,
     };
   });
@@ -240,20 +108,16 @@ async function resolveInstitutionAdminScope(context: InstitutionAdminServerConte
     .maybeSingle();
   if (profileError) throw new Error("Could not load the institution administrator profile.");
   const institutionId = typeof profile?.institution_id === "string" ? profile.institution_id : null;
-  const institutionLabel = String(profile?.institution ?? "").trim().toLowerCase();
-  if (!institutionId && !institutionLabel) {
+  if (!institutionId) {
     throw new Error("Your account is not assigned to an institution. Contact the platform administrator.");
   }
 
-  const { data: institutionRows, error: institutionError } = await admin
+  const { data: institution, error: institutionError } = await admin
     .from("institutions")
-    .select("id, name");
-  if (institutionError) throw new Error("Could not load the institution directory.");
-
-  const institution = (institutionRows ?? []).find((item: any) =>
-    institutionId ? item.id === institutionId
-      : String(item.name ?? "").trim().toLowerCase() === institutionLabel,
-  );
+    .select("id, name")
+    .eq("id", institutionId)
+    .maybeSingle();
+  if (institutionError) throw new Error("Could not load your institution.");
   if (!institution) {
     throw new Error("Your assigned institution could not be found. Contact the platform administrator.");
   }

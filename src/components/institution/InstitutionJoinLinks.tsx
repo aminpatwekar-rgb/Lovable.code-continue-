@@ -36,15 +36,16 @@ function LinkCard({ institutionId, link }: { institutionId: string; link: JoinLi
 
   const save = useMutation({
     mutationFn: (patch: Partial<{ isActive: boolean; requiresApproval: boolean }> & { limits?: boolean }) => {
-      const parsedUses = maxUses.trim() ? Math.floor(Number(maxUses)) : null;
-      if (parsedUses !== null && (!Number.isFinite(parsedUses) || parsedUses < 1)) {
+      // Toggles save only the toggle; "Save limits" saves the expiry and max-uses fields.
+      const parsedUses = patch.limits ? (maxUses.trim() ? Math.floor(Number(maxUses)) : null) : link.maxUses;
+      if (patch.limits && parsedUses !== null && (!Number.isFinite(parsedUses) || parsedUses < 1)) {
         throw new Error("Maximum uses must be a whole number of at least 1.");
       }
       return updateJoinLink(institutionId, link.role, {
         isActive: patch.isActive ?? link.isActive,
         requiresApproval: patch.requiresApproval ?? link.requiresApproval,
         // End of the chosen day, so "expires on 30 Nov" still works all day.
-        expiresAt: expiry ? new Date(`${expiry}T23:59:59`).toISOString() : null,
+        expiresAt: patch.limits ? (expiry ? new Date(`${expiry}T23:59:59`).toISOString() : null) : link.expiresAt,
         maxUses: parsedUses,
       });
     },
@@ -131,13 +132,15 @@ function LinkCard({ institutionId, link }: { institutionId: string; link: JoinLi
             className="h-8 w-24"
           />
         </label>
-        <Button type="button" size="sm" variant="secondary" onClick={() => save.mutate({})} disabled={save.isPending}>
+        <Button type="button" size="sm" variant="secondary" onClick={() => save.mutate({ limits: true })} disabled={save.isPending}>
           Save limits
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
         Used {link.useCount} time{link.useCount === 1 ? "" : "s"}.
         {!link.isActive && " This link is switched off."}
+        {link.maxUses !== null && link.useCount >= link.maxUses && " Limit reached: no one new can use it."}
+        {link.expiresAt && new Date(link.expiresAt) < new Date() && " This link has expired."}
       </p>
     </div>
   );
@@ -177,7 +180,10 @@ function PendingRequests({ institutionId }: { institutionId: string }) {
   });
 
   if (requests.isLoading) return <Skeleton className="h-16 w-full rounded-xl" />;
-  if (requests.isError || !requests.data?.length) return null;
+  if (requests.isError) {
+    return <p className="text-sm text-destructive">Couldn't load join requests. Try refreshing the page.</p>;
+  }
+  if (!requests.data?.length) return null;
 
   return (
     <div className="panel space-y-3 p-4">

@@ -206,10 +206,16 @@ function JoinPage() {
                     </p>
                   </div>
                 )}
-                <Button className="w-full" disabled={busy} onClick={() => void joinClassNow()}>
-                  {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
-                  Join class
-                </Button>
+                {isStaff ? (
+                  <p className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+                    This is a student invitation. To teach this class, ask the class owner for its co-teacher code.
+                  </p>
+                ) : (
+                  <Button className="w-full" disabled={busy} onClick={() => void joinClassNow()}>
+                    {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
+                    Join class
+                  </Button>
+                )}
                 <p className="text-center text-xs text-muted-foreground">
                   Signed in as {session?.user.email}.
                 </p>

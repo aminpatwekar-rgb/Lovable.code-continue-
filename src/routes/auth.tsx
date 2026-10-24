@@ -18,6 +18,7 @@ import {
   joinWithCode,
   previewJoin,
   readPendingJoinCode,
+  savePendingJoinCode,
   type JoinPreview,
 } from "@/lib/institution-join";
 import {
@@ -69,6 +70,13 @@ function AuthPage() {
   const [joinPreview, setJoinPreview] = useState<JoinPreview | null>(null);
   const [joinReady, setJoinReady] = useState(false);
   const [skipJoin, setSkipJoin] = useState(false);
+  const [metaHandled, setMetaHandled] = useState(false);
+  const metaCode = (session?.user.user_metadata as Record<string, unknown> | undefined)?.["pending_join_code"];
+  const pendingMetaCode = typeof metaCode === "string" && metaCode ? metaCode : null;
+
+  function dropMetaJoinCode() {
+    if (pendingMetaCode) void supabase.auth.updateUser({ data: { pending_join_code: null } });
+  }
 
   // Resolve the saved invitation before any signed-in redirect can run.
   // This prevents OAuth callbacks from racing to /dashboard before the join code
@@ -104,6 +112,25 @@ function AuthPage() {
   }, []);
   const activeJoin = !skipJoin && joinCode && joinPreview?.valid ? joinPreview : null;
 
+  // An invitation saved with the account (sign-up on another device) is restored once signed in.
+  useEffect(() => {
+    if (!joinReady || loading || !session || metaHandled) return;
+    if (!pendingMetaCode || joinCode || skipJoin) { setMetaHandled(true); return; }
+    let active = true;
+    savePendingJoinCode(pendingMetaCode);
+    setJoinCode(pendingMetaCode);
+    void previewJoin(pendingMetaCode)
+      .then((preview) => {
+        if (!active) return;
+        setJoinPreview(preview);
+        if (!preview.valid) { clearPendingJoinCode(); setJoinCode(null); dropMetaJoinCode(); }
+        setMetaHandled(true);
+      })
+      .catch(() => { if (active) setMetaHandled(true); });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinReady, loading, session, pendingMetaCode, metaHandled, joinCode, skipJoin]);
+
   const confirmed = isSessionConfirmed(session?.user.id);
   // Only an explicitly confirmed account is allowed through to the app.
   const needsRoleConfirmation = Boolean(session && profile && !profile.role_confirmed_at);
@@ -111,9 +138,9 @@ function AuthPage() {
 
   useEffect(() => {
     // A pending institution link must be completed before sending the user to the dashboard.
-    if (joinReady && !loading && session && confirmed && profile?.role_confirmed_at && !switching && !joinCode)
+    if (joinReady && !loading && session && confirmed && profile?.role_confirmed_at && !switching && !joinCode && (!pendingMetaCode || metaHandled))
       navigate({ to: "/dashboard", replace: true });
-  }, [joinReady, loading, session, confirmed, profile?.role_confirmed_at, switching, joinCode, navigate]);
+  }, [joinReady, loading, session, confirmed, profile?.role_confirmed_at, switching, joinCode, pendingMetaCode, metaHandled, navigate]);
 
   async function handleUseAnotherAccount() {
     setSwitching(true);
@@ -141,7 +168,8 @@ function AuthPage() {
           password: parsed.data.password,
           options: {
             emailRedirectTo: window.location.origin,
-            data: { full_name: fullName.trim() },
+            // Survives confirming the email on another device or in an in-app browser.
+            data: { full_name: fullName.trim(), ...(readPendingJoinCode() ? { pending_join_code: readPendingJoinCode() } : {}) },
           },
         });
         if (error) throw error;
@@ -209,6 +237,7 @@ function AuthPage() {
     try {
       const result = await joinWithCode(joinCode);
       clearPendingJoinCode();
+      dropMetaJoinCode();
       await refresh();
       markSessionConfirmed(session?.user.id);
       toast.success(
@@ -279,7 +308,7 @@ function AuthPage() {
               {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
               Join as {activeJoin.role === "teacher" ? "Teacher" : "Student"}
             </Button>
-            <Button variant="outline" className="w-full" disabled={busy} onClick={() => { clearPendingJoinCode(); setJoinCode(null); setSkipJoin(true); }}>
+            <Button variant="outline" className="w-full" disabled={busy} onClick={() => { clearPendingJoinCode(); dropMetaJoinCode(); setJoinCode(null); setSkipJoin(true); }}>
               Not joining an institution
             </Button>
             <Button variant="ghost" className="w-full" disabled={busy} onClick={() => void handleUseAnotherAccount()}>
@@ -305,7 +334,7 @@ function AuthPage() {
               {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
               Join as {activeJoin.role === "teacher" ? "Teacher" : "Student"}
             </Button>
-            <Button variant="outline" className="w-full" disabled={busy} onClick={() => { clearPendingJoinCode(); setSkipJoin(true); }}>
+            <Button variant="outline" className="w-full" disabled={busy} onClick={() => { clearPendingJoinCode(); dropMetaJoinCode(); setSkipJoin(true); }}>
               Not joining an institution
             </Button>
             <Button variant="ghost" className="w-full" disabled={busy} onClick={() => void handleUseAnotherAccount()}>

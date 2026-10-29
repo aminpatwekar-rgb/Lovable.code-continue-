@@ -1,5 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Archive, CalendarPlus, CheckSquare, Square, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -44,6 +48,64 @@ function Assignments() {
   const search = Route.useSearch();
   const tab = search.tab ?? "upcoming";
   const isTeacher = effectiveRole === "teacher" || effectiveRole === "admin";
+  const queryClient = useQueryClient();
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  function exitSelect() {
+    setSelecting(false);
+    setSelected(new Set());
+  }
+
+  async function bulkExtend(days: number) {
+    if (!selected.size || bulkBusy) return;
+    setBulkBusy(true);
+    try {
+      const rows = (q.data?.list ?? []).filter((a) => selected.has(a.id));
+      const results = await Promise.all(
+        rows.map((a) => {
+          const base = a.due_date ? new Date(a.due_date) : new Date();
+          const next = new Date(base.getTime() + days * 86_400_000).toISOString();
+          return supabase.from("assignments").update({ due_date: next }).eq("id", a.id);
+        }),
+      );
+      const failed = results.filter((r) => r.error).length;
+      if (failed) toast.error(`${failed} of ${rows.length} could not be updated.`);
+      else toast.success(`Extended ${rows.length} deadline${rows.length === 1 ? "" : "s"} by ${days} day${days === 1 ? "" : "s"}.`);
+      await queryClient.invalidateQueries({ queryKey: ["all-assignments"] });
+      if (!failed) exitSelect();
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function bulkArchive() {
+    if (!selected.size || bulkBusy) return;
+    setBulkBusy(true);
+    try {
+      const { error } = await supabase
+        .from("assignments")
+        .update({ archived: true })
+        .in("id", [...selected]);
+      if (error) toast.error("Could not archive the selected assignments.");
+      else {
+        toast.success(`Archived ${selected.size} assignment${selected.size === 1 ? "" : "s"}.`);
+        await queryClient.invalidateQueries({ queryKey: ["all-assignments"] });
+        exitSelect();
+      }
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   const q = useQuery({
     queryKey: ["all-assignments", user?.id, effectiveRole],
@@ -138,6 +200,37 @@ function Assignments() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.03, duration: 0.28 }}
           >
+            {selecting ? (
+              <button
+                type="button"
+                onClick={() => toggle(a.id)}
+                aria-pressed={selected.has(a.id)}
+                className={
+                  "panel lift block h-full w-full p-4 text-left " +
+                  (selected.has(a.id) ? "ring-2 ring-primary" : "")
+                }
+              >
+                <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  {selected.has(a.id) ? (
+                    <CheckSquare className="size-4 text-primary" />
+                  ) : (
+                    <Square className="size-4" />
+                  )}
+                  {selected.has(a.id) ? "Selected" : "Tap to select"}
+                </div>
+              <div className="flex items-start justify-between gap-2">
+                <p className="truncate font-medium">{a.title}</p>
+                {!isTeacher && <StatusBadge status={statusOf(a.id)} />}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {(a.classes as { name: string } | null)?.name} · {a.subject || "General"}
+              </p>
+              <p className="mt-3 text-sm text-muted-foreground">Due {formatDue(a.due_date)}</p>
+              {daysLate(a.due_date) > 0 && !isTeacher && statusOf(a.id) === "not_started" && (
+                <p className="mt-1 text-sm font-medium text-destructive">Overdue</p>
+              )}
+              </button>
+            ) : (
             <Link
               to="/assignments/$assignmentId"
               params={{ assignmentId: a.id }}
@@ -155,6 +248,7 @@ function Assignments() {
                 <p className="mt-1 text-sm font-medium text-destructive">Overdue</p>
               )}
             </Link>
+            )}
           </motion.li>
         ))}
       </ul>
@@ -163,11 +257,22 @@ function Assignments() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-2xl sm:text-3xl font-semibold">Assignments</h1>
-        <p className="mt-1 text-muted-foreground">
-          {isTeacher ? "Everything you've posted." : "Everything assigned to you."}
-        </p>
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-semibold">Assignments</h1>
+          <p className="mt-1 text-muted-foreground">
+            {isTeacher ? "Everything you've posted." : "Everything assigned to you."}
+          </p>
+        </div>
+        {isTeacher && current !== "review" && (
+          <Button
+            variant={selecting ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => (selecting ? exitSelect() : setSelecting(true))}
+          >
+            {selecting ? "Cancel" : "Select"}
+          </Button>
+        )}
       </header>
 
       {q.isLoading ? (
@@ -249,6 +354,31 @@ function Assignments() {
             <Grid items={groups.done} />
           </TabsContent>
         </Tabs>
+      )}
+
+      {isTeacher && selecting && (
+        <div
+          role="toolbar"
+          aria-label="Bulk actions"
+          className="glass fixed inset-x-3 bottom-20 z-40 flex flex-wrap items-center gap-2 rounded-xl border border-border p-3 shadow-lg lg:bottom-6 lg:left-auto lg:right-6 lg:max-w-xl"
+        >
+          <span className="mr-auto text-sm font-medium">{selected.size} selected</span>
+          <Button size="sm" variant="outline" disabled={!selected.size || bulkBusy} onClick={() => bulkExtend(1)}>
+            <CalendarPlus className="mr-1.5 size-4" /> +1 day
+          </Button>
+          <Button size="sm" variant="outline" disabled={!selected.size || bulkBusy} onClick={() => bulkExtend(3)}>
+            +3 days
+          </Button>
+          <Button size="sm" variant="outline" disabled={!selected.size || bulkBusy} onClick={() => bulkExtend(7)}>
+            +1 week
+          </Button>
+          <Button size="sm" variant="outline" disabled={!selected.size || bulkBusy} onClick={bulkArchive}>
+            <Archive className="mr-1.5 size-4" /> Archive
+          </Button>
+          <Button size="icon" variant="ghost" aria-label="Exit selection" onClick={exitSelect}>
+            <X className="size-4" />
+          </Button>
+        </div>
       )}
     </div>
   );

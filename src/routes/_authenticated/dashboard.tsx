@@ -21,6 +21,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 import { InstitutionBanner } from "@/components/institution/InstitutionBanner";
 import { InstitutionWelcomeDialog } from "@/components/institution/InstitutionWelcomeDialog";
 import { daysLate, formatDue, type SubmissionStatus } from "@/lib/assignments";
@@ -260,6 +261,15 @@ function Dashboard() {
               search={{ tab: "review" }}
             />
           </div>
+        )}
+
+        {effectiveRole === role && !teacher.isLoading && (
+          <OnboardingChecklist
+            userId={user?.id}
+            classes={d?.classes ?? 0}
+            students={d?.students ?? 0}
+            assignments={(d?.assignments ?? []).length}
+          />
         )}
 
         <section className="space-y-4">

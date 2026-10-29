@@ -22,6 +22,7 @@ import { Route as AuthenticatedInstitutionRouteImport } from './routes/_authenti
 import { Route as AuthenticatedInstitutionAdminRouteImport } from './routes/_authenticated/institution-admin'
 import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenticated/leaderboard'
 import { Route as AuthenticatedMyInstitutionRouteImport } from './routes/_authenticated/my-institution'
+import { Route as AuthenticatedProgressRouteImport } from './routes/_authenticated/progress'
 import { Route as AuthenticatedQuestionBankRouteImport } from './routes/_authenticated/question-bank'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedRubricsRouteImport } from './routes/_authenticated/rubrics'
@@ -116,6 +117,11 @@ const AuthenticatedMyInstitutionRoute =
     path: '/my-institution',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedProgressRoute = AuthenticatedProgressRouteImport.update({
+  id: '/progress',
+  path: '/progress',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedQuestionBankRoute =
   AuthenticatedQuestionBankRouteImport.update({
     id: '/question-bank',
@@ -268,6 +274,7 @@ export interface FileRoutesByFullPath {
   '/institution-admin': typeof AuthenticatedInstitutionAdminRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/my-institution': typeof AuthenticatedMyInstitutionRoute
+  '/progress': typeof AuthenticatedProgressRoute
   '/question-bank': typeof AuthenticatedQuestionBankRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rubrics': typeof AuthenticatedRubricsRoute
@@ -306,6 +313,7 @@ export interface FileRoutesByTo {
   '/institution-admin': typeof AuthenticatedInstitutionAdminRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/my-institution': typeof AuthenticatedMyInstitutionRoute
+  '/progress': typeof AuthenticatedProgressRoute
   '/question-bank': typeof AuthenticatedQuestionBankRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rubrics': typeof AuthenticatedRubricsRoute
@@ -346,6 +354,7 @@ export interface FileRoutesById {
   '/_authenticated/institution-admin': typeof AuthenticatedInstitutionAdminRoute
   '/_authenticated/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/_authenticated/my-institution': typeof AuthenticatedMyInstitutionRoute
+  '/_authenticated/progress': typeof AuthenticatedProgressRoute
   '/_authenticated/question-bank': typeof AuthenticatedQuestionBankRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/rubrics': typeof AuthenticatedRubricsRoute
@@ -386,6 +395,7 @@ export interface FileRouteTypes {
     | '/institution-admin'
     | '/leaderboard'
     | '/my-institution'
+    | '/progress'
     | '/question-bank'
     | '/reports'
     | '/rubrics'
@@ -424,6 +434,7 @@ export interface FileRouteTypes {
     | '/institution-admin'
     | '/leaderboard'
     | '/my-institution'
+    | '/progress'
     | '/question-bank'
     | '/reports'
     | '/rubrics'
@@ -463,6 +474,7 @@ export interface FileRouteTypes {
     | '/_authenticated/institution-admin'
     | '/_authenticated/leaderboard'
     | '/_authenticated/my-institution'
+    | '/_authenticated/progress'
     | '/_authenticated/question-bank'
     | '/_authenticated/reports'
     | '/_authenticated/rubrics'
@@ -592,6 +604,13 @@ declare module '@tanstack/react-router' {
       path: '/my-institution'
       fullPath: '/my-institution'
       preLoaderRoute: typeof AuthenticatedMyInstitutionRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/progress': {
+      id: '/_authenticated/progress'
+      path: '/progress'
+      fullPath: '/progress'
+      preLoaderRoute: typeof AuthenticatedProgressRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/question-bank': {
@@ -790,6 +809,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedInstitutionAdminRoute: typeof AuthenticatedInstitutionAdminRoute
   AuthenticatedLeaderboardRoute: typeof AuthenticatedLeaderboardRoute
   AuthenticatedMyInstitutionRoute: typeof AuthenticatedMyInstitutionRoute
+  AuthenticatedProgressRoute: typeof AuthenticatedProgressRoute
   AuthenticatedQuestionBankRoute: typeof AuthenticatedQuestionBankRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedRubricsRoute: typeof AuthenticatedRubricsRoute
@@ -820,6 +840,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedInstitutionAdminRoute: AuthenticatedInstitutionAdminRoute,
   AuthenticatedLeaderboardRoute: AuthenticatedLeaderboardRoute,
   AuthenticatedMyInstitutionRoute: AuthenticatedMyInstitutionRoute,
+  AuthenticatedProgressRoute: AuthenticatedProgressRoute,
   AuthenticatedQuestionBankRoute: AuthenticatedQuestionBankRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedRubricsRoute: AuthenticatedRubricsRoute,

@@ -21,6 +21,7 @@ import {
   BarChart3,
   ListChecks,
   CalendarCheck,
+  TrendingUp,
   Calendar,
   EyeOff,
   PanelLeftClose,
@@ -76,6 +77,7 @@ const BOTTOM_NAV = [
   { to: "/quizzes", label: "Quizzes", icon: ClipboardList },
 ] as const;
 
+const PROGRESS_NAV = { to: "/progress", label: "My Progress", icon: TrendingUp } as const;
 const GRADING_NAV = { to: "/grading", label: "Grading", icon: ClipboardCheck } as const;
 
 const ADMIN_NAV = [{ to: "/admin", label: "Admin", icon: Shield }] as const;
@@ -141,7 +143,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   // Navigation items follow effectiveRole for previewing
   const canGrade = effectiveRole === "teacher" || effectiveRole === "admin";
   // Teachers and admins get a Grading tab right after Quizzes.
-  const baseNav = canGrade ? [...NAV.slice(0, 4), GRADING_NAV, ...NAV.slice(4)] : [...NAV];
+  const baseNav = canGrade
+    ? [...NAV.slice(0, 4), GRADING_NAV, ...NAV.slice(4)]
+    : effectiveRole === "student"
+      ? [...NAV.slice(0, 4), PROGRESS_NAV, ...NAV.slice(4)]
+      : [...NAV];
   const items = role === "institution_admin"
     ? [...baseNav, ...INSTITUTION_ADMIN_NAV]
     : effectiveRole === "admin"

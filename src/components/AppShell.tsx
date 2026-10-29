@@ -18,6 +18,9 @@ import {
   Check,
   ChevronDown,
   ClipboardCheck,
+  BarChart3,
+  ListChecks,
+  CalendarCheck,
   Calendar,
   EyeOff,
   PanelLeftClose,
@@ -58,9 +61,9 @@ const NAV = [
   { to: "/assignments", label: "Assignments", icon: BookOpen },
   { to: "/quizzes", label: "Quizzes", icon: ClipboardList },
   { to: "/calendar", label: "Calendar", icon: Calendar, feature: "calendar" },
-  { to: "/attendance", label: "Attendance", icon: ClipboardCheck, feature: "attendance" },
-  { to: "/reports", label: "Reports", icon: ClipboardCheck, feature: "progress_reports" },
-  { to: "/rubrics", label: "Rubrics", icon: ClipboardCheck, feature: "rubrics" },
+  { to: "/attendance", label: "Attendance", icon: CalendarCheck, feature: "attendance" },
+  { to: "/reports", label: "Reports", icon: BarChart3, feature: "progress_reports" },
+  { to: "/rubrics", label: "Rubrics", icon: ListChecks, feature: "rubrics" },
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { to: "/achievements", label: "Achievements", icon: Award },
   { to: "/settings", label: "Settings", icon: Settings },
@@ -150,6 +153,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const bottomItems = canGrade
     ? [BOTTOM_NAV[0], BOTTOM_NAV[1], GRADING_NAV, BOTTOM_NAV[2]]
     : BOTTOM_NAV;
+  // Highlight "More" when the current page lives inside the More menu.
+  const onBottomTab = bottomItems.some(
+    ({ to }) => pathname === to || pathname.startsWith(to + "/"),
+  );
+  const moreActive = !onBottomTab;
   const canSwitchRole = role === "admin" || role === "teacher";
   const planFeatures = (planQuery.data?.plan?.features ?? {}) as Record<string, boolean>;
   const isAdmin = role === "admin";
@@ -414,7 +422,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           type="button"
           onClick={() => setOpen(true)}
           aria-label="More"
-          className="flex min-h-14 cursor-pointer flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted-foreground transition-colors"
+          aria-current={moreActive ? "page" : undefined}
+          className={cn(
+            "flex min-h-14 cursor-pointer flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors",
+            moreActive ? "text-primary" : "text-muted-foreground",
+          )}
         >
           <Menu className="size-5" />
           <span>More</span>

@@ -86,6 +86,7 @@ function Page() {
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const submittedRef = useRef(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   // ---- load quiz, questions and the student's live attempt -----------------
   useEffect(() => {
@@ -333,13 +334,27 @@ function Page() {
   // One upsert per save: rapid changes can no longer collide on the (attempt, question) key.
   async function persist(questionId: string, value: string[]) {
     if (!attempt) return;
-    await supabase
-      .from("quiz_answers")
-      .upsert(
-        { attempt_id: attempt.id, question_id: questionId, response: value },
-        { onConflict: "attempt_id,question_id" },
-      );
+    setSaveState("saving");
+    // Retry a couple of times so a brief network blip doesn't lose an answer.
+    for (let tryNo = 0; tryNo < 3; tryNo++) {
+      const { error: saveError } = await supabase
+        .from("quiz_answers")
+        .upsert(
+          { attempt_id: attempt.id, question_id: questionId, response: value },
+          { onConflict: "attempt_id,question_id" },
+        );
+      if (!saveError) {
+        failedSaves.current.delete(questionId);
+        if (failedSaves.current.size === 0) setSaveState("saved");
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 700 * (tryNo + 1)));
+    }
+    failedSaves.current.set(questionId, value);
+    setSaveState("error");
   }
+
+  const failedSaves = useRef(new Map<string, string[]>());
 
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const pendingValues = useRef<Record<string, string[]>>({});
@@ -373,8 +388,26 @@ function Page() {
     const pending = Object.entries(pendingValues.current);
     pendingValues.current = {};
     pending.forEach(([questionId, value]) => track(persist(questionId, value)));
+    [...failedSaves.current.entries()].forEach(([questionId, value]) =>
+      track(persist(questionId, value)),
+    );
     await Promise.allSettled([...inflightSaves.current]);
   };
+
+  // Warn before leaving while answers are still saving or failed to save.
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      const unsaved =
+        saveState === "saving" ||
+        saveState === "error" ||
+        Object.keys(pendingValues.current).length > 0;
+      if (!unsaved || submittedRef.current) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [saveState]);
 
   if (loading) {
     return (
@@ -408,6 +441,11 @@ function Page() {
           <h1 className="truncate text-lg font-semibold tracking-tight">{quiz?.title}</h1>
           <p className="text-xs text-muted-foreground">
             Attempt {attempt?.attempt_no} · {answeredCount} of {total} answered
+            {saveState === "saving" && " · Saving…"}
+            {saveState === "saved" && " · All answers saved"}
+            {saveState === "error" && (
+              <span className="text-destructive"> · Couldn't save — check your connection</span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-3">

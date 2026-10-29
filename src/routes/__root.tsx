@@ -105,6 +105,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "theme-color", content: "#080a10" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "ONYX" },
     ],
     scripts: [{ children: THEME_HEAD_SCRIPT }],
     links: [
@@ -132,6 +136,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         crossOrigin: "anonymous",
       },
       { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/icon-192.png" },
     ],
   }),
   shellComponent: RootShell,
@@ -210,6 +216,16 @@ function RootContent() {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  // Register the tiny service worker (install support + offline page) on the live site only.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    if (!import.meta.env.PROD) return;
+    const host = window.location.hostname;
+    // Skip Lovable preview/editor hosts so the editor preview never gets a stale worker.
+    if (host.includes("lovableproject.com") || host.includes("id-preview")) return;
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

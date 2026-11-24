@@ -21,6 +21,7 @@ import { NotificationPreferencesCard } from "@/components/settings/NotificationP
 import { RolePreferencesCard } from "@/components/settings/RolePreferencesCard";
 import { AccountSettingsCard } from "@/components/settings/AccountSettingsCard";
 import { PlanUsageCard } from "@/components/settings/PlanUsageCard";
+import { StorageManagementCard } from "@/components/settings/StorageManagementCard";
 import { BusinessModelPlans } from "@/components/settings/BusinessModelPlans";
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -265,6 +266,7 @@ function SettingsPage() {
         </div>
         <div className="space-y-3">
           <PlanUsageCard />
+          <StorageManagementCard />
           <BusinessModelPlans />
         </div>
       </section>

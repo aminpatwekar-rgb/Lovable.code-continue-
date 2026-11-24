@@ -334,9 +334,29 @@ function Page() {
   // One upsert per save: rapid changes can no longer collide on the (attempt, question) key.
   async function persist(questionId: string, value: string[]) {
     if (!attempt) return;
+    // Each save gets a version; an older save stops as soon as a newer one starts.
+    const version = (saveVersions.current[questionId] ?? 0) + 1;
+    saveVersions.current[questionId] = version;
+    const isStale = () => saveVersions.current[questionId] !== version;
+    // Wait for any earlier save of this question so writes land in order.
+    const previous = saveChains.current[questionId] ?? Promise.resolve();
+    let done!: () => void;
+    const mine = new Promise<void>((r) => (done = r));
+    saveChains.current[questionId] = mine;
+    await previous;
+    try {
+      await persistInOrder(questionId, value, isStale);
+    } finally {
+      done();
+    }
+  }
+
+  async function persistInOrder(questionId: string, value: string[], isStale: () => boolean) {
+    if (!attempt || isStale()) return;
     setSaveState("saving");
     // Retry a couple of times so a brief network blip doesn't lose an answer.
     for (let tryNo = 0; tryNo < 3; tryNo++) {
+      if (isStale()) return;
       const { error: saveError } = await supabase
         .from("quiz_answers")
         .upsert(
@@ -344,17 +364,21 @@ function Page() {
           { onConflict: "attempt_id,question_id" },
         );
       if (!saveError) {
+        if (isStale()) return;
         failedSaves.current.delete(questionId);
         if (failedSaves.current.size === 0) setSaveState("saved");
         return;
       }
       await new Promise((r) => setTimeout(r, 700 * (tryNo + 1)));
     }
+    if (isStale()) return;
     failedSaves.current.set(questionId, value);
     setSaveState("error");
   }
 
   const failedSaves = useRef(new Map<string, string[]>());
+  const saveVersions = useRef<Record<string, number>>({});
+  const saveChains = useRef<Record<string, Promise<void>>>({});
 
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const pendingValues = useRef<Record<string, string[]>>({});

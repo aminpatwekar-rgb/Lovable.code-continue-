@@ -56,13 +56,14 @@ function Page() {
 
       const { data: subs, error: sErr } = await supabase
         .from("submissions")
-        .select("assignment_id, status, marks_awarded")
+        .select("assignment_id, status, marks_awarded, grade_released")
         .eq("student_id", user!.id);
       if (sErr) throw sErr;
 
       return {
         rows: (rows ?? []) as unknown as Row[],
-        subs: new Map((subs ?? []).map((s) => [s.assignment_id, s])),
+        // Hide marks the teacher hasn't released yet.
+        subs: new Map((subs ?? []).map((s) => [s.assignment_id, { status: s.status, marks_awarded: s.grade_released ? s.marks_awarded : null }])),
       };
     },
   });

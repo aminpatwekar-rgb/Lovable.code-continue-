@@ -458,7 +458,8 @@ function StudentQuizzes() {
   const best = new Map<string, (typeof attempts)[number]>();
   for (const a of attempts) if (!best.has(a.quiz_id)) best.set(a.quiz_id, a);
 
-  const all = q.data?.quizzes ?? [];
+  // Students never see quizzes with no questions; they can't be taken.
+  const all = (q.data?.quizzes ?? []).filter((x) => (counts.get(x.id) ?? 0) > 0);
   const done = all.filter((x) => {
     const a = best.get(x.id);
     return a && (a.status === "graded" || a.status === "submitted");

@@ -71,11 +71,14 @@ export function AssignmentActions({
 
   const duplicate = useMutation({
     mutationFn: async () => {
+      // RLS requires teacher_id = auth.uid(), so use the signed-in user.
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError || !auth.user) throw new Error("Please sign in again.");
       const { data, error } = await supabase
         .from("assignments")
         .insert({
           class_id: assignment.class_id,
-          teacher_id: teacherId,
+          teacher_id: auth.user.id,
           title: `${assignment.title} (copy)`.slice(0, 160),
           subject: assignment.subject,
           instructions: assignment.instructions,

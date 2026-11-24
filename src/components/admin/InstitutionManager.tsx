@@ -430,7 +430,7 @@ export function InstitutionManager() {
                 <th className="p-2.5 font-medium">Name</th><th className="p-2.5 font-medium">Email</th><th className="p-2.5 font-medium">Role</th><th className="p-2.5 text-right font-medium">Action</th>
               </tr></thead><tbody className="divide-y divide-border">{currentMembers.map((person) => <tr key={person.id}>
                 <td className="p-2.5 font-medium">{person.full_name || "Unnamed"}</td><td className="p-2.5 text-muted-foreground">{person.email || "—"}</td>
-                <td className="p-2.5 capitalize">{person.role}</td><td className="p-2.5 text-right">
+                <td className="p-2.5 capitalize">{person.role === "institution_admin" ? "Inst. admin" : person.role}</td><td className="p-2.5 text-right">
                   <Button size="sm" variant="outline" disabled={removeMember.isPending} onClick={() => removeMember.mutate(person.id)}>Remove</Button>
                 </td></tr>)}</tbody></table></div>}
         </section>

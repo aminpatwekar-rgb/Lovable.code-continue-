@@ -239,7 +239,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 onClick={() => setViewRole(null)}
                 className="text-xs text-muted-foreground justify-center font-medium cursor-pointer hover:text-foreground"
               >
-                Reset to default ({role})
+                Reset to default ({roleLabel(role)})
               </DropdownMenuItem>
             </>
           )}
@@ -517,7 +517,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     {effectiveRole}
                   </strong>{" "}
                   — your account's actual role is{" "}
-                  <strong className="capitalize font-semibold text-foreground">{role}</strong>.{" "}
+                  <strong className="capitalize font-semibold text-foreground">{roleLabel(role)}</strong>.{" "}
                   <span className="hidden sm:inline">
                     Real permissions remain protected by Supabase RLS.
                   </span>
@@ -529,7 +529,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 onClick={() => setViewRole(null)}
                 className="self-start sm:self-auto font-semibold text-primary underline underline-offset-2 hover:opacity-80 cursor-pointer"
               >
-                Reset to {role}
+                Reset to {roleLabel(role)}
               </motion.button>
             </div>
           )}

@@ -2127,6 +2127,10 @@ export type Database = {
         Args: { _submission_id: string; _user_id: string }
         Returns: boolean
       }
+      confirm_account_role: {
+        Args: { _role: Database["public"]["Enums"]["app_role"] }
+        Returns: boolean
+      }
       current_plan_code: { Args: { _user_id: string }; Returns: string }
       decide_institution_join_request: {
         Args: {
@@ -2215,6 +2219,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      institution_admin_overview: {
+        Args: { _institution_id: string }
+        Returns: Json
+      }
       is_assignment_owner: {
         Args: { _assignment_id: string; _user_id: string }
         Returns: boolean
@@ -2286,6 +2294,7 @@ export type Database = {
       }
       plan_limit: { Args: { _key: string; _user_id: string }; Returns: number }
       plan_remove_branding: { Args: { _user_id: string }; Returns: boolean }
+      preview_class_join: { Args: { _code: string }; Returns: Json }
       preview_institution_join: { Args: { _code: string }; Returns: Json }
       regenerate_co_teacher_code: {
         Args: { _class_id: string }
@@ -2333,6 +2342,17 @@ export type Database = {
         Returns: undefined
       }
       shares_class_with: { Args: { _a: string; _b: string }; Returns: boolean }
+      update_class_member_identity: {
+        Args: {
+          _class_id: string
+          _er_no: string
+          _full_name: string
+          _member_id: string
+          _roll_no: string
+          _sr_no: string
+        }
+        Returns: undefined
+      }
       update_department_join_link: {
         Args: {
           _department_id: string

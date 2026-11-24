@@ -71,6 +71,20 @@
       "when": 1795536428255,
       "tag": "0009_security_hardening_roles_members",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795536725916,
+      "tag": "0010_institution_admin_overview",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795536778979,
+      "tag": "0011_restore_missing_app_functions",
+      "breakpoints": true
     }
   ]
 }

@@ -23,7 +23,7 @@ export const importStudentsFromCsv = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
 
-    const featureAllowed = await db.rpc("enforce_csv_import_feature", { _class_id: data.classId });
+    const featureAllowed = await context.supabase.rpc("enforce_csv_import_feature", { _class_id: data.classId });
     if (featureAllowed.error) throw featureAllowed.error;
     if (!featureAllowed.data) throw new Error("CSV student import is not included in your current plan.");
 
@@ -210,7 +210,7 @@ export const getPlanSummary = createServerFn({ method: "GET" })
       ].map((key) => [key, true])),
     };
     return {
-      code: isAdmin ? "admin" : (code ?? "free"),
+      code: isAdmin ? "admin" : (code ?? "spark"),
       plan: isAdmin ? adminPlan : (basePlan ?? null),
       plans: plans ?? [],
       storageUsed: Number(storage ?? 0),

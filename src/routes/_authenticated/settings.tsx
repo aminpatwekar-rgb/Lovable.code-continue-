@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Monitor, Moon, Sun, Check, WandSparkles } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 
@@ -277,6 +277,31 @@ function SettingsPage() {
           </h2>
         </div>
         <AccountSettingsCard />
+      </section>
+
+      {/* 7. Privacy & Legal */}
+      <section className="space-y-3">
+        <div className="border-b border-border/60 pb-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Privacy & Legal
+          </h2>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-foreground">ONYX Privacy Policy</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Review how ONYX handles account, academic and uploaded information.
+              </p>
+              <a href="mailto:workonyx.support@gmail.com" className="mt-2 inline-block text-xs font-medium text-primary hover:underline">
+                workonyx.support@gmail.com
+              </a>
+            </div>
+            <Button asChild variant="outline" className="shrink-0">
+              <Link to="/privacy-policy">Read Privacy Policy</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </section>
     </div>
   );

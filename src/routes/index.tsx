@@ -210,8 +210,14 @@ function Landing() {
         </Reveal>
       </main>
 
-      <footer className="border-t border-border py-8 text-center text-sm text-muted-foreground">
-        ONYX — Online Network for Yielding Xcellence. Assignment submission &amp; tracking.
+      <footer className="border-t border-border py-8">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 text-center text-sm text-muted-foreground sm:flex-row sm:text-left">
+          <span>ONYX — Online Network for Yielding Xcellence. Assignment submission &amp; tracking.</span>
+          <div className="flex items-center gap-5">
+            <Link to="/privacy-policy" className="transition-colors hover:text-foreground">Privacy Policy</Link>
+            <a href="mailto:workonyx.support@gmail.com" className="transition-colors hover:text-foreground">Privacy contact</a>
+          </div>
+        </div>
       </footer>
     </div>
   );

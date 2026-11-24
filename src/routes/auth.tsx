@@ -514,6 +514,16 @@ function AuthPage() {
               </Button>
             </form>
 
+            {mode === "signup" && (
+              <p className="mt-3 text-center text-xs leading-5 text-muted-foreground">
+                Before creating an account, please read the{" "}
+                <Link to="/privacy-policy" className="font-medium text-primary underline-offset-4 hover:underline">
+                  ONYX Privacy Policy
+                </Link>
+                {" "}to understand how account, academic and uploaded-file information is handled.
+              </p>
+            )}
+
             <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
               <span className="h-px flex-1 bg-border" /> or{" "}
               <span className="h-px flex-1 bg-border" />

@@ -195,7 +195,8 @@ function RootContent() {
       profile &&
       !profile.role_confirmed_at &&
       pathname !== "/auth" &&
-      pathname !== "/reset-password"
+      pathname !== "/reset-password" &&
+      pathname !== "/privacy-policy"
     ) {
       // Keep a join link they opened, so the role step can finish joining the institution.
       const joinMatch = /^\/join\/([A-Za-z0-9]+)\/?$/.exec(pathname);

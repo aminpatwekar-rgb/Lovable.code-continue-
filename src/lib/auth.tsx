@@ -35,7 +35,6 @@ const AuthContext = createContext<AuthState>({
 // The one-time admin bootstrap is attempted at most once per browser session;
 // the database function itself is the real guard and permanently disables
 // itself after the first administrator exists.
-let bootstrapAttempted = false;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -87,12 +86,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(p ? ({ ...p, role_confirmed_at: roleConfirmedAt, email: userEmail ?? null } as Profile) : null);
 
     let next = resolved;
-
-    if (next === "teacher" && !bootstrapAttempted) {
-      bootstrapAttempted = true;
-      const { data: promoted } = await supabase.rpc("bootstrap_first_admin");
-      if (promoted) next = await readRoles(userId);
-    }
 
     setRole(next);
   }

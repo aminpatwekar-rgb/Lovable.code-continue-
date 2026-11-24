@@ -101,9 +101,14 @@ export function InstitutionAdminsCard({
       return { ...result, email };
     },
     onSuccess: async (result) => {
-      setAccessLink({ link: result.link, existing: result.existingAccount, email: result.email });
-      setCopied(false);
-      toast.success("Admin appointed. Copy the link below and send it to them yourself.");
+      if (result.link) {
+        setAccessLink({ link: result.link, existing: result.existingAccount, email: result.email });
+        setCopied(false);
+        toast.success("Admin appointed. Copy the link below and send it to them yourself.");
+      } else {
+        setAccessLink(null);
+        toast.success(`Admin appointed. A sign-in email was sent to ${result.email}.`);
+      }
       setInviteName(""); setInviteEmail("");
       await refresh();
     },

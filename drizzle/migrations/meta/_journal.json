@@ -64,6 +64,13 @@
       "when": 1795500069846,
       "tag": "0008_progress_report_hide_unreleased_marks",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795536428255,
+      "tag": "0009_security_hardening_roles_members",
+      "breakpoints": true
     }
   ]
 }

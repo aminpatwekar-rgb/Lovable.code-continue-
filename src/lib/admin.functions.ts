@@ -942,12 +942,10 @@ export const createInstitutionAdminAccessLink = createServerFn({ method: "POST" 
       }).eq("id", profile.id);
       if (updateError) throw new Error("The role is set, but the institution could not be saved: " + updateError.message);
 
-      const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-        type: "recovery", email: data.email, options: { redirectTo },
-      });
-      const link = linkData?.properties?.action_link as string | undefined;
-      if (linkError || !link) throw new Error("Could not create a sign-in link: " + (linkError?.message ?? "no link returned"));
-      return { link, existingAccount: true };
+      // Existing accounts: send the password-reset email to the account owner; never hand a reset link to the admin.
+      const { error: resetError } = await admin.auth.resetPasswordForEmail(data.email, { redirectTo });
+      if (resetError) throw new Error("The role is set, but the sign-in email could not be sent: " + resetError.message);
+      return { link: "", existingAccount: true };
     }
 
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({

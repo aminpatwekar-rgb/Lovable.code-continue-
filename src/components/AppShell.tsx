@@ -46,7 +46,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";
 import { fetchMyInstitution, MY_INSTITUTION_KEY } from "@/lib/my-institution";
@@ -342,6 +342,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className={cn("space-y-3 border-t border-sidebar-border bg-sidebar/40", sidebarCollapsed ? "p-2" : "p-4")}>
           <div title={sidebarCollapsed ? (profile?.full_name || "Account") : undefined} className={cn("flex items-center gap-3 rounded-lg border border-border/70 bg-card/60 p-2.5 shadow-2xs transition-colors hover:border-border", sidebarCollapsed && "justify-center p-1.5")}>
             <Avatar className="size-9 border border-border/50">
+              <AvatarImage src={profile?.avatar_url ?? undefined} alt={`${profile?.full_name || "User"} profile photo`} />
               <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
                 {initials}
               </AvatarFallback>
@@ -458,6 +459,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="mt-auto pt-4 border-t border-sidebar-border space-y-3">
             <div className="flex items-center gap-3 rounded-lg border border-border/70 p-2.5">
               <Avatar className="size-9">
+                <AvatarImage src={profile?.avatar_url ?? undefined} alt={`${profile?.full_name || "User"} profile photo`} />
                 <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
                   {initials}
                 </AvatarFallback>

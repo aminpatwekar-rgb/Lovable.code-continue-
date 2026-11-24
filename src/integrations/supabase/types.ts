@@ -2127,6 +2127,10 @@ export type Database = {
         Args: { _submission_id: string; _user_id: string }
         Returns: boolean
       }
+      class_has_feature: {
+        Args: { _class_id: string; _key: string }
+        Returns: boolean
+      }
       confirm_account_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean

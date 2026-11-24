@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, ChevronRight, ClipboardCheck, Clock, Users } from "lucide-react";
 import { useViewRole } from "@/lib/viewRole";
+import { InstitutionInsightsView } from "@/components/institution/InstitutionInsightsView";
 import { formatDue } from "@/lib/assignments";
 import { getGradingOverview } from "@/lib/grading/overview.functions";
 import {
@@ -26,8 +27,13 @@ export const Route = createFileRoute("/_authenticated/grading/")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: GradingHub,
+  component: GradingRoute,
 });
+
+function GradingRoute() {
+  const { effectiveRole } = useViewRole();
+  return effectiveRole === "institution_admin" ? <InstitutionInsightsView focus="grading" /> : <GradingHub />;
+}
 
 type Kind = "assignments" | "quizzes";
 type Filter = "todo" | "all";

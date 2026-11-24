@@ -33,6 +33,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { InstitutionInsightsView } from "@/components/institution/InstitutionInsightsView";
+
 export const Route = createFileRoute("/_authenticated/quizzes/")({
   head: () => ({
     meta: [
@@ -56,6 +58,7 @@ function QuizzesPage() {
   const { role } = useAuth();
   const { effectiveRole } = useViewRole();
   if (!role) return <ListSkeleton />;
+  if (effectiveRole === "institution_admin") return <InstitutionInsightsView focus="quizzes" />;
   return effectiveRole === "student" ? <StudentQuizzes /> : <TeacherQuizzes />;
 }
 

@@ -149,7 +149,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       ? [...NAV.slice(0, 4), PROGRESS_NAV, ...NAV.slice(4)]
       : [...NAV];
   const items = role === "institution_admin"
-    ? [...baseNav, ...INSTITUTION_ADMIN_NAV]
+    ? [...NAV.slice(0, 4), GRADING_NAV, ...NAV.slice(4), ...INSTITUTION_ADMIN_NAV]
     : effectiveRole === "admin"
       ? [...baseNav.slice(0, 2), ...INSTITUTION_HUB_NAV, ...baseNav.slice(2), ...ADMIN_NAV]
       : institutionName

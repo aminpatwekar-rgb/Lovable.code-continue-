@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { InstitutionInsightsView } from "@/components/institution/InstitutionInsightsView";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
@@ -25,8 +26,13 @@ function averageScore(points: Array<{ scorePct: number }>): number | null {
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({ meta: [{ title: "Progress Reports — ONYX" }] }),
-  component: Page,
+  component: ReportsRoute,
 });
+
+function ReportsRoute() {
+  const { effectiveRole } = useViewRole();
+  return effectiveRole === "institution_admin" ? <InstitutionInsightsView focus="reports" /> : <Page />;
+}
 
 function Page() {
   const { user } = useAuth();

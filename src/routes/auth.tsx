@@ -218,15 +218,15 @@ function AuthPage() {
     }
     setBusy(true);
     try {
-      const { error } = await (supabase as any).rpc("confirm_account_role", { _role: "student" });
+      const { error } = await (supabase as any).rpc("confirm_account_role", { _role: role });
       if (error) throw error;
       await refresh();
       markSessionConfirmed(session?.user.id);
-      if (role === "teacher") {
-        toast.info("Teacher access needs approval. Join with your institution's teacher link or ask an administrator.");
-      } else {
-        toast.success("Your account role has been confirmed.");
-      }
+      toast.success(
+        role === "teacher"
+          ? "Teacher role confirmed. Use your institution's teacher invite link to join an institution."
+          : "Student role confirmed. You can now join your classes.",
+      );
       navigate({ to: "/dashboard", replace: true });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not confirm your role. Please try again.");

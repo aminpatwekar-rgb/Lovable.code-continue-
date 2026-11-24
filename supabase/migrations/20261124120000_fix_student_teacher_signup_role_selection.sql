@@ -16,7 +16,7 @@ BEGIN
     RAISE EXCEPTION 'Authentication required';
   END IF;
 
-  IF _role NOT IN ('student'::public.app_role, 'teacher'::public.app_role) THEN
+  IF _role IS NULL OR _role NOT IN ('student'::public.app_role, 'teacher'::public.app_role) THEN
     RAISE EXCEPTION 'Only student or teacher roles can be selected';
   END IF;
 

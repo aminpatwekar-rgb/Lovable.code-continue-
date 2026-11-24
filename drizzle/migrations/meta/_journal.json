@@ -92,6 +92,13 @@
       "when": 1795537627402,
       "tag": "0012_institution_workflow_repairs",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795538589405,
+      "tag": "0013_announcement_attachment_server_size_quota",
+      "breakpoints": true
     }
   ]
 }

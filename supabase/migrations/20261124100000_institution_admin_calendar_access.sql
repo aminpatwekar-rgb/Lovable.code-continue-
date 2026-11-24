@@ -1,5 +1,4 @@
--- Restore the Calendar access path for institution admins without changing
--- paid-plan entitlements for any other role or feature.
+-- Restore Calendar access for institution admins without changing other role entitlements.
 
 CREATE OR REPLACE FUNCTION public.user_has_feature(_feature text)
 RETURNS boolean
@@ -16,7 +15,6 @@ $$;
 GRANT EXECUTE ON FUNCTION public.user_has_feature(text) TO authenticated;
 
 -- Institution admins may read quizzes attached to classes in their own institution.
--- Keep the platform-admin, teacher, and student access rules intact.
 CREATE OR REPLACE FUNCTION public.can_view_quiz(_quiz_id uuid, _user_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -41,17 +39,15 @@ AS $$
         )
       )
   );
-$$$;
 $$;
 
--- Ensure the live quiz SELECT policy uses the institution-aware permission function.
 DROP POLICY IF EXISTS "quiz select" ON public.quizzes;
 CREATE POLICY "quiz select" ON public.quizzes
   FOR SELECT TO authenticated
   USING (public.can_view_quiz(id, auth.uid()));
 
--- Calendar event visibility follows the same institution boundary.
--- This is read-only; the existing calendar_write policy is intentionally untouched.
+-- Institution admins may read calendar events for their institution.
+-- Existing class-owner plan gating for students and teachers remains in place.
 DROP POLICY IF EXISTS calendar_read ON public.calendar_events;
 CREATE POLICY calendar_read ON public.calendar_events
   FOR SELECT TO authenticated

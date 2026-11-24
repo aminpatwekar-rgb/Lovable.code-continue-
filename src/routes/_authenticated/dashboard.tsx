@@ -190,6 +190,33 @@ function Dashboard() {
 
   const firstName = profile?.full_name?.trim().split(" ")[0] || "there";
 
+  if (effectiveRole === "institution_admin") {
+    return (
+      <div className="space-y-5 sm:space-y-8">
+        <header className="border-b border-border/60 pb-4 sm:pb-6">
+          <div className="mb-1 hidden items-center gap-1.5 text-xs font-medium text-primary sm:inline-flex">
+            <Sparkles className="size-3.5" />
+            Institution Workspace
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Welcome back, {firstName}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Manage your institution's people, departments, join links and approvals.</p>
+        </header>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Link to="/institution-admin" className="panel block p-5 transition-colors hover:border-primary/40">
+            <Users className="size-5 text-primary" />
+            <p className="mt-3 font-semibold text-foreground">Institution console</p>
+            <p className="mt-1 text-sm text-muted-foreground">Join links, approvals, departments and roster.</p>
+          </Link>
+          <Link to="/institution" className="panel block p-5 transition-colors hover:border-primary/40">
+            <GraduationCap className="size-5 text-primary" />
+            <p className="mt-3 font-semibold text-foreground">Institution overview</p>
+            <p className="mt-1 text-sm text-muted-foreground">Classes, teachers, students and assignments.</p>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (isTeacherView) {
     const d = teacher.data;
     return (

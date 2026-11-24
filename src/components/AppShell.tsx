@@ -82,7 +82,7 @@ const GRADING_NAV = { to: "/grading", label: "Grading", icon: ClipboardCheck } a
 
 const ADMIN_NAV = [{ to: "/admin", label: "Admin", icon: Shield }] as const;
 const INSTITUTION_HUB_NAV = [{ to: "/institution", label: "Institution", icon: Building2 }] as const;
-const INSTITUTION_ADMIN_NAV = [{ to: "/institution", label: "Institution", icon: Building2 }] as const;
+const INSTITUTION_ADMIN_NAV = [{ to: "/institution-admin", label: "Institution", icon: Building2 }] as const;
 // Students and teachers who belong to an institution get a read-only page about it.
 const MY_INSTITUTION_NAV = [{ to: "/my-institution", label: "My Institution", icon: Building2 }] as const;
 

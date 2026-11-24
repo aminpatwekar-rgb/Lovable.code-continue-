@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { Loader2, User, Building, Camera } from "lucide-react";
+import { Loader2, User, Building, Camera, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ export function ProfileSettingsCard() {
   const [fullName, setFullName] = useState(profile?.full_name ?? "");
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [removingAvatar, setRemovingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   // Sync state when profile loads or updates
@@ -75,6 +76,34 @@ export function ProfileSettingsCard() {
     }
   }
 
+  async function handleAvatarRemove() {
+    if (!user || !profile?.avatar_url || removingAvatar || uploadingAvatar) return;
+
+    setRemovingAvatar(true);
+    try {
+      // Delete the public object first so the old image URL stops resolving.
+      // This key is the same deterministic path used by the avatar upload handler.
+      const avatarPath = `${user.id}/avatar`;
+      const { error: storageError } = await supabase.storage
+        .from("profile-avatars")
+        .remove([avatarPath]);
+      if (storageError) throw storageError;
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: null })
+        .eq("id", user.id);
+      if (profileError) throw profileError;
+
+      await refresh();
+      toast.success("Profile photo removed. Your initials are now displayed.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not remove your profile photo.");
+    } finally {
+      setRemovingAvatar(false);
+    }
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
@@ -133,7 +162,7 @@ export function ProfileSettingsCard() {
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   onChange={handleAvatarUpload}
-                  disabled={uploadingAvatar}
+                  disabled={uploadingAvatar || removingAvatar}
                   className="hidden"
                   aria-label="Choose a profile photo"
                 />
@@ -142,12 +171,25 @@ export function ProfileSettingsCard() {
                   size="sm"
                   variant="outline"
                   onClick={() => avatarInputRef.current?.click()}
-                  disabled={uploadingAvatar || saving}
+                  disabled={uploadingAvatar || removingAvatar || saving}
                   className="gap-2"
                 >
                   {uploadingAvatar ? <Loader2 className="size-4 animate-spin" /> : <Camera className="size-4" />}
                   {uploadingAvatar ? "Uploading photo..." : "Change photo"}
                 </Button>
+                {profile?.avatar_url && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => void handleAvatarRemove()}
+                    disabled={uploadingAvatar || removingAvatar || saving}
+                    className="ml-1 gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    {removingAvatar ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                    {removingAvatar ? "Removing..." : "Remove photo"}
+                  </Button>
+                )}
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">JPG, PNG or WebP · Up to 5 MB</p>
             </div>

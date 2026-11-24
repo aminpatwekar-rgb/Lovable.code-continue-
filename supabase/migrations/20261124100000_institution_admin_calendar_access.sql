@@ -42,6 +42,7 @@ AS $$
       )
   );
 $$$;
+$$;
 
 -- Ensure the live quiz SELECT policy uses the institution-aware permission function.
 DROP POLICY IF EXISTS "quiz select" ON public.quizzes;

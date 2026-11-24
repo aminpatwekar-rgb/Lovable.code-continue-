@@ -61,7 +61,7 @@ const plans: Plan[] = [
     description: "Single-Faculty Classroom Utility",
     classes: "3 classes",
     students: "60 students/class",
-    storage: "1 GB storage",
+    storage: "2 GB storage",
     ai: "50 AI quiz questions/month",
     features: [
       "Everything in SPARK",
@@ -71,7 +71,7 @@ const plans: Plan[] = [
     ],
     details: [
       { title: "3 classes · 60 students/class", description: "Manage up to three classes, each with capacity for up to 60 students." },
-      { title: "1 GB cloud storage", description: "A larger storage allowance for class resources and submitted work." },
+      { title: "2 GB cloud storage", description: "A larger storage allowance for class resources and submitted work." },
       { title: "50 AI quiz questions/month", description: "Generate up to 50 quiz questions with AI each month." },
       { title: "Everything in SPARK", description: "Includes core submissions, grading and feedback, resources, announcements and discussions." },
       { title: "Unlimited assignments and manual quizzes", description: "Assignment creation and manually authored quizzes remain unlimited; manual quiz questions are not capped by this plan." },
@@ -85,7 +85,7 @@ const plans: Plan[] = [
     description: "Multi-Cohort Powerhouse & Proctoring",
     classes: "10 classes",
     students: "100 students/class",
-    storage: "8 GB storage",
+    storage: "10 GB storage",
     ai: "200 AI quiz questions/month",
     features: [
       "Everything in CORE",
@@ -96,7 +96,7 @@ const plans: Plan[] = [
     featured: true,
     details: [
       { title: "10 classes · 100 students/class", description: "Manage multiple cohorts with capacity for up to 100 students in each class." },
-      { title: "8 GB cloud storage", description: "More space for course resources, assignment attachments and student submissions." },
+      { title: "10 GB cloud storage", description: "More space for course resources, assignment attachments and student submissions." },
       { title: "200 AI quiz questions/month", description: "Generate up to 200 quiz questions with AI each month." },
       { title: "Advanced grading and rubrics", description: "Use rubric-oriented grading workflows to assess work against defined criteria." },
       { title: "Attendance and classroom management", description: "Organise class attendance and day-to-day classroom activities." },

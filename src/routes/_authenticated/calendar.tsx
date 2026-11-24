@@ -20,15 +20,57 @@ function Page(){
   const [cursor,setCursor]=useState(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1);});
   const monthKey=`${cursor.getFullYear()}-${String(cursor.getMonth()+1).padStart(2,"0")}-01`;
   const isTeacher=role==="teacher"||role==="admin";
+  const isInstitutionAdmin=role==="institution_admin";
 
   const q=useQuery({
-    queryKey:["onyx-calendar",user?.id,monthKey,isTeacher],
+    queryKey:["onyx-calendar",user?.id,monthKey,isTeacher,isInstitutionAdmin],
     enabled:Boolean(user),
     queryFn:async()=>{
       const from=new Date(cursor.getFullYear(),cursor.getMonth(),1).toISOString();
       const to=new Date(cursor.getFullYear(),cursor.getMonth()+1,1).toISOString();
       const events:EventRow[]=[];
-      if(isTeacher){
+      if (isInstitutionAdmin) {
+        // Institution admins see calendar items for active classes in their own institution.
+        // The classes query is tenant-scoped by the classes_read RLS policy.
+        const { data: institutionClasses, error: classesError } = await db
+          .from("classes")
+          .select("id")
+          .eq("archived", false);
+        if (classesError) throw classesError;
+
+        const classIds = (institutionClasses ?? []).map((klass: { id: string }) => klass.id);
+        if (classIds.length) {
+          const [a, z, m, personal] = await Promise.all([
+            db.from("assignments").select("id,title,due_date,class_id,classes(name)")
+              .in("class_id", classIds).gte("due_date", from).lt("due_date", to).eq("archived", false),
+            db.from("quizzes").select("id,title,start_at,end_at,class_id,classes(name)")
+              .in("class_id", classIds)
+              .or(`start_at.gte.${from},end_at.gte.${from}`)
+              .or(`start_at.lt.${to},end_at.lt.${to}`),
+            db.from("calendar_events").select("id,title,starts_at,event_type,class_id,classes(name)")
+              .in("class_id", classIds).gte("starts_at", from).lt("starts_at", to),
+            db.from("calendar_events").select("id,title,starts_at,event_type,class_id,classes(name)")
+              .eq("owner_id", user!.id).is("class_id", null).gte("starts_at", from).lt("starts_at", to),
+          ]);
+          if (a.error) throw a.error;
+          if (z.error) throw z.error;
+          if (m.error) throw m.error;
+          if (personal.error) throw personal.error;
+
+          for (const x of a.data ?? []) if (x.due_date) events.push({
+            id: `a-${x.id}`, title: x.title, starts_at: x.due_date,
+            event_type: "assignment", link: `/assignments/${x.id}`, className: x.classes?.name,
+          });
+          for (const x of z.data ?? []) if (x.start_at) events.push({
+            id: `q-${x.id}`, title: x.title, starts_at: x.start_at,
+            event_type: "quiz", link: `/quizzes/${x.id}`, className: x.classes?.name,
+          });
+          for (const x of [...(m.data ?? []), ...(personal.data ?? [])]) events.push({
+            id: `e-${x.id}`, title: x.title, starts_at: x.starts_at,
+            event_type: x.event_type, link: "/calendar", className: x.classes?.name,
+          });
+        }
+      } else if (isTeacher) {
         const [a,z,m]=await Promise.all([
           db.from("assignments").select("id,title,due_date,class_id,classes(name)").eq("teacher_id",user!.id).gte("due_date",from).lt("due_date",to).eq("archived",false),
           db.from("quizzes").select("id,title,start_at,end_at,class_id,classes(name)").eq("teacher_id",user!.id).or(`start_at.gte.${from},end_at.gte.${from}`).or(`start_at.lt.${to},end_at.lt.${to}`),

@@ -331,7 +331,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-4", sidebarCollapsed ? "p-2" : "p-4")}>
+          <div className={cn("sidebar-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-4", sidebarCollapsed ? "p-2" : "p-4")}>
             {!sidebarCollapsed && <GlobalSearch />}
             <div className={cn("pt-1", sidebarCollapsed && "flex justify-center")}>{nav}</div>
           </div>

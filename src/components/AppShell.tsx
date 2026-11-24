@@ -168,6 +168,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const planFeatures = (planQuery.data?.plan?.features ?? {}) as Record<string, boolean>;
   const isAdmin = role === "admin";
 
+  const roleLabel = (r: string | null | undefined) => (r === "institution_admin" ? "Inst. admin" : r ?? "");
+
   const renderRoleSwitcher = (compact = false) => {
     const roleDotClass =
       effectiveRole === "admin" || effectiveRole === "institution_admin"
@@ -180,7 +182,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       return (
         <div className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-secondary/80 px-2.5 py-0.5 text-[11px] font-medium capitalize tracking-wide text-muted-foreground shadow-2xs">
           <span className={cn("size-1.5 shrink-0 rounded-full", roleDotClass)} />
-          {effectiveRole}
+          <span className="whitespace-nowrap">{roleLabel(effectiveRole)}</span>
         </div>
       );
     }
@@ -198,7 +200,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             title={`View as: ${effectiveRole} (Click to change)`}
           >
             <span className={cn("size-1.5 shrink-0 rounded-full", roleDotClass)} />
-            <span>{effectiveRole}</span>
+            <span className="whitespace-nowrap">{roleLabel(effectiveRole)}</span>
             <ChevronDown className="size-3 text-muted-foreground transition-transform duration-200 group-hover:text-foreground group-hover:translate-y-px group-data-[state=open]:rotate-180" />
           </motion.button>
         </DropdownMenuTrigger>
@@ -349,7 +351,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {profile?.full_name || "Account"}
               </p>
               <p className="truncate text-[11px] capitalize text-muted-foreground">
-                {isOverridden ? `${effectiveRole} (preview)` : role}
+                {isOverridden ? `${roleLabel(effectiveRole)} (preview)` : roleLabel(role)}
               </p>
               {institutionName && (
                 <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-primary" title={institutionName}>
@@ -465,7 +467,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {profile?.full_name || "Account"}
                 </p>
                 <p className="truncate text-[11px] capitalize text-muted-foreground">
-                  {isOverridden ? `${effectiveRole} (preview)` : role}
+                  {isOverridden ? `${roleLabel(effectiveRole)} (preview)` : roleLabel(role)}
                 </p>
                 {institutionName && (
                   <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-primary">

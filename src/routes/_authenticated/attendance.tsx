@@ -1,3 +1,4 @@
+import { InstitutionAdminNotice } from "@/components/institution/InstitutionAdminNotice";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
@@ -83,6 +84,7 @@ function UpgradePanel({ children }: { children: React.ReactNode }) {
 function Page() {
   const { effectiveRole } = useViewRole();
   const isTeacher = effectiveRole === "teacher" || effectiveRole === "admin";
+  if (effectiveRole === "institution_admin") return <InstitutionAdminNotice what="Attendance registers" />;
   return isTeacher ? <TeacherView isAdmin={effectiveRole === "admin"} /> : <StudentView />;
 }
 

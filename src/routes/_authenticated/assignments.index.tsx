@@ -1,3 +1,4 @@
+import { InstitutionAdminNotice } from "@/components/institution/InstitutionAdminNotice";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -42,6 +43,11 @@ export const Route = createFileRoute("/_authenticated/assignments/")({
 });
 
 function Assignments() {
+  const { effectiveRole: viewAs } = useViewRole();
+  return viewAs === "institution_admin" ? <InstitutionAdminNotice what="Assignments" /> : <AssignmentsInner />;
+}
+
+function AssignmentsInner() {
   const { user, role } = useAuth();
   const { effectiveRole } = useViewRole();
   const navigate = useNavigate({ from: "/assignments/" });

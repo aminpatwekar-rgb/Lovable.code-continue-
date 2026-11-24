@@ -253,7 +253,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {items.map(({ to, label, icon: Icon, ...item }) => {
         const active = pathname === to || pathname.startsWith(to + "/");
         const feature = (item as { feature?: string }).feature;
-        const locked = Boolean(feature) && !isAdmin && planQuery.isSuccess && !planFeatures[feature!];
+        const locked = Boolean(feature) && !isAdmin && role !== "institution_admin" && planQuery.isSuccess && !planFeatures[feature!];
 
         if (locked) {
           return (

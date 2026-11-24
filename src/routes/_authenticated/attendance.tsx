@@ -49,21 +49,20 @@ function classLabel(c: ClassRow) {
 }
 
 /**
- * Attendance is a plan feature that belongs to the class owner: a class can take attendance
- * when its owner's plan includes it, whoever is marking (the owner or a co-teacher).
- * Returns owner id -> whether that owner's plan includes attendance.
+ * Attendance belongs to the class owner's plan. Use the caller-scoped class helper;
+ * direct plan_has_feature(user_id, ...) calls are intentionally unavailable to clients.
  */
-function useOwnerAttendanceAccess(ownerIds: string[], skip = false) {
-  const key = [...new Set(ownerIds)].sort();
+function useOwnerAttendanceAccess(classes: ClassRow[], skip = false) {
+  const key = classes.map((c) => c.id).sort();
   return useQuery({
-    queryKey: ["attendance-owner-plans", key],
+    queryKey: ["attendance-class-plans", key],
     enabled: !skip && key.length > 0,
     queryFn: async (): Promise<Record<string, boolean>> => {
       const results = await Promise.all(
-        key.map(async (id) => {
-          const r = await db.rpc("plan_has_feature", { _user_id: id, _key: "attendance" });
+        key.map(async (classId) => {
+          const r = await db.rpc("class_has_feature", { _class_id: classId, _key: "attendance" });
           if (r.error) throw r.error;
-          return [id, Boolean(r.data)] as const;
+          return [classId, Boolean(r.data)] as const;
         }),
       );
       return Object.fromEntries(results);
@@ -121,8 +120,8 @@ function TeacherView({ isAdmin }: { isAdmin: boolean }) {
     },
   });
 
-  const access = useOwnerAttendanceAccess((classes.data ?? []).map((c) => c.teacher_id), isAdmin);
-  const usable = (c: ClassRow) => isAdmin || access.data?.[c.teacher_id] === true;
+  const access = useOwnerAttendanceAccess(classes.data ?? [], isAdmin);
+  const usable = (c: ClassRow) => isAdmin || access.data?.[c.id] === true;
   const usableClasses = (classes.data ?? []).filter(usable);
   const checkingPlans = !isAdmin && (classes.isLoading || (Boolean(classes.data?.length) && access.isLoading));
   const noneUsable = !checkingPlans && Boolean(classes.data?.length) && usableClasses.length === 0;

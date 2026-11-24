@@ -9,9 +9,8 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
   SELECT
-    public.has_role(auth.uid(), 'admin')
-    OR (_feature = 'calendar' AND public.has_role(auth.uid(), 'institution_admin'))
-    OR public.plan_has_feature(auth.uid(), _feature);
+    public.plan_has_feature(auth.uid(), _feature)
+    OR (_feature = 'calendar' AND public.has_role(auth.uid(), 'institution_admin'));
 $$;
 
 GRANT EXECUTE ON FUNCTION public.user_has_feature(text) TO authenticated;
@@ -42,7 +41,13 @@ AS $$
         )
       )
   );
-$$;
+$;
+
+-- Ensure the live quiz SELECT policy uses the institution-aware permission function.
+DROP POLICY IF EXISTS "quiz select" ON public.quizzes;
+CREATE POLICY "quiz select" ON public.quizzes
+  FOR SELECT TO authenticated
+  USING (public.can_view_quiz(id, auth.uid()));
 
 -- Calendar event visibility follows the same institution boundary.
 -- This is read-only; the existing calendar_write policy is intentionally untouched.
@@ -52,13 +57,21 @@ CREATE POLICY calendar_read ON public.calendar_events
   USING (
     owner_id = auth.uid()
     OR public.has_role(auth.uid(), 'admin')
-    OR (class_id IS NOT NULL AND public.is_class_member(class_id, auth.uid()))
-    OR (class_id IS NOT NULL AND public.is_class_teacher(class_id, auth.uid()))
     OR EXISTS (
       SELECT 1
       FROM public.classes c
       WHERE c.id = calendar_events.class_id
         AND c.institution_id IS NOT NULL
         AND public.is_institution_admin(c.institution_id)
+    )
+    OR (
+      class_id IS NOT NULL
+      AND (public.is_class_member(class_id, auth.uid()) OR public.is_class_teacher(class_id, auth.uid()))
+      AND EXISTS (
+        SELECT 1
+        FROM public.classes c
+        WHERE c.id = calendar_events.class_id
+          AND public.plan_has_feature(c.teacher_id, 'calendar')
+      )
     )
   );

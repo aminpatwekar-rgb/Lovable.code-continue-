@@ -141,6 +141,13 @@
       "when": 1795607702336,
       "tag": "0019_security_hardening_roles_membership_grades",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795607969326,
+      "tag": "0020_teacher_signup_requires_approval",
+      "breakpoints": true
     }
   ]
 }

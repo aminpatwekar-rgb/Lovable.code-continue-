@@ -224,7 +224,7 @@ function AuthPage() {
       markSessionConfirmed(session?.user.id);
       toast.success(
         role === "teacher"
-          ? "Teacher role confirmed. Use your institution's teacher invite link to join an institution."
+          ? "Teacher request received. You can use ONYX as a student until an admin approves teacher access, or join through your institution's teacher invite link."
           : "Student role confirmed. You can now join your classes.",
       );
       navigate({ to: "/dashboard", replace: true });

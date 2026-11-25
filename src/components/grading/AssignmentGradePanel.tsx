@@ -9,6 +9,7 @@ import { percentOf, quickMarks } from "@/lib/grading/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { SubmissionComments } from "@/components/SubmissionComments";
 import { SubmissionViewer } from "@/components/grading/SubmissionViewer";
+import { AiScanPanel } from "@/components/grading/AiDetection";
 import { RubricGrader } from "@/components/grading/RubricGrader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -212,6 +213,8 @@ export function AssignmentGradePanel({
         violations={violations}
         violationCount={sub.paste_violation_count}
       />
+
+      <AiScanPanel submissionId={submissionId} />
 
       {((sub as any).assignments as { rubric_id?: string | null } | null)?.rubric_id && (
         <RubricGrader

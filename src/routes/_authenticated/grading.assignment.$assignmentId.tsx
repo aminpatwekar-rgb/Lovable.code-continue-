@@ -16,6 +16,12 @@ import { AssignmentGradePanel } from "@/components/grading/AssignmentGradePanel"
 import { QueueList, type QueueEntry } from "@/components/grading/QueueList";
 import { ReleaseGradesButton } from "@/components/grading/ReleaseGradesButton";
 import { WorkspaceShell } from "@/components/grading/WorkspaceShell";
+import {
+  AiScanPill,
+  AiScanToolbar,
+  useAiDetectionAccess,
+  useAiScans,
+} from "@/components/grading/AiDetection";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -54,6 +60,20 @@ function AssignmentGradingWorkspace() {
     queryFn: () => getAssignmentGradingQueue({ data: { assignmentId } }),
     enabled: canGrade,
   });
+
+  // AI detection is opt-in per click and only offered on plans that include it.
+  const aiAllowed = useAiDetectionAccess() && canGrade;
+  const [checked, setChecked] = useState<Set<string>>(() => new Set());
+  const { scans: aiScans } = useAiScans(
+    aiAllowed ? (q.data?.rows ?? []).map((r) => r.submission_id) : [],
+  );
+  const toggleChecked = (id: string) =>
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const lists = useMemo(() => {
     const rows = q.data?.rows ?? [];
@@ -161,13 +181,17 @@ function AssignmentGradingWorkspace() {
               : r.status === "returned"
                 ? "warn"
                 : "done",
-          flag:
-            r.paste_violation_count > 0 ? (
-              <ShieldAlert
-                className="size-3.5 shrink-0 text-destructive"
-                aria-label={`${r.paste_violation_count} paste attempts`}
-              />
-            ) : null,
+          flag: (
+            <>
+              {r.paste_violation_count > 0 && (
+                <ShieldAlert
+                  className="size-3.5 shrink-0 text-destructive"
+                  aria-label={`${r.paste_violation_count} paste attempts`}
+                />
+              )}
+              {aiAllowed && <AiScanPill scan={aiScans.get(r.submission_id)} />}
+            </>
+          ),
         }));
 
   const goTo = (offset: number) => {
@@ -186,21 +210,46 @@ function AssignmentGradingWorkspace() {
     }
   };
 
+  const showChecks = aiAllowed && tab !== "missing" && activeList.length > 0;
+  const checkedHere = activeList.filter((r) => checked.has(r.submission_id)).map((r) => r.submission_id);
   const queue = (
-    <QueueList
-      entries={entries}
-      selectedId={tab === "missing" ? null : (selected?.submission_id ?? null)}
-      onSelect={(id) => {
-        if (tab !== "missing") select(id);
-      }}
-      empty={
-        tab === "waiting"
-          ? "Nothing waiting. Nice work."
-          : tab === "graded"
-            ? "No graded work yet."
-            : "Everyone has submitted."
-      }
-    />
+    <>
+      {showChecks && (
+        <div className="mb-1 flex items-center justify-between px-1 text-xs text-muted-foreground">
+          <span>AI check (only when you choose)</span>
+          <button
+            type="button"
+            className="cursor-pointer underline-offset-2 hover:underline"
+            onClick={() =>
+              setChecked(
+                checkedHere.length === activeList.length
+                  ? new Set()
+                  : new Set(activeList.map((r) => r.submission_id)),
+              )
+            }
+          >
+            {checkedHere.length === activeList.length ? "Clear all" : "Select all"}
+          </button>
+        </div>
+      )}
+      {showChecks && <AiScanToolbar selectedIds={checkedHere} onClear={() => setChecked(new Set())} />}
+      <QueueList
+        entries={entries}
+        selectedId={tab === "missing" ? null : (selected?.submission_id ?? null)}
+        onSelect={(id) => {
+          if (tab !== "missing") select(id);
+        }}
+        checkedIds={showChecks ? checked : undefined}
+        onToggleChecked={showChecks ? toggleChecked : undefined}
+        empty={
+          tab === "waiting"
+            ? "Nothing waiting. Nice work."
+            : tab === "graded"
+              ? "No graded work yet."
+              : "Everyone has submitted."
+        }
+      />
+    </>
   );
 
   return (

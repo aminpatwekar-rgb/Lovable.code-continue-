@@ -26,11 +26,16 @@ export function QueueList({
   selectedId,
   onSelect,
   empty,
+  checkedIds,
+  onToggleChecked,
 }: {
   entries: QueueEntry[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   empty: string;
+  /** Optional tick-boxes for multi-select actions (e.g. scanning several students). */
+  checkedIds?: Set<string> | undefined;
+  onToggleChecked?: ((id: string) => void) | undefined;
 }) {
   if (entries.length === 0) {
     return <p className="px-3 py-8 text-center text-sm text-muted-foreground">{empty}</p>;
@@ -40,12 +45,21 @@ export function QueueList({
       {entries.map((e) => {
         const active = e.id === selectedId;
         return (
-          <li key={e.id} role="option" aria-selected={active}>
+          <li key={e.id} role="option" aria-selected={active} className="flex items-center gap-1.5">
+            {onToggleChecked && (
+              <input
+                type="checkbox"
+                className="size-4 shrink-0 cursor-pointer accent-primary"
+                aria-label={`Select ${e.name}`}
+                checked={checkedIds?.has(e.id) ?? false}
+                onChange={() => onToggleChecked(e.id)}
+              />
+            )}
             <button
               type="button"
               onClick={() => onSelect(e.id)}
               className={cn(
-                "flex w-full cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                "flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
                 active ? "border-primary/40 bg-primary/10" : "border-transparent hover:bg-muted/70",
               )}
             >

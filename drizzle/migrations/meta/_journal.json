@@ -127,6 +127,13 @@
       "when": 1795555731007,
       "tag": "0017_onyx_five_tier_catalogue_and_fail_closed_entitlements",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795582602434,
+      "tag": "0018_secure_institution_join_codes",
+      "breakpoints": true
     }
   ]
 }

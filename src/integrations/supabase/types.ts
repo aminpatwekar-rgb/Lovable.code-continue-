@@ -2084,6 +2084,17 @@ export type Database = {
         Args: { _department_id: string }
         Returns: string
       }
+      _has_role_any: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      _is_class_member_any: {
+        Args: { _class_id: string; _user_id: string }
+        Returns: boolean
+      }
       _new_co_teacher_code: { Args: never; Returns: string }
       _new_institution_join_code: { Args: never; Returns: string }
       _place_student_in_department: {

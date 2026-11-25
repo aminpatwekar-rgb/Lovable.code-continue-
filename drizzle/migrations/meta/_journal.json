@@ -134,6 +134,13 @@
       "when": 1795582602434,
       "tag": "0018_secure_institution_join_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795607702336,
+      "tag": "0019_security_hardening_roles_membership_grades",
+      "breakpoints": true
     }
   ]
 }

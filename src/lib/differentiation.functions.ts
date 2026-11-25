@@ -466,6 +466,12 @@ export const analyzeHandwritingFile = createServerFn({ method: "POST" })
       throw new Error("Handwriting AI currently supports JPEG, PNG and WebP page photos. Other document types stay available for normal grading.");
     }
 
+    const expectedPrefix = `${submission.assignment_id}/${submission.student_id}/`;
+    const storagePath = String(file.storage_path ?? "");
+    if (!storagePath.startsWith(expectedPrefix) || storagePath.includes("..")) {
+      throw new Error("This file does not belong to the submission.");
+    }
+
     const key = process.env["GEMINI_API_KEY"];
     if (!key) throw new Error("Handwriting AI is not configured. Add GEMINI_API_KEY to the server secrets.");
 

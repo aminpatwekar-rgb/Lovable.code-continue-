@@ -532,10 +532,13 @@ function StudentView() {
   });
 
   // A class's attendance shows when its owner's plan includes attendance.
-  const owners = (records.data ?? []).map((r) => r.classes?.teacher_id).filter((id): id is string => Boolean(id));
+  const owners = useMemo(
+    () => [...new Set((records.data ?? []).map((r) => r.class_id))].map((id) => ({ id, name: "", subject: null, section: null, teacher_id: "" }) as ClassRow),
+    [records.data],
+  );
   const access = useOwnerAttendanceAccess(owners);
   const visible = useMemo(
-    () => (records.data ?? []).filter((r) => r.classes?.teacher_id && access.data?.[r.classes.teacher_id] === true),
+    () => (records.data ?? []).filter((r) => access.data?.[r.class_id] === true),
     [records.data, access.data],
   );
   const loading = records.isLoading || (owners.length > 0 && access.isLoading);

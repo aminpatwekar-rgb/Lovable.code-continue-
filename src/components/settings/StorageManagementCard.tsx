@@ -128,9 +128,9 @@ export function StorageManagementCard() {
           <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">No files are currently eligible for deletion. Submitted work and files attached to published assignments are protected.</p>
         ) : (
           <>
-            <p className="text-xs text-muted-foreground">{files.data.length} files · {formatBytes(total)} eligible to reclaim</p>
+            <p className="text-xs text-muted-foreground">{(files.data ?? []).length} files · {formatBytes(total)} eligible to reclaim</p>
             <ul className="divide-y divide-border rounded-lg border">
-              {files.data.map((file) => (
+              {(files.data ?? []).map((file) => (
                 <li key={`${file.table}:${file.id}`} className="flex items-center gap-3 p-3">
                   <FileText className="size-4 shrink-0 text-muted-foreground" />
                   <div className="min-w-0 flex-1">

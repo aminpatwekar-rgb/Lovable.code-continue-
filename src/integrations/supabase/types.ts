@@ -1036,6 +1036,7 @@ export type Database = {
           created_by: string | null
           id: string
           name: string
+          plan_code: string | null
         }
         Insert: {
           city?: string | null
@@ -1044,6 +1045,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           name: string
+          plan_code?: string | null
         }
         Update: {
           city?: string | null
@@ -1052,6 +1054,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           name?: string
+          plan_code?: string | null
         }
         Relationships: []
       }
@@ -2227,6 +2230,10 @@ export type Database = {
         Args: { _institution_id: string }
         Returns: Json
       }
+      institution_plan_code: {
+        Args: { _institution_id: string }
+        Returns: string
+      }
       is_assignment_owner: {
         Args: { _assignment_id: string; _user_id: string }
         Returns: boolean
@@ -2297,6 +2304,7 @@ export type Database = {
         Returns: boolean
       }
       plan_limit: { Args: { _key: string; _user_id: string }; Returns: number }
+      plan_rank: { Args: { _code: string }; Returns: number }
       plan_remove_branding: { Args: { _user_id: string }; Returns: boolean }
       preview_class_join: { Args: { _code: string }; Returns: Json }
       preview_institution_join: { Args: { _code: string }; Returns: Json }
@@ -2333,6 +2341,10 @@ export type Database = {
       reviews_submission: {
         Args: { _submission_id: string; _user_id: string }
         Returns: boolean
+      }
+      set_institution_plan: {
+        Args: { _institution_id: string; _plan_code: string }
+        Returns: undefined
       }
       settle_ai_questions: {
         Args: {

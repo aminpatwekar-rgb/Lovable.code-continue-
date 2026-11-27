@@ -10,6 +10,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
+import { isPaidPlanCode } from "@/lib/billing/prepaid";
+import { RazorpayCheckoutButton } from "@/components/settings/RazorpayCheckoutButton";
 
 type FeatureDetail = { title: string; description: string };
 type Plan = {
@@ -202,9 +204,11 @@ export function BusinessModelPlans() {
                   <Button variant="outline" className="w-full" disabled>
                     Admin — unlimited access
                   </Button>
+                ) : isPaidPlanCode(plan.code) ? (
+                  <RazorpayCheckoutButton planCode={plan.code} label={`Buy ${plan.name} · 30 days`} />
                 ) : (
                   <Button type="button" variant="outline" className="w-full" disabled>
-                    {plan.code === "spark" ? "Free plan" : "Paid checkout unavailable"}
+                    {plan.code === "spark" ? "Free plan" : "Contact us"}
                   </Button>
                 )}
               </CardContent>

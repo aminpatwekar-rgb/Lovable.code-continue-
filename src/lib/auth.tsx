@@ -80,7 +80,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       p = legacy.data ? { ...legacy.data, role_confirmed_at: null } : null;
-      if (p && resolved) roleConfirmedAt = "legacy-schema";
     }
 
     setProfile(p ? ({ ...p, role_confirmed_at: roleConfirmedAt, email: userEmail ?? null } as Profile) : null);

@@ -155,6 +155,13 @@
       "when": 1795694400000,
       "tag": "0021_teacher_signup_instant_role",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1795786766792,
+      "tag": "0022_profile_role_confirmed_grant_and_inst_admin_calendar",
+      "breakpoints": true
     }
   ]
 }

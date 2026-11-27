@@ -70,13 +70,27 @@ export const verifyTestPayment = createServerFn({ method: "POST" })
 
     // Preferred: HMAC-SHA256(order_id|payment_id, KEY_SECRET) when the secret is available.
     if (env.mode === "direct") {
-      const { createHmac, timingSafeEqual } = await import("node:crypto");
-      const expected = createHmac("sha256", env.keySecret)
-        .update(`${data.razorpay_order_id}|${data.razorpay_payment_id}`)
-        .digest("hex");
-      const a = Buffer.from(expected);
-      const b = Buffer.from(data.razorpay_signature);
-      if (a.length !== b.length || !timingSafeEqual(a, b)) {
+      const enc = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        "raw",
+        enc.encode(env.keySecret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"],
+      );
+      const sig = await crypto.subtle.sign(
+        "HMAC",
+        key,
+        enc.encode(`${data.razorpay_order_id}|${data.razorpay_payment_id}`),
+      );
+      const expected = Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, "0")).join(
+        "",
+      );
+      const given = data.razorpay_signature.toLowerCase();
+      let diff = expected.length ^ given.length;
+      for (let i = 0; i < expected.length; i++)
+        diff |= expected.charCodeAt(i) ^ (given.charCodeAt(i) || 0);
+      if (diff !== 0) {
         throw new Error("Signature mismatch. Payment not verified.");
       }
       return { verified: true as const, method: "hmac" as const };

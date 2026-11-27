@@ -33,8 +33,7 @@ export async function razorpay(path: string, init: { method?: string; body?: unk
   let url: string;
   if (env.mode === "direct") {
     url = `${DIRECT_URL}/${path}`;
-    headers["Authorization"] =
-      `Basic ${Buffer.from(`${env.keyId}:${env.keySecret}`).toString("base64")}`;
+    headers["Authorization"] = `Basic ${btoa(`${env.keyId}:${env.keySecret}`)}`;
   } else {
     url = `${GATEWAY_URL}/${path}`;
     headers["Authorization"] = `Bearer ${env.lovableKey}`;

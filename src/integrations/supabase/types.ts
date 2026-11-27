@@ -2138,6 +2138,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      _is_active_admin: { Args: never; Returns: boolean }
       _is_class_member_any: {
         Args: { _class_id: string; _user_id: string }
         Returns: boolean

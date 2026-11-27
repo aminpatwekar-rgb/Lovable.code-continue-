@@ -162,6 +162,13 @@
       "when": 1795786766792,
       "tag": "0022_profile_role_confirmed_grant_and_inst_admin_calendar",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795789190143,
+      "tag": "0023_fix_announcement_badge_attachment_admin_checks",
+      "breakpoints": true
     }
   ]
 }

@@ -7,7 +7,7 @@ import { createPlanOrder, confirmPlanOrder } from "@/lib/razorpay.functions";
 
 const CHECKOUT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
 
-type RazorpayHandlerResponse = {
+export type RazorpayHandlerResponse = {
   razorpay_payment_id: string;
   razorpay_order_id: string;
   razorpay_signature: string;
@@ -25,7 +25,7 @@ declare global {
 }
 
 // Loaded only when the customer starts checkout.
-function loadCheckoutScript(): Promise<boolean> {
+export function loadCheckoutScript(): Promise<boolean> {
   if (typeof window === "undefined") return Promise.resolve(false);
   if (window.Razorpay) return Promise.resolve(true);
   return new Promise((resolve) => {

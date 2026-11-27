@@ -23,6 +23,7 @@ import { AccountSettingsCard } from "@/components/settings/AccountSettingsCard";
 import { PlanUsageCard } from "@/components/settings/PlanUsageCard";
 import { StorageManagementCard } from "@/components/settings/StorageManagementCard";
 import { BusinessModelPlans } from "@/components/settings/BusinessModelPlans";
+import { RazorpayTestCheckout } from "@/components/settings/RazorpayTestCheckout";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -268,6 +269,7 @@ function SettingsPage() {
           <PlanUsageCard />
           <StorageManagementCard />
           <BusinessModelPlans />
+          <RazorpayTestCheckout />
         </div>
       </section>
 

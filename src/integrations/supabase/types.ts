@@ -1666,6 +1666,53 @@ export type Database = {
           },
         ]
       }
+      razorpay_orders: {
+        Row: {
+          amount_paise: number
+          created_at: string
+          currency: string
+          id: string
+          plan_id: string
+          razorpay_order_id: string
+          razorpay_payment_id: string | null
+          status: string
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          amount_paise: number
+          created_at?: string
+          currency?: string
+          id?: string
+          plan_id: string
+          razorpay_order_id: string
+          razorpay_payment_id?: string | null
+          status?: string
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          amount_paise?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          plan_id?: string
+          razorpay_order_id?: string
+          razorpay_payment_id?: string | null
+          status?: string
+          user_id?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "razorpay_orders_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "billing_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rubric_criteria: {
         Row: {
           description: string | null
@@ -2192,6 +2239,10 @@ export type Database = {
       class_has_feature: {
         Args: { _class_id: string; _key: string }
         Returns: boolean
+      }
+      complete_razorpay_order: {
+        Args: { _order_id: string; _payment_id: string; _user_id: string }
+        Returns: Json
       }
       confirm_account_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }

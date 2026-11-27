@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_detection_scans: {
+        Row: {
+          flagged: Json
+          model: string | null
+          risk: string | null
+          scanned_at: string
+          scanned_by: string
+          score: number | null
+          signals: Json
+          status: string
+          submission_id: string
+          word_count: number
+        }
+        Insert: {
+          flagged?: Json
+          model?: string | null
+          risk?: string | null
+          scanned_at?: string
+          scanned_by: string
+          score?: number | null
+          signals?: Json
+          status?: string
+          submission_id: string
+          word_count?: number
+        }
+        Update: {
+          flagged?: Json
+          model?: string | null
+          risk?: string | null
+          scanned_at?: string
+          scanned_by?: string
+          score?: number | null
+          signals?: Json
+          status?: string
+          submission_id?: string
+          word_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_detection_scans_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: true
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_usage_ledger: {
         Row: {
           created_at: string

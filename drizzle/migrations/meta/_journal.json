@@ -169,6 +169,13 @@
       "when": 1795789190143,
       "tag": "0023_fix_announcement_badge_attachment_admin_checks",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795805081119,
+      "tag": "0024_razorpay_payment_orders",
+      "breakpoints": true
     }
   ]
 }

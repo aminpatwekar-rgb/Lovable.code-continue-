@@ -37,6 +37,7 @@ import { Route as AuthenticatedGradingIndexRouteImport } from './routes/_authent
 import { Route as AuthenticatedGradingBulkRouteImport } from './routes/_authenticated/grading.bulk'
 import { Route as AuthenticatedQuizzesIndexRouteImport } from './routes/_authenticated/quizzes.index'
 import { Route as AuthenticatedSubmissionsSubmissionIdRouteImport } from './routes/_authenticated/submissions.$submissionId'
+import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/public/razorpay-webhook'
 import { Route as AuthenticatedClassesClassIdImportRouteImport } from './routes/_authenticated/classes.$classId.import'
 import { Route as AuthenticatedGradingAssignmentAssignmentIdRouteImport } from './routes/_authenticated/grading.assignment.$assignmentId'
 import { Route as AuthenticatedGradingQuizQuizIdRouteImport } from './routes/_authenticated/grading.quiz.$quizId'
@@ -202,6 +203,12 @@ const AuthenticatedSubmissionsSubmissionIdRoute =
     path: '/submissions/$submissionId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicRazorpayWebhookRoute =
+  ApiPublicRazorpayWebhookRouteImport.update({
+    id: '/api/public/razorpay-webhook',
+    path: '/api/public/razorpay-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedClassesClassIdImportRoute =
   AuthenticatedClassesClassIdImportRouteImport.update({
     id: '/import',
@@ -291,6 +298,7 @@ export interface FileRoutesByFullPath {
   '/classes/$classId': typeof AuthenticatedClassesClassIdRouteWithChildren
   '/grading/bulk': typeof AuthenticatedGradingBulkRoute
   '/submissions/$submissionId': typeof AuthenticatedSubmissionsSubmissionIdRoute
+  '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/assignments/': typeof AuthenticatedAssignmentsIndexRoute
   '/classes/': typeof AuthenticatedClassesIndexRoute
   '/grading/': typeof AuthenticatedGradingIndexRoute
@@ -331,6 +339,7 @@ export interface FileRoutesByTo {
   '/classes/$classId': typeof AuthenticatedClassesClassIdRouteWithChildren
   '/grading/bulk': typeof AuthenticatedGradingBulkRoute
   '/submissions/$submissionId': typeof AuthenticatedSubmissionsSubmissionIdRoute
+  '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/assignments': typeof AuthenticatedAssignmentsIndexRoute
   '/classes': typeof AuthenticatedClassesIndexRoute
   '/grading': typeof AuthenticatedGradingIndexRoute
@@ -373,6 +382,7 @@ export interface FileRoutesById {
   '/_authenticated/classes/$classId': typeof AuthenticatedClassesClassIdRouteWithChildren
   '/_authenticated/grading/bulk': typeof AuthenticatedGradingBulkRoute
   '/_authenticated/submissions/$submissionId': typeof AuthenticatedSubmissionsSubmissionIdRoute
+  '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/_authenticated/assignments/': typeof AuthenticatedAssignmentsIndexRoute
   '/_authenticated/classes/': typeof AuthenticatedClassesIndexRoute
   '/_authenticated/grading/': typeof AuthenticatedGradingIndexRoute
@@ -415,6 +425,7 @@ export interface FileRouteTypes {
     | '/classes/$classId'
     | '/grading/bulk'
     | '/submissions/$submissionId'
+    | '/api/public/razorpay-webhook'
     | '/assignments/'
     | '/classes/'
     | '/grading/'
@@ -455,6 +466,7 @@ export interface FileRouteTypes {
     | '/classes/$classId'
     | '/grading/bulk'
     | '/submissions/$submissionId'
+    | '/api/public/razorpay-webhook'
     | '/assignments'
     | '/classes'
     | '/grading'
@@ -496,6 +508,7 @@ export interface FileRouteTypes {
     | '/_authenticated/classes/$classId'
     | '/_authenticated/grading/bulk'
     | '/_authenticated/submissions/$submissionId'
+    | '/api/public/razorpay-webhook'
     | '/_authenticated/assignments/'
     | '/_authenticated/classes/'
     | '/_authenticated/grading/'
@@ -520,6 +533,7 @@ export interface RootRouteChildren {
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   JoinCodeRoute: typeof JoinCodeRoute
+  ApiPublicRazorpayWebhookRoute: typeof ApiPublicRazorpayWebhookRoute
   ApiFilePreviewSourceFileIdRoute: typeof ApiFilePreviewSourceFileIdRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
@@ -724,6 +738,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSubmissionsSubmissionIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/razorpay-webhook': {
+      id: '/api/public/razorpay-webhook'
+      path: '/api/public/razorpay-webhook'
+      fullPath: '/api/public/razorpay-webhook'
+      preLoaderRoute: typeof ApiPublicRazorpayWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/classes/$classId/import': {
       id: '/_authenticated/classes/$classId/import'
       path: '/import'
@@ -896,6 +917,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   JoinCodeRoute: JoinCodeRoute,
+  ApiPublicRazorpayWebhookRoute: ApiPublicRazorpayWebhookRoute,
   ApiFilePreviewSourceFileIdRoute: ApiFilePreviewSourceFileIdRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,

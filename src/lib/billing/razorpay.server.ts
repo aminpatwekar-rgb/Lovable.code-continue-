@@ -3,9 +3,9 @@ import { isOrderFullyPaid, nextExpiry } from "./prepaid";
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/razorpay";
 
 export function razorpayEnv() {
-  const lovableKey = process.env.LOVABLE_API_KEY;
-  const connectionKey = process.env.RAZORPAY_CONNECTION_KEY;
-  const keyId = process.env.RAZORPAY_CONNECTION_KEY_ID;
+  const lovableKey = process.env["LOVABLE_API_KEY"];
+  const connectionKey = process.env["RAZORPAY_CONNECTION_KEY"];
+  const keyId = process.env["RAZORPAY_CONNECTION_KEY_ID"];
   if (!lovableKey || !connectionKey || !keyId) throw new Error("Razorpay is not connected");
   return { lovableKey, connectionKey, keyId, live: keyId.startsWith("rzp_live_") };
 }

@@ -15,6 +15,20 @@ import { useTheme } from "@/lib/theme";
 import { OnyxIntro, ONYX_INTRO_HEAD_SCRIPT } from "@/components/landing/OnyxIntro";
 import { PasteDemo } from "@/components/landing/PasteDemo";
 import { OnyxMark } from "@/components/landing/OnyxMark";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  canonicalLink,
+  faqLd,
+  jsonLd,
+  ORGANIZATION_LD,
+  SOFTWARE_LD,
+  WEBSITE_LD,
+} from "@/lib/seo";
 import { AuroraBackdrop, HeroPreview, Reveal, SpotlightCard } from "@/components/landing/LandingFx";
 
 export const Route = createFileRoute("/")({
@@ -32,9 +46,23 @@ export const Route = createFileRoute("/")({
         content:
           "Classes, assignments, handwritten uploads, a paste-locked typed editor, and teacher review with marks and annotations.",
       },
+      { property: "og:url", content: "https://workonyx.org" },
+      { name: "twitter:title", content: "ONYX — Handwriting-First Assignment Platform" },
+      {
+        name: "twitter:description",
+        content:
+          "Classes, assignments, handwritten uploads, a paste-locked typed editor, and teacher review with marks and annotations.",
+      },
     ],
-    // Marks the intro as "seen" before first paint on repeat visits (see OnyxIntro).
-    scripts: [{ children: ONYX_INTRO_HEAD_SCRIPT }],
+    links: [canonicalLink("/")],
+    scripts: [
+      // Marks the intro as "seen" before first paint on repeat visits (see OnyxIntro).
+      { children: ONYX_INTRO_HEAD_SCRIPT },
+      jsonLd(ORGANIZATION_LD),
+      jsonLd(WEBSITE_LD),
+      jsonLd(SOFTWARE_LD),
+      jsonLd(faqLd(FAQS)),
+    ],
   }),
   component: Landing,
 });
@@ -63,6 +91,25 @@ const FEATURES = [
     hue: "oklch(0.64 0.21 345)",
     title: "Progress that reads clearly",
     body: "Upcoming, overdue, submitted and completion percentage — colour-coded across every dashboard.",
+  },
+];
+
+const FAQS = [
+  {
+    q: "What is ONYX?",
+    a: "ONYX is an assignment platform for schools and colleges. Teachers create classes and assignments, students submit scanned handwritten pages or typed work, and teachers review with marks and feedback.",
+  },
+  {
+    q: "Can students submit handwritten work?",
+    a: "Yes. Students can capture pages with their camera, upload scans, or upload multi-page PDFs. Pages stay in order and are only visible to the student and their teachers.",
+  },
+  {
+    q: "How does the locked typed editor work?",
+    a: "Copy, paste, right-click and text drag are blocked in the typed editor. Any attempt shows a warning and is flagged to the teacher.",
+  },
+  {
+    q: "Who can use ONYX?",
+    a: "ONYX has teacher, student and admin roles. Institutions can invite teachers and students with join links and organise them into departments and classes.",
   },
 ];
 
@@ -191,6 +238,23 @@ function Landing() {
               </SpotlightCard>
             </Reveal>
           ))}
+        </section>
+
+        <section className="mx-auto max-w-3xl pb-20" aria-labelledby="faq-heading">
+          <h2
+            id="faq-heading"
+            className="text-center text-3xl leading-tight font-semibold tracking-tight sm:text-4xl"
+          >
+            Frequently asked questions
+          </h2>
+          <Accordion type="single" collapsible className="mt-8">
+            {FAQS.map((f) => (
+              <AccordionItem key={f.q} value={f.q}>
+                <AccordionTrigger className="text-left">{f.q}</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground">{f.a}</AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         </section>
 
         <Reveal className="pb-24">

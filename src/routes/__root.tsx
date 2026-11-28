@@ -91,17 +91,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Smart Assignment Hub" },
-      { property: "og:title", content: "Smart Assignment Hub" },
+      { title: "ONYX — One platform for every classroom" },
+      { property: "og:title", content: "ONYX — One platform for every classroom" },
+      { property: "og:site_name", content: "ONYX" },
+      { property: "og:image", content: "https://workonyx.org/icon-512.png" },
+      { name: "twitter:image", content: "https://workonyx.org/icon-512.png" },
       {
         name: "description",
         content:
-          "Handwriting-first assignment platform for schools and colleges with teacher, student, and admin roles.",
+          "ONYX is a handwriting-first assignment platform for schools and colleges, with teacher, student and admin roles.",
       },
       {
         property: "og:description",
         content:
-          "Handwriting-first assignment platform for schools and colleges with teacher, student, and admin roles.",
+          "ONYX is a handwriting-first assignment platform for schools and colleges, with teacher, student and admin roles.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

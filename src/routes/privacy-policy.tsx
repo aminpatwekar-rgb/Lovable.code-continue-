@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { breadcrumbLd, canonicalLink, jsonLd } from "@/lib/seo";
 import { ArrowUpRight, Mail, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
 import { OnyxMark } from "@/components/landing/OnyxMark";
@@ -13,6 +14,15 @@ export const Route = createFileRoute("/privacy-policy")({
       { property: "og:title", content: "Privacy Policy — ONYX" },
       { property: "og:description", content: "How ONYX collects, uses, shares and protects personal information." },
       { property: "og:type", content: "website" },
+    ],
+    links: [canonicalLink("/privacy-policy")],
+    scripts: [
+      jsonLd(
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Privacy Policy", path: "/privacy-policy" },
+        ]),
+      ),
     ],
   }),
   component: PrivacyPolicyPage,

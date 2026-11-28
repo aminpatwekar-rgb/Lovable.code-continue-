@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { canonicalLink } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
@@ -44,6 +45,7 @@ export const Route = createFileRoute("/auth")({
       { property: "og:title", content: "Sign in — ONYX" },
       { property: "og:description", content: "Access your classes, assignments and submissions." },
     ],
+    links: [canonicalLink("/auth")],
   }),
   component: AuthPage,
 });
